@@ -1,0 +1,33 @@
+name: Round 22 patch apply
+
+on:
+  push:
+    branches: [round22-ready]
+    paths:
+      - ".github/workflows/round22-apply.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: round22-ready
+          fetch-depth: 0
+      - name: Apply verified Round 22 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .round22/part_*.patch > /tmp/round22.patch
+          git apply --check /tmp/round22.patch
+          git apply /tmp/round22.patch
+          rm -rf .round22 .github/workflows/round22-apply.yml
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "AudioKnigi Downloader 4.12.42 Round 22"
+          git push origin HEAD:round22-ready
