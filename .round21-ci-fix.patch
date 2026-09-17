@@ -1,0 +1,77 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 5de443647f1d04676549c2667b1bdb5754f886ea..205264fb15ccd0dd29bb5e089cce1e7cdc23e140 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -25,6 +25,7 @@ jobs:
+         run: |
+           python -m pip install --upgrade pip
+           python -m pip install -r requirements.txt
++          python -m pip install pytest
+       - shell: pwsh
+         run: python -m compileall -q audioknigi audioknigi_qt.py tools
+       - shell: pwsh
+diff --git a/AUDIT_NOTES_20260917_ROUND21.md b/AUDIT_NOTES_20260917_ROUND21.md
+index a777bcd4d34f8b86805225a62e345ca0bbdb0102..44786ed2b60d9d64b3f8adf87e9e2ee75fd40cfc 100644
+--- a/AUDIT_NOTES_20260917_ROUND21.md
++++ b/AUDIT_NOTES_20260917_ROUND21.md
+@@ -39,8 +39,8 @@ New `tests/integration/test_report_followup_round21_20260917.py` covers:
+ 
+ ## Verification
+ 
+-- Round 21 focused regressions: **8 passed**.
+-- Full pytest suite: **378 passed, 0 failed**.
++- Round 21 focused regressions: **9 passed**.
++- Full pytest suite: **379 passed, 0 failed**.
+ - Historical regression: **PASS** (`passed=268`, `known_shape_incompatibilities=115`, `resolved=0`).
+ - Exception audit: **PASS** (`reviewed_broad_exception_passes=107`).
+ - Undefined-global audit: **OK** (77 modules).
+@@ -49,5 +49,6 @@ New `tests/integration/test_report_followup_round21_20260917.py` covers:
+ - Full parity: **PASS 61/61**.
+ - Qt import boundary: **OK** (73 project modules, no legacy frontend path).
+ - `compileall`: **PASS**.
++- Windows CI follow-up: installs `pytest` before historical/full pytest gates and recognizes Python 3.14 synthetic `__conditional_annotations__` in the undefined-global audit.
+ 
+ The Windows frozen EXE is not claimed as validated from this Linux environment; GitHub Actions/Windows build results remain the authoritative frozen-runtime evidence.
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index ea2264c500cf019b40334f13d6dde90a56ccf444..6ae947632945d511cd840aa5c816dc9e0f29efe3 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -3,7 +3,7 @@
+ ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
+ 
+ - Round 21 audit (2026-09-17): made duplicate-output deletion, JSON atomic replacement, and all Range temporary-file cleanup retry short Windows sharing violations; rejected empty player-position paths before they can normalize to the process working directory.
+-- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 8 focused Round 21 regressions; full suite: 378 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
++- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 9 focused Round 21 regressions; full suite: 379 passed. Windows CI now installs pytest before archived/full test gates and ignores Python 3.14's synthetic `__conditional_annotations__` symtable global. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
+ 
+ - Round 20 audit (2026-09-17): fixed Knigavuhe nested-parenthesis argument extraction, float ETA/non-finite playlist time handling, PoleKnig symbol-only-title grouping, external playlist discovery from variable-based PlayerJS configs, and UTF-8 search decoding for audioknigi.com.ua.
+ - Preserved complete book sidecars after partial downloads, made ProbeMixin filename generation Mapping-safe, localized dynamic “Озвучка N” labels, accepted legacy comma/semicolon/space selected-index strings, exposed the player when History listening is invoked from Easy Mode, and stabilized multi-source parallel download progress so worker-local percentages cannot fight over the global progress bar. Added 10 focused Round 20 regressions; full suite: 370 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
+diff --git a/tests/integration/test_report_followup_round21_20260917.py b/tests/integration/test_report_followup_round21_20260917.py
+index a3858c1ffbefbcf421289c73436b82fdccf63811..3ba2c0de1e01e10f59136bb71794ebe5b3ad914a 100644
+--- a/tests/integration/test_report_followup_round21_20260917.py
++++ b/tests/integration/test_report_followup_round21_20260917.py
+@@ -113,3 +113,10 @@ def test_round21_does_not_change_queue_empty_selection_or_proxy_drain_contracts(
+     proxy_source = (ROOT / "audioknigi/network_dns.py").read_text(encoding="utf-8")
+     assert "half_close_deadline" in proxy_source
+     assert "return_when_right_closes=True" in proxy_source
++
++
++def test_ci_installs_pytest_and_python314_synthetic_global_is_allowlisted() -> None:
++    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
++    audit = (ROOT / "tools/undefined_global_audit.py").read_text(encoding="utf-8")
++    assert "python -m pip install pytest" in ci
++    assert '"__conditional_annotations__"' in audit
+diff --git a/tools/undefined_global_audit.py b/tools/undefined_global_audit.py
+index 37ffb3cc903f84db2d882a430aa85f6ab127f84b..63c0fb6ce7e40ff2ddf3176b1e2e0994ec3701f2 100644
+--- a/tools/undefined_global_audit.py
++++ b/tools/undefined_global_audit.py
+@@ -16,6 +16,10 @@ PACKAGE_ROOT = ROOT / "audioknigi"
+ _SPECIAL_GLOBALS = {
+     "__annotations__",
+     "__builtins__",
++    # Python 3.14+ compiler/symtable implementation detail for conditional
++    # annotation evaluation. It can appear as a referenced synthetic module
++    # global even though user code never defines or reads it directly.
++    "__conditional_annotations__",
+     "__doc__",
+     "__file__",
+     "__loader__",
