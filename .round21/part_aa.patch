@@ -1,0 +1,123 @@
+diff --git a/AUDIT_NOTES_20260917_ROUND21.md b/AUDIT_NOTES_20260917_ROUND21.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a777bcd4d34f8b86805225a62e345ca0bbdb0102
+--- /dev/null
++++ b/AUDIT_NOTES_20260917_ROUND21.md
+@@ -0,0 +1,53 @@
++# Audit notes — Round 21 (2026-09-17)
++
++This round was applied to the verified Round 20 tree. Every supplied finding was checked against the current implementation and executable regression behavior before changing code.
++
++## Confirmed and fixed
++
++- `download_engine.py`: redownload cleanup now uses `unlink_with_retry()` for both full-MP3 targets and individual track outputs, tolerating short Windows Defender/indexer sharing locks.
++- `core.py`: `save_json()` keeps its atomic temporary-file replace but now retries transient `PermissionError` / WinError 5/32 before reporting persistence failure. The helper remains in `core.py` to avoid reintroducing a package-import cycle through `audioknigi.download`.
++- `knigavuhe.py`: the direct-script MP3 fallback now exposes one current `NarrationVariant`, matching the normal parser's UI/service contract.
++- `poleknig.py`: alternative-recording author validation now accepts conservative full-name/initial/surname variants while still rejecting unrelated authors; exact matches remain the fast path.
++- `download/network.py`: temporary `.part`, `.assembling`, `.segments.json` and `.segNNN` cleanup paths consistently use `unlink_with_retry()` instead of direct `Path.unlink()` calls.
++- `diagnostics/support_bundle.py`: an explicitly directory-shaped destination ending in `/` or `\\` is created when missing and receives the timestamped support ZIP inside it.
++- `services/player_position_store.py`: empty media paths no longer normalize to the process working directory; reads return 0 and update/clear reject the empty key without persisting bogus state.
++- Updated the active Round 18 source-shape regression to require retry-safe Range cleanup, and removed two stale broad-exception allowlist entries made obsolete by the narrower `OSError` cleanup handlers.
++
++## Reviewed but intentionally not changed
++
++- `templates.py` does **not** produce `00.mp3` for `track=None` in the reported path. `safe_name("")` currently yields `audiobook`, so the executable result is `audiobook.mp3`. No speculative naming change was made.
++- The plain-HTTP POST/PUT proxy-body observation is a future architecture concern. Current protected-site browser traffic uses HTTPS `CONNECT`; no current reproducible truncation was established, so the relay protocol was not widened in this maintenance round.
++- Adaptive Range parked workers already test `jobs.empty()` before parking, so they do not livelock after work is exhausted.
++- `_shared_source_timeline_issue()` supplies `expected_end` and `actual_duration` for both current error reasons; the reported logging `KeyError` is not present.
++- The trailing `return False` in `unlink_with_retry()` is stylistically unreachable under the current raise-or-success contract, but it does not create a runtime defect.
++- A non-existing support-bundle path *without* a trailing separator remains intentionally ambiguous and is kept as the existing archive-basename contract (for example `bundle_1.0` -> `bundle_1.0.zip`). Only an explicit directory-shaped path is newly treated as a missing directory.
++- Queue `selected_indices=None` versus `[]` semantics remain unchanged: `None` means all tracks; an explicit empty list must remain empty so validation cannot silently download an entire book.
++- Existing ffprobe cancellation, backup rollback, CSV injection protection, accessibility IDs/announcements, media-key HWND handling, player resume protection, queue scheduling and deferred shutdown safeguards were verified and required no Round 21 code change.
++
++## Regression coverage
++
++New `tests/integration/test_report_followup_round21_20260917.py` covers:
++
++1. transient Windows-style `save_json()` replace retries;
++2. retry-safe duplicate-output deletion;
++3. Knigavuhe fallback current narration variant;
++4. PoleKnig author matching with initials vs unrelated authors;
++5. retry-safe network temporary-file cleanup contract;
++6. explicit missing support-bundle directory handling;
++7. empty player-position path rejection;
++8. unchanged queue empty-selection and bounded proxy-drain contracts.
++
++## Verification
++
++- Round 21 focused regressions: **8 passed**.
++- Full pytest suite: **378 passed, 0 failed**.
++- Historical regression: **PASS** (`passed=268`, `known_shape_incompatibilities=115`, `resolved=0`).
++- Exception audit: **PASS** (`reviewed_broad_exception_passes=107`).
++- Undefined-global audit: **OK** (77 modules).
++- Unused-import audit: **OK** (32 implementation modules).
++- Qt localization: **OK** (`ru`, `uk`, `de`, `en`; help/onboarding/accessibility catalogs complete).
++- Full parity: **PASS 61/61**.
++- Qt import boundary: **OK** (73 project modules, no legacy frontend path).
++- `compileall`: **PASS**.
++
++The Windows frozen EXE is not claimed as validated from this Linux environment; GitHub Actions/Windows build results remain the authoritative frozen-runtime evidence.
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index e2517e8097d00444864c26ce4d740e203c52ab9c..ea2264c500cf019b40334f13d6dde90a56ccf444 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,9 @@
+ 
+ ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
+ 
++- Round 21 audit (2026-09-17): made duplicate-output deletion, JSON atomic replacement, and all Range temporary-file cleanup retry short Windows sharing violations; rejected empty player-position paths before they can normalize to the process working directory.
++- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 8 focused Round 21 regressions; full suite: 378 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
++
+ - Round 20 audit (2026-09-17): fixed Knigavuhe nested-parenthesis argument extraction, float ETA/non-finite playlist time handling, PoleKnig symbol-only-title grouping, external playlist discovery from variable-based PlayerJS configs, and UTF-8 search decoding for audioknigi.com.ua.
+ - Preserved complete book sidecars after partial downloads, made ProbeMixin filename generation Mapping-safe, localized dynamic “Озвучка N” labels, accepted legacy comma/semicolon/space selected-index strings, exposed the player when History listening is invoked from Easy Mode, and stabilized multi-source parallel download progress so worker-local percentages cannot fight over the global progress bar. Added 10 focused Round 20 regressions; full suite: 370 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
+ 
+diff --git a/audioknigi/core.py b/audioknigi/core.py
+index 01d91a7e408d78c82241225ed2236da60116bdc6..07982ed6ebd61045068c20d404fbbaba7e622fef 100644
+--- a/audioknigi/core.py
++++ b/audioknigi/core.py
+@@ -394,6 +394,20 @@ def load_json(path, default):
+             pass
+     return default
+ 
++def _replace_json_temp_with_retry(source: Path, target: Path, *, attempts: int = 5) -> None:
++    """Atomically replace JSON while tolerating short Windows sharing locks."""
++    tries = max(1, int(attempts))
++    for attempt in range(tries):
++        try:
++            os.replace(source, target)
++            return
++        except OSError as exc:
++            transient = isinstance(exc, PermissionError) or getattr(exc, "winerror", None) in {5, 32}
++            if attempt >= tries - 1 or not transient:
++                raise
++            time.sleep(0.025 * (2**attempt))
++
++
+ def save_json(path, data, *, raise_errors=False):
+     """Atomically write JSON and serialize concurrent writers.
+ 
+@@ -412,7 +426,7 @@ def save_json(path, data, *, raise_errors=False):
+                 f".{target.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+             )
+             temp_path.write_text(payload, encoding="utf-8")
+-            os.replace(temp_path, target)
++            _replace_json_temp_with_retry(temp_path, target)
+             return True
+         except Exception:
+             try:
+diff --git a/audioknigi/diagnostics/support_bundle.py b/audioknigi/diagnostics/support_bundle.py
+index aeff378a99f4aa541c89a7d18816dc1eabc881be..0ca0dc0c716b6c495644086ec52f6d9921be9d6b 100644
+--- a/audioknigi/diagnostics/support_bundle.py
++++ b/audioknigi/diagnostics/support_bundle.py
+@@ -134,7 +134,11 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
+ 
+ def create_support_bundle(destination: str | Path, *, settings: Mapping[str, Any] | None = None) -> Path:
+     """Create a shareable support ZIP without API keys, cookies or book media."""
++    raw_destination = str(destination)
+     target = Path(destination).expanduser()
++    explicit_directory = raw_destination.endswith(("/", "\\"))
++    if explicit_directory and not target.exists():
++        target.mkdir(parents=True, exist_ok=True)
+     if target.is_dir():
+         stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+         target = target / f"support_bundle_{stamp}.zip"
