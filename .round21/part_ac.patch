@@ -1,0 +1,120 @@
+                 if target.exists():
+-                    target.unlink()
++                    unlink_with_retry(target, missing_ok=True)
+                     count += 1
+             except Exception:
+                 app_logger.debug("Could not delete existing full MP3 before redownload", exc_info=True)
+@@ -503,7 +503,7 @@ class _DownloadEngine(DownloaderMixin):
+             try:
+                 path = Path(self._track_path(self.request.book, track, create_folder=False))
+                 if path.exists():
+-                    path.unlink()
++                    unlink_with_retry(path, missing_ok=True)
+                     count += 1
+             except Exception:
+                 app_logger.debug("Could not delete existing track before redownload", exc_info=True)
+diff --git a/audioknigi/knigavuhe.py b/audioknigi/knigavuhe.py
+index 1fff6678b9c7792fd0f85c5e2f5eeeca3660d1b4..278f2c8929e3a74cb800869a4530c26dffa676aa 100644
+--- a/audioknigi/knigavuhe.py
++++ b/audioknigi/knigavuhe.py
+@@ -227,12 +227,16 @@ def _fallback_script_book(html_text: str, page_url: str) -> Book | None:
+         Track(index=idx, title=f"{idx:03d}", file=url, selected=True)
+         for idx, url in enumerate(unique, 1)
+     ]
++    book_title = title or "Аудиокнига"
+     return Book(
+         url=page_url,
+-        title=title or "Аудиокнига",
++        title=book_title,
+         author=author,
+         description=_description_from_html(html_text),
+         tracks=tracks,
++        narration_variants=[
++            NarrationVariant(url=page_url, title=book_title, current=True, available=True)
++        ],
+     )
+ 
+ 
+diff --git a/audioknigi/poleknig.py b/audioknigi/poleknig.py
+index 46afb7df59ba7dce6cdf3462092f3812acaa0ea8..be5daf721ff5fd753261d2a802796723d9e70c2c 100644
+--- a/audioknigi/poleknig.py
++++ b/audioknigi/poleknig.py
+@@ -187,6 +187,28 @@ def _person_key(value: str) -> str:
+     return " ".join(sorted(tokens))
+ 
+ 
++def _person_keys_compatible(left_key: str, right_key: str) -> bool:
++    """Match full names with initials/surname-only variants without broad fuzziness."""
++    left = str(left_key or "").strip()
++    right = str(right_key or "").strip()
++    if not left or not right:
++        return not left and not right
++    if left == right:
++        return True
++
++    left_sig = {token for token in left.split() if len(token) >= 3}
++    right_sig = {token for token in right.split() if len(token) >= 3}
++    if not left_sig or not right_sig:
++        return False
++    shared = left_sig & right_sig
++    if not shared:
++        return False
++    smaller = min(len(left_sig), len(right_sig))
++    if smaller == 1:
++        return any(len(token) >= 4 for token in shared)
++    return len(shared) / smaller >= 0.5
++
++
+ def _extract_tag_text(html_text: str, tag: str) -> str:
+     match = re.search(fr"<{tag}\b[^>]*>(.*?)</{tag}>", html_text or "", re.I | re.S)
+     return _clean_text(match.group(1) if match else "")
+@@ -1156,7 +1178,7 @@ def _candidate_detail_variant(result: SearchResult, expected_title_key: str, exp
+         meta_author = str(meta.get("author", "") or "")
+         if not _logical_title_compatible(meta_title, expected_title_key):
+             return None
+-        if expected_author_key and _person_key(meta_author) != expected_author_key:
++        if expected_author_key and not _person_keys_compatible(_person_key(meta_author), expected_author_key):
+             return None
+         return NarrationVariant(
+             url=final_url,
+diff --git a/audioknigi/services/player_position_store.py b/audioknigi/services/player_position_store.py
+index 4cb310217e2221fd850d905404253a83bb233eab..2d860ba56558e094fc66d12c8413e7f0768a11f9 100644
+--- a/audioknigi/services/player_position_store.py
++++ b/audioknigi/services/player_position_store.py
+@@ -39,10 +39,13 @@ class PlayerPositionStore:
+ 
+     @staticmethod
+     def key(file_path: str | Path) -> str:
++        raw = str(file_path or "").strip()
++        if not raw:
++            return ""
+         try:
+-            return str(Path(file_path).resolve()).lower()
++            return str(Path(raw).resolve()).lower()
+         except Exception:
+-            return str(file_path).lower()
++            return raw.lower()
+ 
+     @staticmethod
+     def _resume_guard_seconds(duration: float) -> float:
+@@ -67,8 +70,11 @@ class PlayerPositionStore:
+             self._prune_locked()
+ 
+     def saved_seconds(self, file_path: str | Path, *, duration: float = 0.0) -> float:
++        key = self.key(file_path)
++        if not key:
++            return 0.0
+         with self._lock:
+-            raw = self._positions.get(self.key(file_path), {})
++            raw = self._positions.get(key, {})
+             record = dict(raw) if isinstance(raw, dict) else {}
+         try:
+             position = max(0.0, float(record.get("position", 0.0) or 0.0))
+@@ -98,6 +104,9 @@ class PlayerPositionStore:
+         *,
+         persist: bool = True,
+     ) -> bool:
++        key = self.key(file_path)
++        if not key:
++            return False
+         path = Path(file_path)
