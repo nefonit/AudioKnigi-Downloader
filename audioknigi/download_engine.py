@@ -491,7 +491,7 @@ class _DownloadEngine(DownloaderMixin):
             target = self._full_mp3_target(self.request.book, folder)
             try:
                 if target.exists():
-                    target.unlink()
+                    unlink_with_retry(target, missing_ok=True)
                     count += 1
             except Exception:
                 app_logger.debug("Could not delete existing full MP3 before redownload", exc_info=True)
@@ -503,7 +503,7 @@ class _DownloadEngine(DownloaderMixin):
             try:
                 path = Path(self._track_path(self.request.book, track, create_folder=False))
                 if path.exists():
-                    path.unlink()
+                    unlink_with_retry(path, missing_ok=True)
                     count += 1
             except Exception:
                 app_logger.debug("Could not delete existing track before redownload", exc_info=True)

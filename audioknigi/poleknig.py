@@ -187,6 +187,28 @@ def _person_key(value: str) -> str:
     return " ".join(sorted(tokens))
 
 
+def _person_keys_compatible(left_key: str, right_key: str) -> bool:
+    """Match full names with initials/surname-only variants without broad fuzziness."""
+    left = str(left_key or "").strip()
+    right = str(right_key or "").strip()
+    if not left or not right:
+        return not left and not right
+    if left == right:
+        return True
+
+    left_sig = {token for token in left.split() if len(token) >= 3}
+    right_sig = {token for token in right.split() if len(token) >= 3}
+    if not left_sig or not right_sig:
+        return False
+    shared = left_sig & right_sig
+    if not shared:
+        return False
+    smaller = min(len(left_sig), len(right_sig))
+    if smaller == 1:
+        return any(len(token) >= 4 for token in shared)
+    return len(shared) / smaller >= 0.5
+
+
 def _extract_tag_text(html_text: str, tag: str) -> str:
     match = re.search(fr"<{tag}\b[^>]*>(.*?)</{tag}>", html_text or "", re.I | re.S)
     return _clean_text(match.group(1) if match else "")
@@ -1156,7 +1178,7 @@ def _candidate_detail_variant(result: SearchResult, expected_title_key: str, exp
         meta_author = str(meta.get("author", "") or "")
         if not _logical_title_compatible(meta_title, expected_title_key):
             return None
-        if expected_author_key and _person_key(meta_author) != expected_author_key:
+        if expected_author_key and not _person_keys_compatible(_person_key(meta_author), expected_author_key):
             return None
         return NarrationVariant(
             url=final_url,

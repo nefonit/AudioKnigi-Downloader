@@ -31,8 +31,6 @@
   "audioknigi/download/network.py:_cleanup_partial_download:Exception#2": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/download/network.py:_download_segmented:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/network.py:_download_segmented:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
-  "audioknigi/download/network.py:_download_segmented:Exception#3": "best-effort optional parsing/probing fallback; caller handles absence",
-  "audioknigi/download/network.py:_download_segmented:Exception#4": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/network.py:_download_single:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/network.py:_download_single:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/network.py:_unregister_active_subprocess:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",

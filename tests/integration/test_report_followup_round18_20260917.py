@@ -91,7 +91,7 @@ def test_restore_backup_rolls_back_already_written_members_on_late_failure(tmp_p
 def test_round18_network_and_probe_cancellation_contracts_are_present() -> None:
     network = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
     probe = (ROOT / "audioknigi/download/probe.py").read_text(encoding="utf-8")
-    assert 'part.with_name(part.name + ".assembling").unlink(missing_ok=True)' in network
+    assert 'unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)' in network
     assert "replace_with_retry(assembling, target)" in network
     assert 'wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)' in probe
     assert 'cancel_active = getattr(self, "_cancel_active_subprocesses", None)' in probe

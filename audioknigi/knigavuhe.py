@@ -227,12 +227,16 @@ def _fallback_script_book(html_text: str, page_url: str) -> Book | None:
         Track(index=idx, title=f"{idx:03d}", file=url, selected=True)
         for idx, url in enumerate(unique, 1)
     ]
+    book_title = title or "Аудиокнига"
     return Book(
         url=page_url,
-        title=title or "Аудиокнига",
+        title=book_title,
         author=author,
         description=_description_from_html(html_text),
         tracks=tracks,
+        narration_variants=[
+            NarrationVariant(url=page_url, title=book_title, current=True, available=True)
+        ],
     )
 
 
