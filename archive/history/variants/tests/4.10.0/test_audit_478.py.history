@@ -1,0 +1,203 @@
+from __future__ import annotations
+
+import sys
+import tempfile
+import threading
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+from audioknigi import core
+from audioknigi.accessibility import AccessibilityManager
+from audioknigi.actions import ActionsMixin
+from audioknigi.models import Book, QueueItem, Track
+from audioknigi.player import PlayerMixin
+from audioknigi.queue_manager import QueueMixin
+from audioknigi.storage import StorageMixin
+from audioknigi.templates import _safe_track_index, render_track_filename
+from audioknigi.ui.easy_home import EasyHome
+from audioknigi.ui.settings_tab import SettingsTab
+from audioknigi.ui_kit import CTkButton
+from tkinter import ttk
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class Var:
+    def __init__(self, value=None):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
+
+
+# 1) Reported core.py truncation is not present.  The file compiles, and bundled
+# executable resolution ignores directories that merely have the binary name.
+core_source = (ROOT / "audioknigi" / "core.py").read_text(encoding="utf-8")
+compile(core_source, str(ROOT / "audioknigi" / "core.py"), "exec")
+assert "if candidate.is_file():" in core_source
+with tempfile.TemporaryDirectory() as td:
+    fake = Path(td) / ("ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg")
+    fake.mkdir()
+    with mock.patch.object(core.sys, "_MEIPASS", td, create=True), mock.patch.object(core.shutil, "which", return_value=None):
+        assert core.resolve_executable("ffmpeg") is None
+
+# 2) CTkButton is intentionally a native ttk.Button in the universal UI, so
+# ttk style= is valid for the Simple/Advanced mode buttons.
+assert issubclass(CTkButton, ttk.Button)
+app_source = (ROOT / "audioknigi" / "app.py").read_text(encoding="utf-8")
+assert "set_button_active" in app_source
+
+# 3) Accessibility still recognizes native widgets and has a future-proof
+# CustomTkinter class-name fallback without treating CTkFrame/CTkLabel as interactive.
+class CTkButtonFuture:
+    pass
+class CTkLabelFuture:
+    pass
+CTkButtonFuture.__name__ = "CTkButton"
+CTkLabelFuture.__name__ = "CTkLabel"
+assert AccessibilityManager._is_interactive(CTkButtonFuture()) is True
+assert AccessibilityManager._is_interactive(CTkLabelFuture()) is False
+assert AccessibilityManager._role_of(CTkButtonFuture()) == "кнопка"
+
+# 4) Sparse/zero-based source indexes must not be interpreted as list offsets.
+tracks = [
+    Track(index=0, title="zero", file="0.mp3"),
+    Track(index=5, title="five", file="5.mp3"),
+]
+obj = ActionsMixin()
+obj.current_book = Book(url="u", title="B", tracks=tracks)
+obj._track_tree_map = {"track-1": tracks[0], "track-2": tracks[1]}
+assert obj._track_for_tree_row("track-1") is tracks[0]
+assert obj._track_for_tree_row("track-2") is tracks[1]
+# Legacy numeric row fallback matches Track.index, not index-1 into the list.
+assert obj._track_for_tree_row("5") is tracks[1]
+actions_source = (ROOT / "audioknigi" / "actions.py").read_text(encoding="utf-8")
+assert 'row_id = f"track-{position}"' in actions_source
+
+# 5) Player position persistence self-initializes its dictionary for alternate hosts/tests.
+class PlayerHost(PlayerMixin):
+    def __init__(self):
+        self.player_file = "book.mp3"
+        self.player_position_var = Var(12.0)
+        self.player_duration = 100.0
+        self._player_positions_write_lock = threading.RLock()
+        self.written = None
+
+    def _write_player_positions(self, snapshot, sync=False):
+        self.written = snapshot
+
+ph = PlayerHost()
+assert not hasattr(ph, "player_positions")
+ph._save_current_player_position(force=True)
+assert isinstance(ph.player_positions, dict)
+assert ph.written
+
+# 6) Item-level pause preserves a retry-waiting state instead of flattening it to ordinary wait.
+class QueueHost(QueueMixin):
+    def __init__(self):
+        self.queue_items = [QueueItem(url="u", status="Ожидает повтор")]
+        self.queue_running = False
+        self.queue_tree = SimpleNamespace(selection=lambda: ("0",))
+        self._queue_lock = threading.RLock()
+        self.refreshed = 0
+
+    def _refresh_queue(self):
+        self.refreshed += 1
+
+qh = QueueHost()
+qh.queue_toggle_item_pause()
+assert qh.queue_items[0].paused is True
+assert qh.queue_items[0].status == "На паузе"
+assert qh.queue_items[0].status_before_pause == "Ожидает повтор"
+qh.queue_toggle_item_pause()
+assert qh.queue_items[0].paused is False
+assert qh.queue_items[0].status == "Ожидает повтор"
+assert qh.queue_items[0].status_before_pause == ""
+
+# 7) selected_indices=null/malformed values in a resume manifest do not crash restoration.
+class StorageHost(StorageMixin):
+    def __init__(self):
+        self.queue_items = []
+        self.naming_mode_var = Var("number")
+        self.output_mode_var = Var("mp3")
+        self.audio_preset_var = Var("copy")
+        self.normalization_mode_var = Var("off")
+        self.normalize_audio_var = Var(False)
+        self.use_templates_var = Var(False)
+        self.folder_template_var = Var("{Book_Title}")
+        self.track_template_var = Var("{Track_Number}.mp3")
+        self.url_var = Var("")
+        self.tabview = SimpleNamespace(set=lambda _x: None)
+        self.started = False
+
+    def _capture_runtime_options(self):
+        pass
+
+    def _scan_unfinished_records(self):
+        return ([{"url": "https://example/book", "selected_indices": None}], [])
+
+    def _begin_analysis(self, auto_download=False):
+        self.started = bool(auto_download)
+
+sh = StorageHost()
+sh.continue_unfinished()
+assert sh.resume_selected_indices == set()
+assert sh.started is True
+
+# 8) History rows with no cover omit the image option entirely.
+class FakeHistoryTree:
+    def __init__(self):
+        self.insert_calls = []
+
+    def get_children(self):
+        return ()
+
+    def delete(self, _row):
+        pass
+
+    def insert(self, *args, **kwargs):
+        self.insert_calls.append((args, kwargs))
+
+hist = StorageMixin()
+hist.history = [{"title": "No cover", "folder": "", "url": "u"}]
+hist.history_tree = FakeHistoryTree()
+hist._refresh_history()
+assert hist.history_tree.insert_calls
+assert "image" not in hist.history_tree.insert_calls[0][1]
+
+# 9) Template helpers accept a direct integer track index.
+assert _safe_track_index(5) == 5
+name = render_track_filename("{Track_Number}", Book(url="u", title="B"), 5)
+assert name == "05.mp3"
+
+# 10) Native keyboardized controls receive accessible_name before the early native return.
+import audioknigi.ui.easy_home as easy_home_module
+
+class FakeButton:
+    def __init__(self):
+        self.takefocus = None
+
+    def configure(self, **kwargs):
+        self.takefocus = kwargs.get("takefocus", self.takefocus)
+
+with mock.patch.object(easy_home_module.ttk, "Button", FakeButton):
+    btn = FakeButton()
+    EasyHome._keyboardize(btn, lambda: None, "Скачать книгу")
+    assert btn.accessible_name == "Скачать книгу"
+    assert btn.takefocus is True
+
+# 11) Friendly output settings are safe during partial/minimal app initialization.
+st = SettingsTab.__new__(SettingsTab)
+st.app = SimpleNamespace()
+assert st._output_label_from_value() == "Отдельные MP3"
+st._output_changed("Один M4B с главами")  # no AttributeError, even without vars/save method
+
+print("AUDIT 4.7.8 CORE/UI FACT CHECK: OK")
+print("AUDIT 4.7.8 TRACK ROW MAPPING: OK")
+print("AUDIT 4.7.8 PLAYER/QUEUE STATE: OK")
+print("AUDIT 4.7.8 RESUME/HISTORY EDGE CASES: OK")
+print("AUDIT 4.7.8 TEMPLATE/ACCESSIBILITY/SETTINGS: OK")

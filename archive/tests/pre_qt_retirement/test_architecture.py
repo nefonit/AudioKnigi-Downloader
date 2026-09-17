@@ -1,0 +1,85 @@
+from pathlib import Path
+import ast
+import re
+
+import audioknigi
+from audioknigi.core import APP_VERSION
+from audioknigi.logging_utils import APP_LOG_FILE, app_logger, sanitize_log_text
+
+ROOT = Path(__file__).resolve().parents[1]
+PKG = ROOT / "audioknigi"
+
+assert audioknigi.__version__ == APP_VERSION
+assert (ROOT / "README.md").exists()
+assert (ROOT / "docs" / "build" / "RELEASE_SETUP.md").exists()
+assert (ROOT / "pyproject.toml").exists()
+assert not (ROOT / "audioknigi_v46").exists()
+assert not list(ROOT.glob("*smoketest_v*.py"))
+
+# Application code must not bypass the retry-enabled session with requests.get/post/head.
+for path in PKG.rglob("*.py"):
+    text = path.read_text(encoding="utf-8")
+    assert not re.search(r"\brequests\.(get|post|head)\s*\(", text), path
+
+# Inspect actual HTTP calls in the two network-owning modules. Calls made on a
+# variable named session, or directly on get_http_session(), must specify timeout.
+def network_calls(path: Path):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in {"get", "post", "head"}:
+            continue
+        owner = node.func.value
+        is_network = isinstance(owner, ast.Name) and owner.id == "session"
+        if isinstance(owner, ast.Call) and isinstance(owner.func, ast.Name):
+            is_network = is_network or owner.func.id == "get_http_session"
+        if is_network:
+            yield node
+
+for filename in ("downloader.py", "integrations.py"):
+    path = PKG / filename
+    calls = list(network_calls(path))
+    assert calls, f"No HTTP calls detected in {filename}"
+    for call in calls:
+        assert any(k.arg == "timeout" for k in call.keywords), (
+            f"Missing explicit timeout in {filename}:{getattr(call, 'lineno', '?')}"
+        )
+
+# Deferred UI callbacks must not close over an exception variable from an
+# ``except ... as e`` block. CPython clears that variable when the handler
+# exits, so a later EventBus callback would raise NameError. Capturing a
+# pre-rendered message in a lambda default (``lambda msg=str(e): ...``) is safe.
+for path in PKG.rglob("*.py"):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for handler in (n for n in ast.walk(tree) if isinstance(n, ast.ExceptHandler) and n.name):
+        exc_name = handler.name
+        for node in handler.body:
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Lambda):
+                    continue
+                unsafe_refs = [
+                    n for n in ast.walk(child.body)
+                    if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id == exc_name
+                ]
+                assert not unsafe_refs, (
+                    f"Deferred lambda closes over exception variable {exc_name!r} "
+                    f"in {path}:{getattr(child, 'lineno', '?')}"
+                )
+
+# Logger is rotating and privacy sanitizer removes common sensitive values.
+handlers = list(app_logger.handlers)
+assert handlers, "Application logger has no handler"
+rotating = handlers[0]
+assert getattr(rotating, "maxBytes", 0) >= 5_000_000
+assert getattr(rotating, "backupCount", 0) >= 5
+app_logger.info("architecture test")
+assert APP_LOG_FILE.name == "app.log"
+sanitized = sanitize_log_text(
+    "https://example.test/x token=SECRET Authorization=Bearer_ABC password=TOPSECRET"
+)
+assert "example.test" not in sanitized
+assert "SECRET" not in sanitized
+assert "TOPSECRET" not in sanitized
+
+print("ARCHITECTURE TEST: OK")

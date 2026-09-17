@@ -1,0 +1,8 @@
+# Verified published release baseline for 2026-09-15 (Python 3.14.7 Windows build).
+# Reproducible Windows release baseline (validated for CPython 3.14.7 x64).
+PySide6==6.11.2
+requests==2.32.5
+playwright==1.62.0
+Pillow==12.3.0
+mutagen==1.47.0
+pyinstaller==6.22.2

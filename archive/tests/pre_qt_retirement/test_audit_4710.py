@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import inspect
+import tkinter as tk
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi.app import AudioKnigiApp
+from audioknigi.ui.settings_tab import SettingsTab
+
+
+# 1) The shipped app.py is complete and the localization helper exists.
+app_source = Path(inspect.getsourcefile(AudioKnigiApp)).read_text(encoding="utf-8")
+compile(app_source, "app.py", "exec")
+assert callable(getattr(AudioKnigiApp, "t", None))
+assert "return tr(self.language, key, **kwargs)" in inspect.getsource(AudioKnigiApp.t)
+
+
+# 2) _speed_changed tolerates a partially initialized host and missing saver.
+class FakeVar:
+    def __init__(self, value="auto"):
+        self.value = value
+    def get(self):
+        return self.value
+    def set(self, value):
+        self.value = value
+
+host = SimpleNamespace(segment_count_var=FakeVar())
+tab = SettingsTab.__new__(SettingsTab)
+tab.app = host
+tab._speed_changed("Максимальная (в несколько потоков)")
+assert host.segment_count_var.get() == "8"
+
+# Missing variable is also harmless.
+host2 = SimpleNamespace(segment_count_var=None)
+tab2 = SettingsTab.__new__(SettingsTab)
+tab2.app = host2
+tab2._speed_changed("Обычная")
+
+
+# 3) Trace lifecycle: callbacks are detached when the SettingsTab container dies.
+root = tk.Tk()
+root.withdraw()
+frame = tk.Frame(root)
+frame.pack()
+app = SimpleNamespace()
+probe = SettingsTab.__new__(SettingsTab)
+probe.app = app
+probe.frame = frame
+probe._segment_trace_var = None
+probe._segment_trace_id = None
+
+segment = probe._ensure_string_var("segment_count_var", "auto")
+assert segment is not None
+assert app.segment_count_var is segment
+assert not hasattr(app, "output_mode_var")
+
+calls = []
+seg_id = probe._install_trace(
+    segment, lambda *_: calls.append("segment"), "_segment_speed_trace_id",
+    "_segment_trace_var", "_segment_trace_id"
+)
+assert seg_id
+segment.set("4")
+root.update()
+assert calls == ["segment"]
+
+probe._dispose_traces()
+calls.clear()
+segment.set("8")
+root.update()
+assert calls == []
+assert getattr(app, "_segment_speed_trace_id", None) is None
+
+# Child destroy events must not dispose a live SettingsTab.
+seg_id = probe._install_trace(
+    segment, lambda *_: calls.append("segment"), "_segment_speed_trace_id",
+    "_segment_trace_var", "_segment_trace_id"
+)
+child = tk.Label(frame, text="child")
+child.pack()
+probe._on_frame_destroy(SimpleNamespace(widget=child))
+segment.set("2")
+root.update()
+assert calls == ["segment"]
+probe._on_frame_destroy(SimpleNamespace(widget=frame))
+
+root.destroy()
+
+
+# 4) Source-level guard: build uses safe local vars for the settings controls.
+build_source = inspect.getsource(SettingsTab.build)
+assert '_ensure_string_var("segment_count_var", "auto")' in build_source
+assert "output_mode_var" not in build_source
+assert 'variable=segment_var' in build_source
+
+print("AUDIT 4.7.10: OK")

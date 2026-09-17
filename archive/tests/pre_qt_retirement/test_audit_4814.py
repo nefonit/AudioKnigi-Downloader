@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+import inspect
+import threading
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import audioknigi.actions as actions_module
+import audioknigi.player as player_module
+import audioknigi.storage as storage_module
+import audioknigi.tray as tray_module
+from audioknigi.accessibility import AccessibilityManager, ScreenReaderBridge
+from audioknigi.actions import ActionsMixin
+from audioknigi.app import AudioKnigiApp
+from audioknigi.logging_utils import sanitize_log_text
+from audioknigi.player import PlayerMixin
+from audioknigi.queue_manager import QueueMixin
+from audioknigi.storage import StorageMixin
+from audioknigi.templates import _safe_track_index, render_track_filename
+from audioknigi.ui.settings_tab import SettingsTab
+from audioknigi.ui_kit import CTkTabview, apply_tree_zebra
+
+
+class Var:
+    def __init__(self, value=None, *, fail=False):
+        self.value = value
+        self.fail = fail
+    def get(self):
+        if self.fail:
+            raise RuntimeError("invalid Tcl variable")
+        return self.value
+    def set(self, value):
+        self.value = value
+
+
+def test_reported_truncations_and_missing_methods_are_not_present():
+    assert callable(AudioKnigiApp.t)
+    assert callable(apply_tree_zebra)
+    assert "self.runtime_normalize_audio = self.runtime_normalization_mode != \"off\"" in inspect.getsource(AudioKnigiApp.__init__)
+    worker = inspect.getsource(actions_module.ActionsMixin._main_download_worker)
+    assert "finally:" in worker and ("self.set_busy(False)" in worker or "self._finish_operation(operation_id)" in worker)
+
+
+def test_settings_save_tolerates_bad_numeric_tk_values(monkeypatch):
+    saved = {}
+    monkeypatch.setattr(actions_module, "save_json", lambda _path, data: saved.update(data))
+
+    class Host(ActionsMixin):
+        settings = {"scale": 125, "bandwidth_limit": 3.0, "auto_chunk_min_kbps": 256}
+        scale_var = Var("125.0")
+        bandwidth_limit_var = Var(fail=True)
+        auto_chunk_min_kbps_var = Var("bad")
+        def geometry(self): return "1200x800"
+
+    host = Host()
+    host._save_settings()
+    assert saved["scale"] == 125
+    assert saved["bandwidth_limit"] == 3.0
+    assert saved["auto_chunk_min_kbps"] == 256
+
+
+def test_scale_uses_platform_tk_baseline_not_raw_ui_factor():
+    source = inspect.getsource(ActionsMixin._apply_scale)
+    assert "base_scaling * scale" in source
+    assert 'self.tk.call("tk", "scaling", scale)' not in source
+
+
+def test_screen_reader_bridge_backend_state_is_lock_guarded():
+    source = inspect.getsource(ScreenReaderBridge.refresh)
+    assert "with self._lock" in source
+    assert "self._init_backend()" in source
+    announce = inspect.getsource(ScreenReaderBridge.announce)
+    assert announce.index("with self._lock") < announce.index("if self.backend is None")
+
+
+def test_classic_tk_controls_expose_values_and_selection_state():
+    import tkinter as tk
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        entry = tk.Entry(root)
+        entry.insert(0, "текст")
+        assert AccessibilityManager._value_of(entry) == "текст"
+
+        scale = tk.Scale(root, from_=0, to=10)
+        scale.set(4)
+        assert AccessibilityManager._value_of(scale).startswith("4")
+
+        flag = tk.BooleanVar(root, value=True)
+        check = tk.Checkbutton(root, variable=flag)
+        assert AccessibilityManager._state_of(check) == "отмечен"
+        flag.set(False)
+        assert AccessibilityManager._state_of(check) == "не отмечен"
+    finally:
+        root.destroy()
+
+
+def test_native_accessibility_path_supports_wrappers():
+    child = SimpleNamespace(_w=".!inner")
+    wrapper = SimpleNamespace(_entry=child)
+    assert AccessibilityManager._native_widget_path(wrapper) == ".!inner"
+
+
+def test_clipboard_and_completion_helpers_are_attribute_safe():
+    src = inspect.getsource(ActionsMixin._check_clipboard_link)
+    assert 'getattr(self, "_last_clipboard_offer", "")' in src
+    assert 'getattr(self, "ui_mode_var", None)' in src
+    assert 'getattr(self, "last_completed_folder", None)' in inspect.getsource(ActionsMixin.open_last_completed_folder)
+
+
+def test_logging_preserves_falsey_non_none_values():
+    assert sanitize_log_text(0) == "0"
+    assert sanitize_log_text(False) == "False"
+    assert sanitize_log_text(None) == ""
+
+
+def test_resume_manifest_accepts_none_selected_indices(monkeypatch, tmp_path):
+    captured = {}
+    monkeypatch.setattr(storage_module, "save_json", lambda _path, data: captured.update(data))
+
+    class Host(StorageMixin):
+        runtime_naming_mode = "number"
+        def _resume_manifest_path(self, _book): return tmp_path / "resume.json"
+
+    book = SimpleNamespace(url="https://audioknigi.com.ua/x", title="Book")
+    Host()._write_resume_manifest(book, None)
+    assert captured["selected_indices"] == []
+
+
+def test_history_accepts_generic_mapping_not_only_dict(monkeypatch, tmp_path):
+    from collections import UserDict
+    monkeypatch.setattr(storage_module, "save_json", lambda *_a, **_k: None)
+
+    class Host(StorageMixin):
+        def __init__(self): self.history = []
+        def ui(self, _fn): pass
+
+    book = UserDict({"title": "Mapped", "author": "A", "url": "u"})
+    host = Host()
+    host._add_history(book, tmp_path, 2)
+    assert host.history[0]["title"] == "Mapped"
+
+
+def test_track_index_string_and_duplicate_target_extension():
+    assert _safe_track_index("05") == 5
+    book = {"title": "Book"}
+    track = {"index": "1", "title": "01. Введение.mp3"}
+    assert render_track_filename("{Track_Title}", book, track, ".mp3") == "01. Введение.mp3"
+
+
+def test_queue_add_url_survives_missing_template_ui_vars(monkeypatch):
+    monkeypatch.setattr("audioknigi.queue_manager.valid_site_url", lambda _u: True)
+
+    class Host(QueueMixin):
+        def __init__(self):
+            self.queue_url_var = Var("https://audioknigi.com.ua/book")
+            self.queue_items = []
+            self._queue_lock = threading.RLock()
+            self.current_book = None
+        def _refresh_queue(self): pass
+
+    host = Host()
+    host.queue_add_url()
+    assert len(host.queue_items) == 1
+    assert host.queue_items[0].folder_template == "{Book_Title}"
+    assert host.queue_items[0].track_template == "{Track_Number}.mp3"
+
+
+def test_player_tick_does_not_reschedule_after_destroy_and_does_not_fight_seek(monkeypatch):
+    class Music:
+        @staticmethod
+        def get_pos(): return 1000
+        @staticmethod
+        def get_busy(): return True
+    class Mixer:
+        music = Music()
+        @staticmethod
+        def get_init(): return True
+    monkeypatch.setattr(player_module, "pygame", SimpleNamespace(mixer=Mixer()))
+
+    class Host(PlayerMixin):
+        def __init__(self):
+            self.player_playing = True
+            self.player_paused = False
+            self.player_duration = 10.0
+            self.player_base_position = 0.0
+            self._player_seek_active = True
+            self.player_position_var = Var(7.0)
+            self.player_file = Path("x.mp3")
+            self.after_calls = 0
+        def _update_player_time_text(self, _p): pass
+        def _save_current_player_position(self, *a, **k): pass
+        def winfo_exists(self): return False
+        def after(self, *_a): self.after_calls += 1
+
+    host = Host()
+    host._player_tick()
+    assert host.player_position_var.get() == 7.0
+    assert host.after_calls == 0
+
+
+def test_player_uses_positional_start_for_pygame_compatibility():
+    source = inspect.getsource(PlayerMixin)
+    assert "music.play(start=" not in source
+    assert "music.play(0, max(0.0" in source
+
+
+def test_unknown_tab_name_is_safe_noop():
+    tabview = CTkTabview.__new__(CTkTabview)
+    tabview._tabs = {}
+    assert tabview.set("missing") is False
+
+
+def test_settings_destroy_cleanup_accepts_tcl_path_like_event():
+    class Frame:
+        def __str__(self): return ".!settings"
+    tab = SettingsTab.__new__(SettingsTab)
+    tab.frame = Frame()
+    called = []
+    tab._dispose_traces = lambda: called.append(True)
+    tab._on_frame_destroy(SimpleNamespace(widget=".!settings"))
+    assert called == [True]
+
+
+def test_tray_is_disabled_on_macos_main_thread_constraint(monkeypatch):
+    monkeypatch.setattr(tray_module.sys, "platform", "darwin")
+    monkeypatch.setattr(tray_module, "pystray", object())
+    monkeypatch.setattr(tray_module, "Image", object())
+    monkeypatch.setattr(tray_module, "ImageDraw", object())
+    manager = tray_module.TrayManager(SimpleNamespace())
+    assert manager.available is False
+
+
+def test_plyer_is_declared_for_cross_platform_notifications():
+    requirements = Path("requirements.txt").read_text(encoding="utf-8")
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+    assert "plyer>=2.1.0" in requirements
+    assert '"plyer>=2.1.0"' in pyproject
+
+
+def test_prismatoid_distribution_correctly_exposes_prism_import_name():
+    # The upstream Prismatoid source tree packages bindings/py/prism/prism.
+    # Keep the runtime import name `prism`; changing it to `prismatoid` would
+    # break the installed Python binding.
+    source = Path("audioknigi/accessibility.py").read_text(encoding="utf-8")
+    assert "from prism import BackendId, Context" in source

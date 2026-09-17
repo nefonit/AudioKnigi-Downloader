@@ -1,0 +1,124 @@
+from __future__ import annotations
+
+import re
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi.library_visuals import LibraryVisualMixin
+from audioknigi.models import Book
+from audioknigi.notifications import _windows_toast_script
+from audioknigi.templates import render_folder
+
+ROOT = Path(__file__).resolve().parents[1]
+
+# 1) Missing title is normalized before filenames and ID3 text frames.
+actions = (ROOT / "audioknigi" / "actions.py").read_text(encoding="utf-8")
+downloader = (ROOT / "audioknigi" / "downloader.py").read_text(encoding="utf-8")
+assert 'safe_name(book.title)}.mp3' not in actions
+assert 'text=book.title' not in actions
+assert 'safe_name(book.title)' not in downloader
+assert 'text=book.title' not in downloader
+assert 'book_title = str(book.title or "audiobook")' in actions
+assert 'book_title = str(book.title or "audiobook")' in downloader
+
+# 2) Empty tuple cover payloads never index payload[0].
+mix = LibraryVisualMixin()
+assert mix._photo_from_payload((), {}, "empty") is None
+assert mix._payload_key("q", "id", ()) == "q:id:"
+
+# 3) Search worker publishes shared results through UI instead of mutating the list incrementally.
+search = (ROOT / "audioknigi" / "search.py").read_text(encoding="utf-8")
+worker = re.search(r"def _search_worker\(self, query(?:, generation=None)?\):(.*?)(?=\n    def )", search, re.S).group(1)
+assert "deduped.append(result)" in worker
+assert "self.search_results.append(result)" not in worker
+assert "self.ui(apply_results)" in worker
+
+# 4) PowerShell fallback explicitly activates required WinRT types.
+script = _windows_toast_script("Title", "Message")
+assert "ContentType = WindowsRuntime" in script
+assert "Windows.UI.Notifications.ToastNotificationManager" in script
+assert "Windows.Data.Xml.Dom.XmlDocument" in script
+
+# 5) Player natural-end handling uses the last valid position and preserves early-stop resume.
+player = (ROOT / "audioknigi" / "player.py").read_text(encoding="utf-8")
+assert "_player_last_absolute" in player
+assert "self.player_duration - 5.0" in player
+assert "Unexpected early stop" in player
+
+# 6) Folder fallback can never resolve to the base directory because of an empty fallback title.
+with tempfile.TemporaryDirectory() as td:
+    base = Path(td)
+    folder = render_folder(base, "   ", Book(url="u", title=None))
+    assert folder != base
+    assert folder.name == "audiobook"
+
+print("AUDIT 4.7.5 TITLE/COVERS: OK")
+print("AUDIT 4.7.5 SEARCH/TOAST: OK")
+print("AUDIT 4.7.5 PLAYER/TEMPLATES: OK")
+
+# 7) Behavioral ID3 test: a None title is valid metadata and becomes "audiobook".
+try:
+    from mutagen.id3 import ID3
+    from audioknigi.downloader import DownloaderMixin
+    class _TagHost(DownloaderMixin):
+        runtime_embed_tags = True
+    with tempfile.TemporaryDirectory() as td:
+        target = Path(td) / "untitled.mp3"
+        host = _TagHost()
+        host._write_id3(target, Book(url="u", title=None), 1, 1, None)
+        tags = ID3(target)
+        assert str(tags.get("TALB")) == "audiobook"
+except ImportError:
+    pass
+
+# 8) Behavioral natural-end test: pygame -1 after the last valid near-end sample clears resume.
+import audioknigi.player as player_module
+from audioknigi.player import PlayerMixin
+
+class _Var:
+    def __init__(self, value=0): self.value = value
+    def get(self): return self.value
+    def set(self, value): self.value = value
+
+class _Music:
+    @staticmethod
+    def get_pos(): return -1
+    @staticmethod
+    def get_busy(): return False
+class _Mixer:
+    music = _Music()
+    @staticmethod
+    def get_init(): return True
+class _Pygame:
+    mixer = _Mixer()
+
+class _PlayerHost(PlayerMixin):
+    def __init__(self):
+        self.player_playing = True
+        self.player_paused = False
+        self.player_duration = 100.0
+        self.player_base_position = 0.0
+        self._player_last_absolute = 98.0
+        self.player_position_var = _Var(98.0)
+        self.player_file = Path("book.mp3")
+        self.player_positions = {self._player_position_key(self.player_file): {"position": 98.0}}
+        self._player_positions_write_lock = __import__('threading').RLock()
+        self.written = None
+        self.time = None
+    def _write_player_positions(self, snapshot, sync=False): self.written = snapshot
+    def _update_player_time_text(self, position): self.time = position
+    def after(self, _ms, _cb): pass
+
+old_pygame = player_module.pygame
+try:
+    player_module.pygame = _Pygame()
+    ph = _PlayerHost()
+    ph._player_tick()
+    assert ph.player_position_var.get() == 100.0
+    assert ph._player_position_key(ph.player_file) not in ph.player_positions
+    assert ph.player_playing is False
+finally:
+    player_module.pygame = old_pygame
+
+print("AUDIT 4.7.5 BEHAVIORAL ID3/PLAYER: OK")

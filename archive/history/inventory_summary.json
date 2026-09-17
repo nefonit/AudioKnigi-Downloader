@@ -1,0 +1,18 @@
+{
+  "historical_zip_count": 107,
+  "occurrence_count": 9423,
+  "unique_content_count": 626,
+  "historical_variant_count": 456,
+  "missing_basename_count": 88,
+  "occurrence_categories": {
+    "release": 355,
+    "docs": 1823,
+    "audits": 2222,
+    "tests": 5023
+  },
+  "unique_historical_variants_by_category": {
+    "release": 39,
+    "docs": 217,
+    "tests": 200
+  }
+}

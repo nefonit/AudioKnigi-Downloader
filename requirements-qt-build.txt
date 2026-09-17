@@ -1,0 +1,2 @@
+# Exact release/build dependency baseline.
+-r requirements-release.txt

@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+from unittest import mock
+
+from audioknigi.actions import ActionsMixin
+from audioknigi.models import Book, Track
+from audioknigi.ui_kit import CTkButton, set_button_active
+from tkinter import ttk
+
+
+class AnalysisHost(ActionsMixin):
+    def __init__(self, *, auto=True, complete=False, fail=False):
+        self.auto_download_after_analysis = auto
+        self.resume_selected_indices = None
+        self.current_book = None
+        self.runtime_output_mode = "mp3"
+        self._complete = complete
+        self._fail = fail
+        self.callbacks = []
+        self.busy_events = []
+        self.download_calls = 0
+        self.status = []
+        self.stages = []
+        self.logs = []
+
+    def _analyze_book(self, url):
+        if self._fail:
+            raise RuntimeError("analysis failed")
+        return Book(
+            url=url,
+            title="Book",
+            tracks=[Track(index=1, title="1", file="track.mp3", selected=True)],
+        )
+
+    def _scan_book_files(self, book):
+        return {"total": 1, "existing": 1 if self._complete else 0, "damaged": 0}
+
+    def _book_outputs_complete(self, book, scan=None):
+        return self._complete
+
+    def _show_book(self, book):
+        pass
+
+    def set_status(self, value):
+        self.status.append(value)
+
+    def set_stage(self, *args):
+        self.stages.append(args)
+
+    def set_progress(self, value):
+        pass
+
+    def log(self, value):
+        self.logs.append(value)
+
+    def ui(self, callback):
+        # Simulate the real event bus: callbacks run later on the Tk thread.
+        self.callbacks.append(callback)
+
+    def set_busy(self, value):
+        self.busy_events.append(bool(value))
+
+    def download_selected(self):
+        self.download_calls += 1
+        return True
+
+    def t(self, key):
+        return key
+
+
+# 1) Current universal CTkButton is native ttk and accepts ttk styles.
+assert issubclass(CTkButton, ttk.Button)
+
+# 2) The style helper also supports a future real-CustomTkinter-like button.
+class FutureCTkButton:
+    def __init__(self):
+        self.kwargs = None
+    def configure(self, **kwargs):
+        self.kwargs = kwargs
+
+fake = FutureCTkButton()
+set_button_active(fake, True)
+assert fake.kwargs["fg_color"] == "#168CFF"
+set_button_active(fake, False)
+assert fake.kwargs["fg_color"] == "transparent"
+
+# 3) Auto analysis must keep the UI busy until the queued download handoff runs.
+host = AnalysisHost(auto=True, complete=False)
+host._analysis_worker("https://example.invalid/book")
+assert host.auto_download_after_analysis is False
+assert host.busy_events == [], host.busy_events
+assert len(host.callbacks) == 2  # show book + download handoff
+for cb in host.callbacks:
+    cb()
+assert host.download_calls == 1
+assert host.busy_events == [], host.busy_events
+
+# 4) A failed analysis must release busy even when auto-download had been requested.
+failed = AnalysisHost(auto=True, fail=True)
+failed._analysis_worker("https://example.invalid/book")
+assert failed.busy_events == [False]
+assert failed.auto_download_after_analysis is False
+
+# 5) Manual analysis still owns and releases its busy state.
+manual = AnalysisHost(auto=False)
+manual._analysis_worker("https://example.invalid/book")
+assert manual.busy_events == [False]
+
+# 6) Duplicate dialog: open/cancel releases busy; re-download transfers ownership.
+dup_host = AnalysisHost(auto=True, complete=True)
+book = dup_host._analyze_book("u")
+dup_host._book_folder = lambda b: SimpleNamespace()
+dup_host._open_path = lambda p: None
+dup_host._show_completion_actions = lambda p: None
+with mock.patch("audioknigi.actions.messagebox.askyesnocancel", return_value=True):
+    dup_host._offer_duplicate_book(book)
+assert dup_host.busy_events == [False]
+
+dup_cancel = AnalysisHost(auto=True, complete=True)
+book2 = dup_cancel._analyze_book("u")
+dup_cancel._book_folder = lambda b: SimpleNamespace()
+with mock.patch("audioknigi.actions.messagebox.askyesnocancel", return_value=None):
+    dup_cancel._offer_duplicate_book(book2)
+assert dup_cancel.busy_events == [False]
+
+# 7) _book_outputs_complete must not touch a Tk variable in a worker when
+# runtime_output_mode has already been captured.
+class ExplodingVar:
+    def get(self):
+        raise AssertionError("Tk variable read from worker")
+
+mode_host = AnalysisHost(auto=False)
+mode_host.output_mode_var = ExplodingVar()
+mode_host.runtime_output_mode = "mp3"
+mode_host._book_folder = lambda b: SimpleNamespace(
+    __truediv__=lambda self, other: self
+)
+# Source-level guard: no eager self.output_mode_var.get() remains in this method.
+import inspect
+source = inspect.getsource(ActionsMixin._book_outputs_complete)
+assert "self.output_mode_var.get()" not in source
+
+print("AUDIT 4.7.9: OK")

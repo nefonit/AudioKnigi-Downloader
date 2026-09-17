@@ -1,0 +1,110 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+import audioknigi.actions as actions_module
+import audioknigi.storage as storage_module
+from audioknigi.actions import ActionsMixin
+from audioknigi.event_sounds import EventSoundManager
+from audioknigi.storage import StorageMixin
+
+
+class Var:
+    def __init__(self, value=""):
+        self.value = value
+    def get(self):
+        return self.value
+    def set(self, value):
+        self.value = value
+
+
+def test_english_core_sound_pack_is_bundled_and_selected():
+    root = Path(__file__).resolve().parents[1]
+    manager = EventSoundManager(language="en")
+    expected = {
+        "download_start": "download_in_progress.mp3",
+        "download_complete": "download_complete.mp3",
+        "error": "error.mp3",
+        "book_found": "book_found.mp3",
+        "book_not_found": "book_not_found.mp3",
+        "download_paused": "download_paused.mp3",
+    }
+    for event, filename in expected.items():
+        path = manager._sound_path(event)
+        assert path == root / "assets" / "sounds" / "en" / filename
+        assert path.is_file() and path.stat().st_size > 1000
+
+
+def test_missing_localized_translation_falls_back_to_default_russian_asset():
+    root = Path(__file__).resolve().parents[1]
+    manager = EventSoundManager(language="de-DE")
+    path = manager._sound_path("link_pasted")
+    assert path == root / "assets" / "sounds" / "link_pasted.mp3"
+
+
+def test_new_russian_assets_are_bundled():
+    root = Path(__file__).resolve().parents[1] / "assets" / "sounds"
+    for filename in (
+        "update_available.mp3",
+        "recovery_started.mp3",
+        "files_already_downloaded.mp3",
+        "narration_changed.mp3",
+    ):
+        path = root / filename
+        assert path.is_file() and path.stat().st_size > 1000
+
+
+def test_duplicate_book_emits_files_already_downloaded(monkeypatch, tmp_path):
+    monkeypatch.setattr(actions_module.messagebox, "askyesnocancel", lambda *a, **k: None)
+    class Host(ActionsMixin):
+        def __init__(self): self.sounds = []
+        def _book_folder(self, _book): return tmp_path
+        def _play_event_sound(self, event, **_kwargs): self.sounds.append(event)
+        def _tr(self, key): return key
+        def set_busy(self, *_a): pass
+    host = Host()
+    host._offer_duplicate_book(SimpleNamespace(title="Book", tracks=[]))
+    assert host.sounds == ["files_already_downloaded"]
+
+
+def test_narration_change_emits_sound_before_reanalysis():
+    class Host(ActionsMixin):
+        def __init__(self):
+            self.busy = False
+            self.narration_var = Var("Reader B")
+            self._narration_variant_map = {"Reader B": "https://knigavuhe.org/book/b/"}
+            self.current_book = SimpleNamespace(url="https://knigavuhe.org/book/a/")
+            self.url_var = Var("")
+            self.sounds = []
+            self.after_calls = []
+        def _play_event_sound(self, event, **_kwargs): self.sounds.append(event)
+        def after(self, ms, cb): self.after_calls.append((ms, cb))
+        def analyze(self): pass
+    host = Host()
+    host.select_narration_variant()
+    assert host.url_var.get() == "https://knigavuhe.org/book/b/"
+    assert host.sounds == ["narration_changed"]
+    assert host.after_calls and host.after_calls[0][0] == 50
+
+
+def test_resume_existing_manifest_emits_recovery_sound(monkeypatch):
+    monkeypatch.setattr(storage_module.messagebox, "showinfo", lambda *a, **k: None)
+    class Host(StorageMixin):
+        def __init__(self):
+            self.sounds = []
+            self.resume_selected_indices = None
+            self.url_var = Var("")
+            self.queue_items = []
+        def _capture_runtime_options(self): pass
+        def _scan_unfinished_records(self):
+            return ([{"url": "https://knigavuhe.org/book/test/", "selected_indices": [1]}], [])
+        def _normalize_selected_indices(self, value): return list(value or [])
+        def _safe_set_ui_var(self, name, value):
+            if name == "url_var": self.url_var.set(value)
+            return True
+        def _select_resume_tab(self, *_a): pass
+        def _begin_analysis(self, auto_download=False): self.auto_download = auto_download
+        def _play_event_sound(self, event, **_kwargs): self.sounds.append(event)
+    host = Host()
+    host.continue_unfinished()
+    assert host.sounds == ["recovery_started"]
+    assert host.auto_download is True

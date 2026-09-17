@@ -1,0 +1,42 @@
+name: Build Qt-only Windows EXE
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+          cache: pip
+      - shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-qt-build.txt
+          choco install ffmpeg -y --no-progress
+      - shell: pwsh
+        run: |
+          python tools/full_parity_audit.py --root . --require-legacy-retired
+          python tools/qt_import_audit.py --verbose
+          python tools/qt_localization_audit.py
+          python tools/exception_audit.py
+          python tools/unused_import_audit.py
+          python tools/undefined_global_audit.py
+          python tools/historical_regression_audit.py
+          python -m pytest -q tests
+      - shell: pwsh
+        run: .\build_qt_ci.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: AudioKnigiDownloader-Qt-${{ github.ref_name }}-windows-x64
+          path: |
+            dist/AudioKnigiDownloader_Qt.exe
+            dist/qt_release_candidate.json

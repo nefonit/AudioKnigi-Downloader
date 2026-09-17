@@ -1,0 +1,18 @@
+from types import SimpleNamespace
+
+from audioknigi.ui_kit import CTkEntry, _text_width_chars
+
+
+def test_clipboard_shortcuts_work_with_latin_keysyms():
+    assert CTkEntry._shortcut_name(SimpleNamespace(keysym="v", keycode=0)) == "v"
+    assert CTkEntry._shortcut_name(SimpleNamespace(keysym="C", keycode=0)) == "c"
+
+
+def test_clipboard_shortcuts_work_with_cyrillic_layout_keycodes():
+    assert CTkEntry._shortcut_name(SimpleNamespace(keysym="Cyrillic_em", keycode=86)) == "v"
+    assert CTkEntry._shortcut_name(SimpleNamespace(keysym="Cyrillic_es", keycode=67)) == "c"
+
+
+def test_button_width_accounts_for_cyrillic_and_unicode():
+    assert _text_width_chars("АНАЛИЗИРОВАТЬ") >= len("АНАЛИЗИРОВАТЬ")
+    assert _text_width_chars("↓ Скачать") > len("Скачать")

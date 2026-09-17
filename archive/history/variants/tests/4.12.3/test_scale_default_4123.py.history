@@ -1,0 +1,47 @@
+"""4.12.3 regression coverage for clean-profile UI scaling."""
+from __future__ import annotations
+
+import audioknigi.app as app_module
+from audioknigi.core import DEFAULT_UI_SCALE
+
+
+def _settings_loader(scale_marker=None):
+    def fake_load(path, default):
+        if path == app_module.SETTINGS_FILE:
+            data = {"first_run_complete": True}
+            if scale_marker is not None:
+                data["scale"] = scale_marker
+            return data
+        if path == app_module.HISTORY_FILE:
+            return []
+        return default
+    return fake_load
+
+
+def test_default_ui_scale_constant_is_100():
+    assert DEFAULT_UI_SCALE == 100
+
+
+def test_clean_profile_starts_at_100_percent(monkeypatch):
+    monkeypatch.setattr(app_module, "load_json", _settings_loader())
+    monkeypatch.setattr(app_module, "save_json", lambda *args, **kwargs: None)
+    app = app_module.AudioKnigiApp()
+    try:
+        assert app.scale_var.get() == "100"
+        # Applying the clean-profile scale must keep Tk at its captured native
+        # DPI baseline rather than multiplying that baseline by 1.25.
+        app._apply_scale(silent=True)
+        current = float(app.tk.call("tk", "scaling"))
+        assert abs(current - app._tk_base_scaling) < 0.05
+    finally:
+        app.destroy()
+
+
+def test_saved_125_percent_preference_is_preserved(monkeypatch):
+    monkeypatch.setattr(app_module, "load_json", _settings_loader(125))
+    monkeypatch.setattr(app_module, "save_json", lambda *args, **kwargs: None)
+    app = app_module.AudioKnigiApp()
+    try:
+        assert app.scale_var.get() == "125"
+    finally:
+        app.destroy()

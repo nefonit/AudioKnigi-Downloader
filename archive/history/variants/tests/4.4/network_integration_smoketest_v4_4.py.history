@@ -1,0 +1,72 @@
+import json
+import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+import audioknigi_v44.core as core
+from audioknigi_v44.downloader import DownloaderMixin, AdaptiveRangeController
+from audioknigi_v44.integrations import audiobookshelf_get_libraries, audiobookshelf_scan
+
+# Smart cookies persist from browser-shaped records into requests.Session.
+with tempfile.TemporaryDirectory() as td:
+    old_cookie = core.COOKIE_FILE
+    core.COOKIE_FILE = Path(td) / 'cookies.json'
+    try:
+        core._HTTP_LOCAL.session = None
+        core._HTTP_LOCAL.uses = 0
+        core.persist_browser_cookies([
+            {'name':'cf_clearance','value':'token123','domain':'audioknigi.com.ua','path':'/'}
+        ])
+        core._HTTP_LOCAL.session = None
+        session = core.get_http_session()
+        assert session.cookies.get('cf_clearance', domain='audioknigi.com.ua', path='/') == 'token123'
+    finally:
+        core.COOKIE_FILE = old_cookie
+        core._HTTP_LOCAL.session = None
+        core._HTTP_LOCAL.uses = 0
+
+class D(DownloaderMixin):
+    runtime_segment_count='auto'
+
+d=D()
+assert d._choose_segment_count(40*1024*1024)==2
+assert d._choose_segment_count(100*1024*1024)==4
+assert d._choose_segment_count(300*1024*1024)==8
+
+ctrl=AdaptiveRangeController(8, adaptive=True, min_per_worker=256*1024)
+ctrl.last_change -= 5
+for _ in range(6):
+    ctrl.observe(8*100*1024)  # 100 KiB/s per worker
+assert ctrl.target_workers == 4, ctrl.target_workers
+
+calls=[]
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/api/libraries' and self.headers.get('Authorization') == 'Bearer abc':
+            body=json.dumps({'libraries':[{'id':'lib1','name':'Books'}]}).encode()
+            self.send_response(200); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body); return
+        self.send_error(403)
+    def do_POST(self):
+        calls.append((self.path,self.headers.get('Authorization')))
+        if self.path == '/api/libraries/lib1/scan' and self.headers.get('Authorization') == 'Bearer abc':
+            self.send_response(200); self.end_headers(); return
+        self.send_error(403)
+    def log_message(self,*args): pass
+
+server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+th=threading.Thread(target=server.serve_forever,daemon=True); th.start()
+try:
+    base=f'http://127.0.0.1:{server.server_port}'
+    libs=audiobookshelf_get_libraries(base,'abc')
+    assert libs[0]['id']=='lib1'
+    assert audiobookshelf_scan(base,'abc','lib1') is True
+    assert calls[-1][0]=='/api/libraries/lib1/scan'
+finally:
+    server.shutdown(); server.server_close()
+
+print('SMART COOKIE PERSISTENCE: OK')
+print('AUTO-CHUNKER SIZE RULES: OK')
+print('AUTO-CHUNKER DOWNSHIFT: OK')
+print('AUDIOBOOKSHELF API: OK')
+print('NETWORK/INTEGRATION SMOKETEST: OK')

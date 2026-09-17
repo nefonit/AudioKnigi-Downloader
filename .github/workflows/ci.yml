@@ -1,0 +1,45 @@
+name: Qt-only CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qt-smoke:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14.7"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - shell: pwsh
+        run: python -m compileall -q audioknigi audioknigi_qt.py tools
+      - shell: pwsh
+        run: python tools/full_parity_audit.py --root . --require-legacy-retired
+      - shell: pwsh
+        run: python tools/qt_import_audit.py --verbose
+      - shell: pwsh
+        run: python tools/qt_localization_audit.py
+      - shell: pwsh
+        run: python tools/exception_audit.py
+      - shell: pwsh
+        run: python tools/unused_import_audit.py
+      - shell: pwsh
+        run: python tools/undefined_global_audit.py
+      - shell: pwsh
+        run: python tools/historical_regression_audit.py
+      - shell: pwsh
+        run: python -m pytest -q tests

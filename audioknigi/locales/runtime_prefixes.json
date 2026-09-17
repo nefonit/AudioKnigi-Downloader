@@ -1,0 +1,77 @@
+{
+  "Audiobookshelf недоступен: ": {
+    "de": "Audiobookshelf nicht verfügbar: ",
+    "en": "Audiobookshelf unavailable: ",
+    "uk": "Audiobookshelf недоступний: "
+  },
+  "Восстановлено: ": {
+    "de": "Wiederhergestellt: ",
+    "en": "Restored: ",
+    "uk": "Відновлено: "
+  },
+  "История обновлена: ": {
+    "de": "Verlauf aktualisiert: ",
+    "en": "History refreshed: ",
+    "uk": "Історію оновлено: "
+  },
+  "Качество: ": {
+    "de": "Qualität: ",
+    "en": "Quality: ",
+    "uk": "Якість: "
+  },
+  "Ошибка анализа: ": {
+    "de": "Analysefehler: ",
+    "en": "Analysis error: ",
+    "uk": "Помилка аналізу: "
+  },
+  "Ошибка плеера: ": {
+    "de": "Playerfehler: ",
+    "en": "Player error: ",
+    "uk": "Помилка плеєра: "
+  },
+  "Ошибка скачивания: ": {
+    "de": "Downloadfehler: ",
+    "en": "Download error: ",
+    "uk": "Помилка завантаження: "
+  },
+  "Ошибка: ": {
+    "de": "Fehler: ",
+    "en": "Error: ",
+    "uk": "Помилка: "
+  },
+  "Плеер: ": {
+    "de": "Player: ",
+    "en": "Player: ",
+    "uk": "Плеєр: "
+  },
+  "Позиция: ": {
+    "de": "Position: ",
+    "en": "Position: ",
+    "uk": "Позиція: "
+  },
+  "Поиск не выполнен: ": {
+    "de": "Suche fehlgeschlagen: ",
+    "en": "Search failed: ",
+    "uk": "Пошук не виконано: "
+  },
+  "Скачано ": {
+    "de": "Heruntergeladen ",
+    "en": "Downloaded ",
+    "uk": "Завантажено "
+  },
+  "Скачивание завершено. Пропущены недоступные части: ": {
+    "de": "Download abgeschlossen. Nicht verfügbare Teile übersprungen: ",
+    "en": "Download completed. Unavailable parts skipped: ",
+    "uk": "Завантаження завершено. Недоступні частини пропущено: "
+  },
+  "Скорость: ": {
+    "de": "Geschwindigkeit: ",
+    "en": "Speed: ",
+    "uk": "Швидкість: "
+  },
+  "Создаю ": {
+    "de": "Erstelle ",
+    "en": "Creating ",
+    "uk": "Створюю "
+  }
+}

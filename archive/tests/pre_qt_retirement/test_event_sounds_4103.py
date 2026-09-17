@@ -1,0 +1,31 @@
+from pathlib import Path
+
+from audioknigi.event_sounds import EventSoundManager
+
+
+def test_expanded_english_sound_pack_is_bundled_and_selected():
+    root = Path(__file__).resolve().parents[1]
+    manager = EventSoundManager(language="en")
+    expected = {
+        "search_complete": "search_complete.mp3",
+        "queue_complete": "queue_complete.mp3",
+        "queue_started": "queue_started.mp3",
+        "download_cancelled": "download_cancelled.mp3",
+        "download_resumed": "download_resumed.mp3",
+    }
+    for event, filename in expected.items():
+        path = manager._sound_path(event)
+        assert path == root / "assets" / "sounds" / "en" / filename
+        assert path.is_file() and path.stat().st_size > 1000
+
+
+def test_english_pack_covers_at_least_the_original_eleven_registered_events():
+    root = Path(__file__).resolve().parents[1]
+    manager = EventSoundManager(language="en")
+    localized = [event for event in manager_events() if manager._sound_path(event).parent == root / "assets" / "sounds" / "en"]
+    assert len(localized) >= 11
+
+
+def manager_events():
+    from audioknigi.event_sounds import EVENT_FILES
+    return tuple(EVENT_FILES)

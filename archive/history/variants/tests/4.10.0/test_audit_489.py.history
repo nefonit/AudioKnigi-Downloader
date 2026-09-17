@@ -1,0 +1,282 @@
+from __future__ import annotations
+
+import inspect
+import tempfile
+from collections.abc import MutableMapping
+from pathlib import Path
+from types import SimpleNamespace
+
+import tkinter as tk
+
+from audioknigi import notifications as notification_module
+from audioknigi import tray as tray_module
+from audioknigi.app import AudioKnigiApp
+from audioknigi.core import effective_track_duration
+from audioknigi.i18n import tr
+from audioknigi.library_visuals import LibraryVisualMixin
+from audioknigi.models import Book, QueueItem, Track
+from audioknigi.player import PlayerMixin
+from audioknigi.queue_manager import QueueMixin
+from audioknigi.storage import StorageMixin
+from audioknigi.templates import render_folder, render_text_template, template_values
+from audioknigi.ui.settings_tab import SettingsTab
+from audioknigi.ui_kit import CTkEntry, CTkOptionMenu, CTkScrollableFrame, CTkSwitch
+
+
+class Var:
+    def __init__(self, value=None):
+        self.value = value
+    def get(self):
+        return self.value
+    def set(self, value):
+        self.value = value
+
+
+class ButtonProbe:
+    def __init__(self):
+        self.options = {}
+    def configure(self, **kwargs):
+        self.options.update(kwargs)
+
+
+def test_existing_clipboard_i18n_and_duration_guards_are_present():
+    app_source = Path(inspect.getsourcefile(AudioKnigiApp)).read_text(encoding="utf-8")
+    assert "self._clipboard_offer_after = None" in app_source
+    assert callable(getattr(AudioKnigiApp, "t", None))
+    track = Track(index=1, title="1", file="x", duration=None, actual_duration=None)
+    assert effective_track_duration(track) is None
+    assert float(effective_track_duration(track) or 0) == 0.0
+
+
+def test_windows_toast_uses_correct_winrt_namespace_and_return_code(monkeypatch):
+    script = notification_module._windows_toast_script("Title", "Message")
+    assert "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime]::New()" in script
+    assert "Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument" not in script
+
+    class Result:
+        returncode = 1
+    monkeypatch.setitem(__import__('sys').modules, "plyer", None)
+    monkeypatch.setattr(notification_module.os, "name", "nt", raising=False)
+    monkeypatch.setattr(notification_module.subprocess, "run", lambda *a, **k: Result())
+    assert notification_module.notify("x", "y") is False
+
+
+def test_player_stop_disables_pause_and_stop_instead_of_showing_live_pause():
+    class Player(PlayerMixin):
+        def _save_current_player_position(self, *a, **k):
+            pass
+        def _update_player_time_text(self, value):
+            self.updated = value
+
+    p = Player()
+    p.player_file = None
+    p.player_position_var = Var(12.0)
+    p.player_pause_btn = ButtonProbe()
+    p.player_stop_btn = ButtonProbe()
+    p.player_playing = True
+    p.player_paused = True
+    p.player_stop()
+    assert p.player_playing is False and p.player_paused is False
+    assert p.player_pause_btn.options["text"] == "⏸ Пауза"
+    assert p.player_pause_btn.options["state"] == "disabled"
+    assert p.player_stop_btn.options["state"] == "disabled"
+
+
+def test_payload_key_accepts_string_payloads():
+    key = LibraryVisualMixin._payload_key("q", "id", "cover-as-text")
+    assert key.startswith("q:id:") and key != "q:id:"
+    assert key == LibraryVisualMixin._payload_key("q", "id", "cover-as-text")
+
+
+def test_wizard_step_is_localized_and_mapping_contract_is_mutable():
+    assert tr("ru", "wizard_step", current=2, total=3) == "Шаг 2 из 3"
+    assert tr("en", "wizard_step", current=2, total=3) == "Step 2 of 3"
+    track = Track(index=1, title="one", file="x")
+    assert isinstance(track, MutableMapping)
+    track["title"] = "changed"
+    assert track.title == "changed"
+
+
+def test_templates_preserve_unknown_tokens_and_metadata_slashes_do_not_create_dirs():
+    book = Book(url="u", title="Album", author="AC/DC")
+    values = template_values(book)
+    assert render_text_template("{Book_Title} {Bitrate}", values) == "Album {Bitrate}"
+    with tempfile.TemporaryDirectory() as td:
+        folder = render_folder(td, "{Author}/{Book_Title}", book)
+        assert folder.name == "Album"
+        assert folder.parent.name == "AC_DC"
+        assert folder.parent.parent.resolve() == Path(td).resolve()
+
+
+def test_unfinished_scan_recognizes_non_mp3_final_audio():
+    with tempfile.TemporaryDirectory() as td:
+        book_dir = Path(td) / "Book"
+        book_dir.mkdir()
+        source = book_dir / "_source01.mp3"
+        source.write_bytes(b"source")
+        (book_dir / "Book.m4b").write_bytes(b"final")
+        manifests, orphans = StorageMixin()._scan_unfinished_records(td)
+        assert manifests == []
+        assert str(source) not in orphans
+
+
+def test_multi_book_resume_keeps_template_settings(monkeypatch):
+    class Tab:
+        value = None
+        def set(self, value): self.value = value
+    class Dummy(StorageMixin):
+        def __init__(self):
+            self.queue_items = []
+            self.tabview = Tab()
+        def _capture_runtime_options(self): pass
+        def _scan_unfinished_records(self):
+            base = {
+                "selected_indices": [1], "naming_mode": "number", "output_mode": "mp3",
+                "audio_preset": "copy", "normalization_mode": "off",
+                "use_templates": True, "folder_template": "{Author}/{Book_Title}",
+                "track_template": "{Track_Number}-{Track_Title}.mp3",
+            }
+            return [dict(base, url="https://audioknigi.com.ua/a", title="A"), dict(base, url="https://audioknigi.com.ua/b", title="B")], []
+        def _refresh_queue(self): pass
+        def start_queue(self): self.started = True
+
+    import audioknigi.storage as storage_module
+    monkeypatch.setattr(storage_module.messagebox, "askyesno", lambda *a, **k: False)
+    d = Dummy()
+    d.continue_unfinished()
+    assert len(d.queue_items) == 2
+    assert all(item.use_templates for item in d.queue_items)
+    assert all(item.folder_template == "{Author}/{Book_Title}" for item in d.queue_items)
+    assert all(item.track_template == "{Track_Number}-{Track_Title}.mp3" for item in d.queue_items)
+
+    # Queue runtime must actually consume those restored fields.
+    q = QueueMixin()
+    q.runtime_naming_mode = "number"; q.runtime_output_mode = "mp3"; q.runtime_audio_preset = "copy"
+    q._apply_queue_runtime_snapshot(q._queue_runtime_snapshot(d.queue_items[0]))
+    assert q.runtime_use_templates is True
+    assert q.runtime_folder_template == "{Author}/{Book_Title}"
+
+
+def test_history_parsing_handles_non_numeric_iid_and_bad_parts(monkeypatch):
+    class Tree:
+        def selection(self): return ("row-alpha",)
+        def index(self, iid):
+            assert iid == "row-alpha"
+            return 1
+    d = StorageMixin()
+    d.history_tree = Tree()
+    d.history = [{"title": "A"}, {"title": "B"}]
+    idx, item = d._history_selected()
+    assert idx == 1 and item["title"] == "B"
+
+    class HistoryDummy(StorageMixin):
+        def __init__(self): self.history = []
+        def ui(self, cb): pass
+    import audioknigi.storage as storage_module
+    monkeypatch.setattr(storage_module, "save_json", lambda *a, **k: None)
+    hd = HistoryDummy()
+    book = Book(url="u", title="B")
+    with tempfile.TemporaryDirectory() as td:
+        hd._add_history(book, td, None)
+    assert hd.history[0]["parts"] == 0
+
+
+def test_ctk_optionmenu_command_reconfigure_switch_variable_and_dynamic_scroll_binding():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        var = tk.StringVar(root, value="a")
+        calls = []
+        menu = CTkOptionMenu(root, values=["a", "b"], variable=var)
+        menu.pack()
+        menu.configure(command=lambda value: calls.append(("new", value)))
+        var.set("b")
+        menu.event_generate("<<ComboboxSelected>>")
+        root.update()
+        assert calls == [("new", "b")]
+
+        calls.clear()
+        menu.configure(command=lambda value: calls.append(("replacement", value)))
+        menu.event_generate("<<ComboboxSelected>>")
+        root.update()
+        assert calls == [("replacement", "b")]
+
+        first = tk.BooleanVar(root, value=False)
+        second = tk.BooleanVar(root, value=True)
+        switch = CTkSwitch(root, text="switch", variable=first)
+        switch.configure(variable=second)
+        assert switch.get() is True
+
+        scroll = CTkScrollableFrame(root)
+        scroll.pack(fill="both", expand=True)
+        root.update()
+        holder = tk.Frame(scroll, width=220, height=80)
+        holder.pack_propagate(False)
+        holder.pack()
+        root.update()
+        late = CTkEntry(holder)
+        late.place(x=0, y=0, width=180)  # does not change holder/content requested size
+        root.after(650, root.quit)
+        root.mainloop()
+        assert getattr(late, scroll._scroll_bind_token, False) is True
+        assert late.bind("<MouseWheel>")
+    finally:
+        root.destroy()
+
+
+def test_settings_preserve_exact_stream_count_and_source_has_autosave_safe_vars():
+    saved = []
+    app = SimpleNamespace(segment_count_var=Var("4"), _save_settings=lambda: saved.append(True))
+    tab = SettingsTab.__new__(SettingsTab)
+    tab.app = app
+    tab._speed_changed("Максимальная (в несколько потоков)")
+    assert app.segment_count_var.get() == "4"
+    assert saved
+
+    source = inspect.getsource(SettingsTab.build)
+    assert '_ensure_string_var("auto_chunk_min_kbps_var", "256")' in source
+    assert '_ensure_string_var("folder_template_var", "{Book_Title}")' in source
+    assert '_ensure_string_var("abs_url_var", "")' in source
+    assert 'command=lambda _v: self._save_now()' in source
+
+
+def test_search_entry_is_retained_and_double_click_filters_non_cells():
+    source = Path(inspect.getsourcefile(AudioKnigiApp)).parent / "ui" / "search_tab.py"
+    text = source.read_text(encoding="utf-8")
+    assert "app.search_query_entry = CTkEntry" in text
+    assert 'identify_region(event.x, event.y) != "cell"' in text
+    search_logic = (source.parents[1] / "search.py").read_text(encoding="utf-8")
+    assert "self.search_tree.index(selected[0])" in search_logic
+    history_text = (source.parent / "history_tab.py").read_text(encoding="utf-8")
+    assert "identify_region(event.x, event.y)" in history_text
+
+
+def test_queue_drag_ignores_headings():
+    class Tree:
+        def identify_region(self, x, y): return "heading"
+        def identify_row(self, y): raise AssertionError("row lookup must not happen")
+    q = QueueMixin()
+    q.queue_running = False
+    q.queue_tree = Tree()
+    q._queue_drag_source = "old"
+    q._queue_drag_target = "old"
+    q._queue_drag_press(SimpleNamespace(x=3, y=4))
+    assert q._queue_drag_source is None and q._queue_drag_target is None
+
+
+def test_tray_show_queues_request_while_previous_generation_retires(monkeypatch):
+    class FakeThread:
+        def is_alive(self): return True
+        def join(self, timeout=None): pass
+    class FakePystray:
+        pass
+    monkeypatch.setattr(tray_module, "pystray", FakePystray())
+    monkeypatch.setattr(tray_module, "Image", object())
+    monkeypatch.setattr(tray_module, "ImageDraw", object())
+    manager = tray_module.TrayManager(SimpleNamespace())
+    manager.icon = None
+    manager._thread = None
+    manager._retiring_thread = FakeThread()
+    assert manager.show() is True
+    assert manager._show_when_retired is True
+    assert manager.icon is None

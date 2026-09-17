@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import threading
+import time
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi.actions import ActionsMixin
+import audioknigi.actions as actions_module
+from audioknigi.core import save_json
+from audioknigi.downloader import DownloaderMixin
+from audioknigi.library_visuals import LibraryVisualMixin
+from audioknigi.models import Book, QueueItem, Track
+from audioknigi.onboarding import FirstRunWizard
+from audioknigi.queue_manager import QueueMixin
+import audioknigi.queue_manager as queue_module
+from audioknigi.storage import StorageMixin
+from audioknigi.templates import render_folder, render_track_filename, template_values
+from audioknigi.tray import TrayManager
+import audioknigi.tray as tray_module
+from audioknigi.ui_kit import Tooltip
+
+
+class Var:
+    def __init__(self, value=None): self.value = value
+    def get(self): return self.value
+    def set(self, value): self.value = value
+
+
+# 1) Book/Track primary code path is typed-object style, while MappingDataclass
+# remains a backwards-compatibility adapter.
+track = Track(index=1, title="01", file="https://example.invalid/1.mp3", duration=10)
+book = Book(url="https://audioknigi.com.ua/test", title="Book", tracks=[track])
+assert book.tracks[0].selected is True
+assert book["tracks"][0]["index"] == 1  # legacy compatibility still works
+for filename in ("actions.py", "downloader.py"):
+    text = (Path(__file__).resolve().parents[1] / "audioknigi" / filename).read_text(encoding="utf-8")
+    assert 'book["' not in text and "book['" not in text, filename
+    assert 'track["' not in text and "track['" not in text, filename
+    assert 'tr["' not in text and "tr['" not in text, filename
+
+# slots=True is intentional: models are strict and unknown fields must be added
+# explicitly rather than silently becoming runtime-only state.
+try:
+    book["_manifest_path"] = "x"
+except KeyError:
+    pass
+else:
+    raise AssertionError("Book unexpectedly accepted an undeclared field")
+
+# 2) Disk-space check resolves nearest existing parent for a not-yet-created folder.
+with tempfile.TemporaryDirectory() as td:
+    target = Path(td) / "missing" / "book"
+    free = DownloaderMixin()._disk_free_for_path(target)
+    assert isinstance(free, int) and free >= 0
+
+class NoDisk(DownloaderMixin):
+    def _disk_space_info(self, book, selected_indices=None):
+        return 1024, None
+assert NoDisk()._check_disk_space(book, show_warning=False) is False
+
+# 3) System theme uses CustomTkinter's *effective* appearance mode for ttk Treeview.
+class FakeStyle:
+    configured = {}
+    mapped = {}
+    def __init__(self, *args, **kwargs): pass
+    def theme_use(self, *args): return None
+    def configure(self, name, **kwargs): self.configured[name] = kwargs
+    def map(self, name, **kwargs): self.mapped[name] = kwargs
+
+class ThemeDummy:
+    theme_var = Var("system")
+    def _save_settings(self): pass
+
+orig_style = actions_module.ttk.Style
+orig_get = actions_module.get_appearance_mode
+orig_set = actions_module.set_appearance_mode
+try:
+    actions_module.ttk.Style = FakeStyle
+    actions_module.get_appearance_mode = lambda: "Dark"
+    actions_module.set_appearance_mode = lambda _m: None
+    ActionsMixin._apply_theme(ThemeDummy())
+    assert FakeStyle.configured["Treeview"]["background"] == "#252525"
+finally:
+    actions_module.ttk.Style = orig_style
+    actions_module.get_appearance_mode = orig_get
+    actions_module.set_appearance_mode = orig_set
+
+# 4) Concurrent JSON writes remain valid and leave no temporary files behind.
+with tempfile.TemporaryDirectory() as td:
+    path = Path(td) / "state.json"
+    threads = [threading.Thread(target=save_json, args=(path, {"writer": i, "payload": "x" * 1000})) for i in range(24)]
+    for t in threads: t.start()
+    for t in threads: t.join()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(data.get("writer"), int)
+    assert not list(Path(td).glob(".*.tmp"))
+
+# 5) Speed graph only enables spline smoothing with >= 3 points.
+class Canvas:
+    def __init__(self): self.kwargs = None
+    def delete(self, *_): pass
+    def winfo_width(self): return 200
+    def winfo_height(self): return 80
+    def create_line(self, *args, **kwargs): self.kwargs = kwargs
+    def create_text(self, *args, **kwargs): pass
+
+for values, expected in (([1.0, 2.0], False), ([1.0, 2.0, 3.0], True)):
+    d = SimpleNamespace(speed_canvas=Canvas(), speed_history=values)
+    ActionsMixin._draw_speed_graph(d)
+    assert d.speed_canvas.kwargs["smooth"] is expected
+
+# 6) Queue cannot be structurally mutated while its worker is active.
+class FakeTree:
+    def selection(self): return ("0",)
+
+class QueueDummy(QueueMixin):
+    def __init__(self):
+        self.queue_running = True
+        self.queue_tree = FakeTree()
+        self.queue_items = [QueueItem(url="https://audioknigi.com.ua/1")]
+        self.refreshed = False
+    def _refresh_queue(self): self.refreshed = True
+
+orig_info = queue_module.messagebox.showinfo
+try:
+    queue_module.messagebox.showinfo = lambda *a, **k: None
+    qd = QueueDummy()
+    qd.queue_remove_selected()
+    assert len(qd.queue_items) == 1 and not qd.refreshed
+finally:
+    queue_module.messagebox.showinfo = orig_info
+
+# DnD insertion slots handle top->bottom and before/after correctly.
+items = list("ABCD")
+idx = QueueMixin._move_queue_item(items, 0, 2, after=False)
+assert items == ["B", "A", "C", "D"] and idx == 1
+items = list("ABCD")
+idx = QueueMixin._move_queue_item(items, 0, 2, after=True)
+assert items == ["B", "C", "A", "D"] and idx == 2
+items = list("ABCD")
+idx = QueueMixin._move_queue_item(items, 3, 1, after=False)
+assert items == ["A", "D", "B", "C"] and idx == 1
+
+# 7) Unfinished-library scan is validated and startup refresh is asynchronous.
+assert StorageMixin()._scan_unfinished_records(object()) == ([], [])
+
+class ScanDummy(StorageMixin):
+    def __init__(self):
+        self.runtime_output_dir = tempfile.gettempdir()
+        self.unfinished_var = Var("")
+        self.continue_btn = SimpleNamespace(configure=lambda **kwargs: None)
+        self._unfinished_scan_token = 0
+    def _capture_runtime_options(self): pass
+    def _scan_unfinished_records(self, base_dir=None):
+        time.sleep(0.20)
+        return ([{"url": "https://audioknigi.com.ua/x", "title": "X"}], [])
+    def ui(self, callback): callback()
+
+sd = ScanDummy()
+t0 = time.perf_counter()
+sd._refresh_unfinished_indicator()
+assert time.perf_counter() - t0 < 0.08
+for _ in range(30):
+    if "1" in sd.unfinished_var.get(): break
+    time.sleep(0.02)
+assert "1" in sd.unfinished_var.get()
+
+# 8) Backup settings application includes audio/network/template settings.
+class SettingsDummy(StorageMixin):
+    pass
+sd2 = SettingsDummy()
+sd2.language = "ru"
+sd2.settings = {
+    "output_mode": "m4b", "audio_preset": "96k_mono", "normalization_mode": "two_pass",
+    "quality_preset": "PHONE", "segment_count": "8", "bandwidth_limit": 2.5,
+    "use_templates": True, "folder_template": "{Author}/{Book_Title}",
+    "track_template": "{Track_Number}-{Track_Title}.mp3", "language": "de",
+}
+for name in (
+    "output_var", "delete_source_var", "embed_tags_var", "scale_var", "naming_mode_var", "theme_var",
+    "large_mode_var", "hide_source_var", "segment_count_var", "auto_chunk_min_kbps_var",
+    "bandwidth_limit_var", "output_mode_var", "audio_preset_var", "normalization_mode_var",
+    "normalize_audio_var", "parallel_single_source_var", "save_sidecars_var", "use_templates_var",
+    "folder_template_var", "track_template_var", "abs_enabled_var", "abs_url_var", "abs_api_key_var",
+    "abs_library_id_var", "minimize_to_tray_var", "playwright_fallback_enabled_var", "clipboard_auto_var",
+    "ui_mode_var", "quality_preset_var", "language_var",
+):
+    setattr(sd2, name, Var())
+sd2._apply_settings_to_ui()
+assert sd2.output_mode_var.get() == "m4b"
+assert sd2.audio_preset_var.get() == "96k_mono"
+assert sd2.normalization_mode_var.get() == "two_pass"
+assert sd2.normalize_audio_var.get() is True
+assert sd2.use_templates_var.get() is True
+assert sd2.language == "de"
+
+# 9) First-run wizard preserves an already-selected pure M4B mode.
+class FakeWin:
+    def grab_release(self): pass
+    def destroy(self): pass
+class FakeEntry:
+    def focus_set(self): pass
+class WizardApp:
+    def __init__(self, mode):
+        self.output_var=Var("C:/Books"); self.quality_preset_var=Var("STD"); self.output_mode_var=Var(mode)
+        self.settings={}; self.easy_url_entry=FakeEntry(); self.saved=False
+    def on_quality_preset_changed(self, _): pass
+    def _save_settings(self, extra=None): self.saved=True
+    def _after_onboarding(self): pass
+    def t(self, key): return key
+w = object.__new__(FirstRunWizard)
+w.app = WizardApp("m4b"); w.folder_var=Var("C:/Books"); w.quality_var=Var("STD"); w.m4b_var=Var(True); w.win=FakeWin()
+w.finish()
+assert w.app.output_mode_var.get() == "m4b"
+
+# 10) Cover cache keys are stable across row reordering and stale entries can be pruned.
+payload = (b"cover-bytes", "image/jpeg")
+k1 = LibraryVisualMixin._payload_key("q", "https://example/book", payload)
+k2 = LibraryVisualMixin._payload_key("q", "https://example/book", payload)
+assert k1 == k2 and ":0:" not in k1 and ":1:" not in k1
+cache = {k1: object(), "q:https://other:dead": object()}
+LibraryVisualMixin._prune_image_cache(cache, ["q:https://example/book:"])
+assert list(cache) == [k1]
+
+# 11) Templates tolerate invalid indices, normalize Output_Dir semantics and respect target extension.
+assert template_values(book, {"index": None, "title": ""})["Track_Number"] == "00"
+assert template_values(book, {"index": "abc", "title": ""})["Track_Number"] == "00"
+assert render_track_filename("{Track_Number}.mp3", book, track, ext=".m4a") == "01.m4a"
+with tempfile.TemporaryDirectory() as td:
+    folder = render_folder(td, r"{Output_Dir}\\Author/Book", book)
+    assert Path(folder).resolve().is_relative_to(Path(td).resolve())
+    assert folder.name == "Book" and folder.parent.name == "Author"
+
+# 12) Tooltip binds Destroy so dynamic widgets cannot leave orphan Toplevels.
+class FakeWidget:
+    def __init__(self): self.events=[]
+    def bind(self, event, callback, add=None): self.events.append(event)
+fw = FakeWidget()
+Tooltip(fw, "tip")
+assert "<Destroy>" in fw.events
+
+# 13) Tray show/hide race: hide before run() setup must not leave a phantom icon.
+class FakeIcon:
+    def __init__(self, *args, **kwargs):
+        self.stopped = threading.Event(); self.visible = False
+    def run(self, setup=None):
+        time.sleep(0.05)
+        if setup: setup(self)
+        self.stopped.wait(0.5)
+    def stop(self): self.stopped.set()
+    def notify(self, *args): pass
+class FakePystray:
+    Icon = FakeIcon
+    @staticmethod
+    def Menu(*args): return args
+    @staticmethod
+    def MenuItem(*args, **kwargs): return (args, kwargs)
+class FakeApp:
+    def ui(self, cb): cb()
+    def restore_from_tray(self): pass
+    def on_close(self): pass
+
+orig_pystray, orig_image, orig_draw = tray_module.pystray, tray_module.Image, tray_module.ImageDraw
+try:
+    tray_module.pystray = FakePystray
+    tray_module.Image = object()
+    tray_module.ImageDraw = object()
+    tm = TrayManager(FakeApp())
+    tm._make_image = lambda: object()
+    assert tm.show() is True
+    tm.hide()  # deliberately race immediately with startup
+    for _ in range(30):
+        if tm.icon is None: break
+        time.sleep(0.02)
+    assert tm.icon is None
+finally:
+    tray_module.pystray, tray_module.Image, tray_module.ImageDraw = orig_pystray, orig_image, orig_draw
+
+print("MODEL API CONSISTENCY: OK")
+print("DISK SPACE PREFLIGHT: OK")
+print("SYSTEM THEME TREEVIEW: OK")
+print("ATOMIC JSON WRITES: OK")
+print("SPEED GRAPH 2-POINT SAFETY: OK")
+print("QUEUE MUTATION + DND INDEXING: OK")
+print("ASYNC UNFINISHED SCAN: OK")
+print("BACKUP SETTINGS RESTORE: OK")
+print("FIRST-RUN M4B PRESERVATION: OK")
+print("COVER CACHE PRUNING: OK")
+print("TEMPLATE SAFETY: OK")
+print("TOOLTIP DESTROY: OK")
+print("TRAY START/STOP RACE: OK")
+print("MAINTENANCE 4.7.2: OK")

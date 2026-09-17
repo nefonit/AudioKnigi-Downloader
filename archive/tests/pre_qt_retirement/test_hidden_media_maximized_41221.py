@@ -1,0 +1,137 @@
+import ast
+from pathlib import Path
+
+from audioknigi import core
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_version_41221():
+    from audioknigi.version import __version__
+    assert __version__ == "4.12.31"
+
+
+def test_windows_hidden_subprocess_kwargs_contains_no_window_and_startupinfo(monkeypatch):
+    class FakeStartupInfo:
+        def __init__(self):
+            self.dwFlags = 0
+            self.wShowWindow = 99
+
+    monkeypatch.setattr(core.subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+    monkeypatch.setattr(core.subprocess, "STARTF_USESHOWWINDOW", 0x00000001, raising=False)
+    monkeypatch.setattr(core.subprocess, "SW_HIDE", 0, raising=False)
+    monkeypatch.setattr(core.subprocess, "STARTUPINFO", FakeStartupInfo, raising=False)
+
+    options = core.hidden_subprocess_kwargs("nt")
+    assert options["creationflags"] == 0x08000000
+    assert options["startupinfo"].dwFlags & 0x00000001
+    assert options["startupinfo"].wShowWindow == 0
+    assert core.hidden_subprocess_kwargs("posix") == {}
+
+
+def _calls_for(module_path, object_name, method_names):
+    tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == object_name
+            and func.attr in method_names
+        ):
+            continue
+        found.append(node)
+    return found
+
+
+def _has_hidden_kwargs(call):
+    return any(
+        kw.arg is None
+        and isinstance(kw.value, ast.Call)
+        and isinstance(kw.value.func, ast.Name)
+        and kw.value.func.id == "hidden_subprocess_kwargs"
+        for kw in call.keywords
+    )
+
+
+def test_all_downloader_media_subprocesses_use_hidden_windows_policy():
+    calls = _calls_for(ROOT / "audioknigi" / "downloader.py", "subprocess", {"Popen", "run"})
+    assert len(calls) == 4
+    assert all(_has_hidden_kwargs(call) for call in calls)
+
+    core_calls = _calls_for(ROOT / "audioknigi" / "core.py", "subprocess", {"run"})
+    assert any(_has_hidden_kwargs(call) for call in core_calls)
+
+
+def test_windows_maximize_uses_native_zoomed_state():
+    class FakeWindow:
+        def __init__(self):
+            self.states = []
+            self.geometries = []
+        def update_idletasks(self):
+            pass
+        def state(self, value):
+            self.states.append(value)
+        def attributes(self, *_args):
+            raise AssertionError("Windows zoomed state should be preferred")
+        def geometry(self, value):
+            self.geometries.append(value)
+
+    win = FakeWindow()
+    assert core.maximize_window_for_display(win, "nt") is True
+    assert win.states == ["zoomed"]
+    assert win.geometries == []
+
+
+def test_maximize_has_geometry_fallback_when_window_manager_rejects_zoom():
+    class FakeWindow:
+        geometry_value = None
+        def update_idletasks(self):
+            pass
+        def state(self, _value):
+            raise RuntimeError("unsupported")
+        def attributes(self, *_args):
+            raise RuntimeError("unsupported")
+        def winfo_vrootx(self): return -1920
+        def winfo_vrooty(self): return 0
+        def winfo_vrootwidth(self): return 3840
+        def winfo_vrootheight(self): return 1080
+        def geometry(self, value): self.geometry_value = value
+
+    win = FakeWindow()
+    assert core.maximize_window_for_display(win, "nt") is True
+    assert win.geometry_value == "3840x1080-1920+0"
+
+
+def test_app_schedules_maximize_after_ui_scale_and_logs_display_metrics():
+    source = (ROOT / "audioknigi" / "app.py").read_text(encoding="utf-8")
+    assert "self._apply_scale(silent=True)" in source
+    assert "self.after_idle(self._maximize_initial_window)" in source
+    assert source.index("self._apply_scale(silent=True)") < source.index("self.after_idle(self._maximize_initial_window)")
+    assert '"DISPLAY START | screen=%sx%s | virtual=%sx%s | tk_scaling=%.3f | minsize=%sx%s | maximized=%s"' in source
+    assert "maximize_window_for_display(self)" in source
+
+
+def test_restore_from_tray_reapplies_maximized_layout():
+    source = (ROOT / "audioknigi" / "app.py").read_text(encoding="utf-8")
+    start = source.index("def restore_from_tray")
+    chunk = source[start:start + 700]
+    assert 'self.state("normal")' in chunk
+    assert "maximize_window_for_display(self)" in chunk
+
+
+def test_adaptive_minimum_size_respects_small_system_resolution():
+    class SmallDisplay:
+        def winfo_screenwidth(self): return 1024
+        def winfo_screenheight(self): return 768
+
+    assert core.adaptive_window_min_size(SmallDisplay(), 1080, 760) == (960, 672)
+
+    class FullHD:
+        def winfo_screenwidth(self): return 1920
+        def winfo_screenheight(self): return 1080
+
+    assert core.adaptive_window_min_size(FullHD(), 1080, 760) == (1080, 760)

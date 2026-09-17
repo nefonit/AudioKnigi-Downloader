@@ -1,0 +1,128 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+import audioknigi.actions as actions_module
+import audioknigi.search as search_module
+from audioknigi.actions import ActionsMixin
+from audioknigi.core import extract_extended_metadata_from_html, safe_window_geometry
+from audioknigi.models import Book, NarrationVariant, SearchResult
+from audioknigi.search import _audioknigi_page_metadata
+from audioknigi.ui_kit import _pixel_width_to_chars
+
+
+def test_audioknigi_reader_stops_before_genre_label():
+    html = (
+        '<html><head><title>Филатов Леонид - Дилижанс аудиокнига слушать онлайн</title></head>'
+        '<body><p>Тут можно слушать бесплатно. Исполнитель: Актеры театров, '
+        'Жанр: Аудиоспектакли. Так же Вы можете слушать полную версию.</p></body></html>'
+    )
+    _description, narrator, _genre, _year = extract_extended_metadata_from_html(html)
+    assert narrator == 'Актеры театров'
+
+
+def test_audioknigi_search_hydration_keeps_clean_reader(monkeypatch):
+    html = (
+        '<html><head><title>Филатов Валерий – Чужой поиск аудиокнига слушать онлайн</title></head>'
+        '<body><p>Исполнитель: Зборовский Алекс, Жанр: Фантастика. Так же Вы можете слушать.</p></body></html>'
+    )
+
+    class Response:
+        text = html
+        def raise_for_status(self):
+            return None
+
+    class Session:
+        def get(self, *args, **kwargs):
+            return Response()
+
+    monkeypatch.setattr(search_module, 'get_http_session', lambda: Session())
+    item = SearchResult(
+        title='Чужой поиск',
+        author='Филатов Валерий',
+        url='https://audioknigi.com.ua/audio-91662-filatov-valeriy-chuzhoy-poisk',
+        source='audioknigi.com.ua',
+    )
+    enriched = _audioknigi_page_metadata(item)
+    assert enriched.narrator == 'Зборовский Алекс'
+    assert 'Жанр' not in enriched.narrator
+
+
+def test_open_missing_book_folder_does_not_recreate_it(monkeypatch, tmp_path):
+    missing = tmp_path / 'deleted-book'
+    warnings = []
+    monkeypatch.setattr(actions_module.messagebox, 'showwarning', lambda *args, **kwargs: warnings.append((args, kwargs)))
+    dummy = SimpleNamespace()
+    result = ActionsMixin._open_path(dummy, missing)
+    assert result is False
+    assert not missing.exists()
+    assert warnings
+
+
+def test_output_root_can_still_be_created_on_demand(monkeypatch, tmp_path):
+    target = tmp_path / 'new-output'
+    opened = []
+    monkeypatch.setattr(actions_module.os, 'name', 'posix', raising=False)
+    monkeypatch.setattr(actions_module.sys, 'platform', 'linux', raising=False)
+    monkeypatch.setattr(actions_module.subprocess, 'Popen', lambda args: opened.append(args))
+    dummy = SimpleNamespace()
+    assert ActionsMixin._open_path(dummy, target, create=True) is True
+    assert target.is_dir()
+    assert opened and opened[0][0] == 'xdg-open'
+
+
+def test_search_variant_registry_objects_are_not_mutated():
+    current_url = 'https://audioknigi.com.ua/audio-1-book'
+    alt_url = 'https://audioknigi.com.ua/audio-2-book'
+    cached_current = NarrationVariant(url=current_url, narrator='Чтец 1', title='Книга', current=False)
+    cached_alt = NarrationVariant(url=alt_url, narrator='Чтец 2', title='Книга', current=False)
+    book_current = NarrationVariant(url=current_url, narrator='Чтец 1', title='Книга', current=True)
+    book = Book(
+        url=current_url,
+        title='Книга',
+        author='Автор',
+        narrator='Чтец 1',
+        narration_variants=[book_current],
+    )
+    dummy = SimpleNamespace(
+        _search_narration_variants_by_url={
+            current_url: [cached_current, cached_alt],
+        }
+    )
+    result = ActionsMixin._apply_search_narration_variants(dummy, book, current_url)
+    assert len(result.narration_variants) == 2
+    attached_alt = next(v for v in result.narration_variants if v.url == alt_url)
+    assert attached_alt is not cached_alt
+    assert attached_alt.narrator == 'Чтец 2'
+    assert cached_alt.current is False
+    assert cached_current.current is False
+
+
+def test_stale_window_geometry_is_clamped_but_visible_negative_snap_is_kept():
+    class Widget:
+        def winfo_vrootx(self): return 0
+        def winfo_vrooty(self): return 0
+        def winfo_vrootwidth(self): return 1920
+        def winfo_vrootheight(self): return 1080
+
+    widget = Widget()
+    assert safe_window_geometry(widget, '1360x880+3000+100') == '1360x880+560+100'
+    assert safe_window_geometry(widget, '1360x880-8-8') == '1360x880-8-8'
+    assert safe_window_geometry(widget, 'broken', '1360x880') == '1360x880'
+
+
+def test_legacy_pixel_width_string_is_safe_for_native_ttk():
+    assert _pixel_width_to_chars('150px') == round(150 / 9)
+    assert _pixel_width_to_chars('not-a-width') == 0
+
+
+def test_reported_truncations_are_not_present_in_complete_archive():
+    root = Path(__file__).resolve().parents[1] / 'audioknigi'
+    player = (root / 'player.py').read_text(encoding='utf-8')
+    ui_kit = (root / 'ui_kit.py').read_text(encoding='utf-8')
+    settings = (root / 'ui' / 'settings_tab.py').read_text(encoding='utf-8')
+    assert 'def player_play_file(self, file_path):' in player
+    assert 'return widest' in ui_kit
+    assert 'def build(self):' in settings
+    compile(player, str(root / 'player.py'), 'exec')
+    compile(ui_kit, str(root / 'ui_kit.py'), 'exec')
+    compile(settings, str(root / 'ui' / 'settings_tab.py'), 'exec')

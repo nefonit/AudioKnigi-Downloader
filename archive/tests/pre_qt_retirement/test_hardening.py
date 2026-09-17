@@ -1,0 +1,299 @@
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+import threading
+import time
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi import core
+from audioknigi.library_visuals import LibraryVisualMixin
+from audioknigi.models import Book, MappingDataclass, QueueItem, Track
+from audioknigi.player import PlayerMixin
+import audioknigi.player as player_module
+from audioknigi.templates import (
+    _safe_track_index,
+    render_text_template,
+    render_track_filename,
+    template_values,
+)
+from audioknigi.tray import TrayManager
+import audioknigi.tray as tray_module
+from audioknigi.ui_kit import Tooltip
+import audioknigi.integrations as integrations
+import audioknigi.notifications as notifications
+
+
+class Var:
+    def __init__(self, value=None): self.value = value
+    def get(self): return self.value
+    def set(self, value): self.value = value
+
+
+# 1) Typed model path: runtime modules do not rely on Book/Track.get or subscripting.
+root = Path(__file__).resolve().parents[1]
+for filename in ("actions.py", "downloader.py", "player.py", "queue_manager.py", "storage.py"):
+    text = (root / "audioknigi" / filename).read_text(encoding="utf-8")
+    for token in ("book.get(", "current_book.get(", "track.get(", "tr.get(", 'book["', "track[\"", "tr[\""):
+        assert token not in text, (filename, token)
+
+# Compatibility mapping is read-oriented, not a falsely advertised MutableMapping.
+book = Book(url="https://audioknigi.com.ua/test", title="Book")
+assert book.get("title") == "Book" and book["title"] == "Book"
+try:
+    del book["title"]
+except TypeError:
+    pass
+else:
+    raise AssertionError("Dataclass field deletion must not silently set None")
+
+
+# 2) dnd.py is complete and compiles as part of the package.
+compile((root / "audioknigi" / "dnd.py").read_text(encoding="utf-8"), "dnd.py", "exec")
+
+
+# 3) get_http_session survives a close() failure and replaces the stale session.
+class BadSession:
+    def close(self):
+        raise RuntimeError("close failed")
+class NewSession:
+    pass
+old_session = getattr(core._HTTP_LOCAL, "session", None)
+old_uses = getattr(core._HTTP_LOCAL, "uses", 0)
+old_builder = core.build_http_session
+try:
+    replacement = NewSession()
+    core._HTTP_LOCAL.session = BadSession()
+    core._HTTP_LOCAL.uses = 24
+    core.build_http_session = lambda: replacement
+    assert core.get_http_session() is replacement
+    assert core._HTTP_LOCAL.uses == 1
+finally:
+    core.build_http_session = old_builder
+    if old_session is None:
+        try: delattr(core._HTTP_LOCAL, "session")
+        except AttributeError: pass
+    else:
+        core._HTTP_LOCAL.session = old_session
+    core._HTTP_LOCAL.uses = old_uses
+
+
+# 4) Empty/directory cover paths are rejected before PIL Image.open.
+class ExplodingImage:
+    @staticmethod
+    def open(_path):
+        raise AssertionError("Image.open must not run for empty/directory path")
+old_image, old_imagetk = __import__("audioknigi.library_visuals", fromlist=["Image"]).Image, __import__("audioknigi.library_visuals", fromlist=["ImageTk"]).ImageTk
+import audioknigi.library_visuals as libvis
+try:
+    libvis.Image = ExplodingImage
+    libvis.ImageTk = object()
+    mix = LibraryVisualMixin()
+    mix._history_cover_images = {}
+    assert mix._photo_from_path("", {}, "x") is None
+    with tempfile.TemporaryDirectory() as td:
+        assert mix._photo_from_path(td, {}, "y") is None
+finally:
+    libvis.Image, libvis.ImageTk = old_image, old_imagetk
+
+
+# 5) Windows notification fallback requests a hidden process/no-window flag.
+called = {}
+old_name = notifications.os.name
+old_run = notifications.subprocess.run
+old_plyer = sys.modules.get("plyer", "__MISSING__")
+try:
+    notifications.os.name = "nt"
+    sys.modules["plyer"] = None
+    def fake_run(args, **kwargs):
+        called["args"] = args
+        called["kwargs"] = kwargs
+        return SimpleNamespace(returncode=0)
+    notifications.subprocess.run = fake_run
+    assert notifications.notify("T", "M") is True
+    assert "-WindowStyle" in called["args"] and "Hidden" in called["args"]
+    assert "creationflags" in called["kwargs"]
+finally:
+    notifications.os.name = old_name
+    notifications.subprocess.run = old_run
+    if old_plyer == "__MISSING__": sys.modules.pop("plyer", None)
+    else: sys.modules["plyer"] = old_plyer
+
+
+# 6) Audiobookshelf scan has a long read budget by default, while callers can override it.
+class FakeResponse:
+    def raise_for_status(self): pass
+class FakeSession:
+    def __init__(self): self.timeout = None
+    def post(self, _url, headers=None, timeout=None):
+        self.timeout = timeout
+        return FakeResponse()
+fake_session = FakeSession()
+old_get_session = integrations.get_http_session
+try:
+    integrations.get_http_session = lambda: fake_session
+    assert integrations.audiobookshelf_scan("http://localhost", "key", "lib") is True
+    assert float(fake_session.timeout) >= 60.0
+finally:
+    integrations.get_http_session = old_get_session
+
+
+# 7) Queue source uses a shared lock, a structural run snapshot and typed QueueItem fields.
+queue_text = (root / "audioknigi" / "queue_manager.py").read_text(encoding="utf-8")
+assert "_queue_state_lock" in queue_text
+assert "run_items = list(self.queue_items)" in queue_text
+assert "item.get(" not in queue_text
+assert 'item["' not in queue_text
+
+
+# 8) Player position persistence is coalesced to a worker instead of blocking Tk timer.
+class PlayerDummy(PlayerMixin):
+    pass
+pd = PlayerDummy()
+pd.player_file = Path("book.mp3")
+pd.player_position_var = Var(12.5)
+pd.player_duration = 100.0
+pd.player_positions = {}
+pd._last_player_position_save = 0.0
+pd._player_positions_write_lock = threading.Lock()
+pd._player_positions_write_thread = None
+pd._pending_player_positions = None
+writer_threads = []
+old_save_json = player_module.save_json
+try:
+    def slow_save(_path, _data):
+        writer_threads.append(threading.get_ident())
+        time.sleep(0.12)
+    player_module.save_json = slow_save
+    caller = threading.get_ident()
+    t0 = time.perf_counter()
+    pd._save_current_player_position(force=True)
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 0.08, elapsed
+    thread = pd._player_positions_write_thread
+    if thread is not None: thread.join(1.0)
+    assert writer_threads and all(tid != caller for tid in writer_threads)
+finally:
+    player_module.save_json = old_save_json
+
+# A synchronized shutdown flush must be newer than any in-flight async snapshot.
+pd2 = PlayerDummy()
+pd2.player_file = Path("book.mp3"); pd2.player_duration = 100.0; pd2.player_positions = {}
+pd2.player_position_var = Var(10.0); pd2._last_player_position_save = 0.0
+pd2._player_positions_write_lock = threading.Lock(); pd2._player_positions_write_thread = None; pd2._pending_player_positions = None
+writes = []
+old_save_json = player_module.save_json
+try:
+    def ordered_save(_path, data):
+        time.sleep(0.06)
+        writes.append(next(iter(data.values()))["position"])
+    player_module.save_json = ordered_save
+    pd2._save_current_player_position(force=True)
+    pd2.player_position_var.set(20.0)
+    pd2._save_current_player_position(force=True, sync=True)
+    assert writes[-1] == 20.0, writes
+finally:
+    player_module.save_json = old_save_json
+
+
+# 9) Template cleanup happens before data insertion and handles arbitrary inputs/None.
+t = Track(index=1, title="Audio.m4a", file="x")
+b = Book(url="u", title="Альбом {Remix}", author="Author {2024}")
+values = template_values(b, t)
+assert render_text_template("{Book_Title} - {Unknown}", values).startswith("Альбом {Remix}")
+assert "{Remix}" in render_text_template("{Book_Title}", values)
+assert _safe_track_index(123) == 123
+assert template_values(None, None)["Book_Title"] == "audiobook"
+assert render_track_filename("{Track_Number}.mp3", b, t, ".m4a") == "01.m4a"
+assert render_track_filename("{Track_Title}", b, t, ".mp3") == "Audio.m4a.mp3"
+
+
+# 10) Tray fallback tolerates Pillow without rounded_rectangle.
+class FakeImageObject:
+    def __init__(self): self.ops = []
+class FakeImageModule:
+    @staticmethod
+    def new(*_a, **_k): return FakeImageObject()
+class FakeDrawObject:
+    def rectangle(self, *a, **k): pass
+    def polygon(self, *a, **k): pass
+class FakeDrawModule:
+    @staticmethod
+    def Draw(_img): return FakeDrawObject()
+old_img, old_draw = tray_module.Image, tray_module.ImageDraw
+try:
+    tray_module.Image, tray_module.ImageDraw = FakeImageModule, FakeDrawModule
+    tm = TrayManager(SimpleNamespace())
+    # resource_path may fail to open an actual image; fallback must still succeed.
+    assert tm._make_image() is not None
+finally:
+    tray_module.Image, tray_module.ImageDraw = old_img, old_draw
+
+# A slow/stuck backend cannot permanently block the next show() state.
+class StuckIcon:
+    def __init__(self, *a, **k): self.stopped = threading.Event()
+    def run(self, setup=None):
+        if setup: setup(self)
+        time.sleep(2.0)
+    def stop(self): self.stopped.set()
+    def notify(self, *a): pass
+class FakePystray:
+    Icon = StuckIcon
+    @staticmethod
+    def Menu(*args): return args
+    @staticmethod
+    def MenuItem(*args, **kwargs): return (args, kwargs)
+class FakeApp:
+    def ui(self, cb): cb()
+    def restore_from_tray(self): pass
+    def on_close(self): pass
+old_pystray, old_img, old_draw = tray_module.pystray, tray_module.Image, tray_module.ImageDraw
+try:
+    tray_module.pystray = FakePystray
+    tray_module.Image = object()
+    tray_module.ImageDraw = object()
+    tm = TrayManager(FakeApp())
+    tm._make_image = lambda: object()
+    assert tm.show() is True
+    tm.hide()
+    assert tm.icon is None
+finally:
+    tray_module.pystray, tray_module.Image, tray_module.ImageDraw = old_pystray, old_img, old_draw
+
+
+# 11) Tooltip ignores child Destroy events; the native compatibility toolkit
+# still exposes CTkSwitch.get and implements CTkFrame directly on tk.Frame.
+class FakeWidget:
+    def __init__(self): self.bindings = {}; self.cancelled=[]
+    def bind(self, event, callback, add=None): self.bindings[event] = callback
+    def after_cancel(self, ident): self.cancelled.append(ident)
+fw = FakeWidget()
+tip = Tooltip(fw, "tip")
+class FakeTip:
+    def __init__(self): self.destroyed=False
+    def destroy(self): self.destroyed=True
+fake_tip = FakeTip(); tip._tip = fake_tip
+child = object()
+tip._on_destroy(SimpleNamespace(widget=child))
+assert fake_tip.destroyed is False
+tip._on_destroy(SimpleNamespace(widget=fw))
+assert fake_tip.destroyed is True
+ui_source = (root / "audioknigi" / "ui_kit.py").read_text(encoding="utf-8")
+assert "class CTkSwitch" in ui_source and "def get(self):" in ui_source
+assert "class CTkFrame(tk.Frame)" in ui_source
+assert "HAS_CUSTOMTKINTER = False" in ui_source
+
+print("TYPED MODEL ACCESS: OK")
+print("DND MODULE COMPLETENESS: OK")
+print("HTTP SESSION CLOSE FAILURE: OK")
+print("EMPTY COVER PATH: OK")
+print("HIDDEN WINDOWS NOTIFICATION: OK")
+print("AUDIOBOOKSHELF SCAN TIMEOUT: OK")
+print("QUEUE STATE LOCKING: OK")
+print("ASYNC PLAYER POSITION WRITE: OK")
+print("TEMPLATE EDGE CASES: OK")
+print("TRAY FALLBACK/GENERATION RACE: OK")
+print("NATIVE UI + TOOLTIP DESTROY FILTER: OK")
+print("HARDENING: OK")

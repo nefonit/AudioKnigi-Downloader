@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi.accessibility import AccessibilityManager, ScreenReaderBridge
+from audioknigi.app import AudioKnigiApp
+from audioknigi.storage import StorageMixin
+
+
+def test_prismatoid_distribution_keeps_prism_import_with_compat_fallback():
+    source = inspect.getsource(ScreenReaderBridge._init_backend_locked)
+    assert "from prism import BackendId, Context" in source
+    assert "from prismatoid import BackendId, Context" in source
+
+
+def test_ctk_accessibility_fallback_is_not_exact_class_name_only():
+    class CTkButtonFuture:
+        pass
+    class CTkTextboxEnhanced:
+        pass
+    class CTkLabelFuture:
+        pass
+    assert AccessibilityManager._is_interactive(CTkButtonFuture()) is True
+    assert AccessibilityManager._is_interactive(CTkTextboxEnhanced()) is True
+    assert AccessibilityManager._is_interactive(CTkLabelFuture()) is False
+
+
+def test_scale_minimum_never_exceeds_small_screen(monkeypatch):
+    app = AudioKnigiApp()
+    try:
+        monkeypatch.setattr(app, "winfo_screenwidth", lambda: 640)
+        monkeypatch.setattr(app, "winfo_screenheight", lambda: 480)
+        calls = []
+        monkeypatch.setattr(app, "minsize", lambda w, h: calls.append((int(w), int(h))))
+        monkeypatch.setattr(app, "geometry", lambda *args: "640x480" if not args else None)
+        monkeypatch.setattr(app, "winfo_width", lambda: 640)
+        monkeypatch.setattr(app, "winfo_height", lambda: 480)
+        app.scale_var.set("200")
+        app._apply_scale(silent=True)
+        assert calls
+        width, height = calls[-1]
+        assert width <= 600
+        assert height <= 400
+    finally:
+        app.destroy()
+
+
+def test_legacy_normalize_boolean_tracks_canonical_mode():
+    app = AudioKnigiApp()
+    try:
+        app.normalization_mode_var.set("single")
+        app.update()
+        assert app.normalize_audio_var.get() is True
+        app.normalization_mode_var.set("two_pass")
+        app.update()
+        assert app.normalize_audio_var.get() is True
+        app.normalization_mode_var.set("off")
+        app.update()
+        assert app.normalize_audio_var.get() is False
+    finally:
+        app.destroy()
+
+
+def test_unfinished_scan_recognizes_non_mp3_and_repair_sources(tmp_path):
+    book = tmp_path / "book"
+    book.mkdir()
+    source_a = book / "_source.webm"
+    source_b = book / "_repair_source_01.m4a"
+    source_a.write_bytes(b"x")
+    source_b.write_bytes(b"x")
+    manifests, orphans = StorageMixin()._scan_unfinished_records(tmp_path)
+    assert manifests == []
+    assert set(orphans) == {str(source_a), str(source_b)}
+
+
+def test_unfinished_scan_does_not_flag_sources_when_final_audio_exists(tmp_path):
+    book = tmp_path / "book"
+    book.mkdir()
+    (book / "_source_01.webm").write_bytes(b"x")
+    (book / "_source_02.opus").write_bytes(b"x")
+    (book / "chapter.flac").write_bytes(b"done")
+    manifests, orphans = StorageMixin()._scan_unfinished_records(tmp_path)
+    assert manifests == []
+    assert orphans == []
+
+
+def test_claimed_syntax_truncations_are_absent():
+    root = Path(__file__).resolve().parents[1]
+    for relative in ("audioknigi/app.py", "audioknigi/ui_kit.py", "audioknigi/accessibility.py"):
+        source = (root / relative).read_text(encoding="utf-8")
+        compile(source, str(root / relative), "exec")

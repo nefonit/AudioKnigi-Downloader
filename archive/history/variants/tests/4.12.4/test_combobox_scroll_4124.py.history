@@ -1,0 +1,77 @@
+"""4.12.4 regressions for native ttk Combobox popdowns on scrollable pages."""
+from __future__ import annotations
+
+from types import SimpleNamespace
+import tkinter as tk
+from tkinter import ttk
+
+from audioknigi.ui_kit import (
+    CTkOptionMenu,
+    CTkScrollableFrame,
+    install_combobox_scroll_guard,
+)
+
+
+def _posted(root, combo) -> bool:
+    popdown = root.tk.call("ttk::combobox::PopdownWindow", combo._w)
+    return bool(int(root.tk.call("winfo", "ismapped", popdown)))
+
+
+def _post(root, combo) -> None:
+    root.tk.call("ttk::combobox::Post", combo._w)
+    root.update()
+    assert _posted(root, combo)
+
+
+def test_global_mousewheel_guard_closes_ctk_option_menu_popdown():
+    root = tk.Tk()
+    try:
+        combo = CTkOptionMenu(root, values=("system", "light", "dark"))
+        combo.pack()
+        install_combobox_scroll_guard(root)
+        root.update()
+        _post(root, combo)
+
+        combo.event_generate("<MouseWheel>", delta=-120)
+        root.update()
+        assert not _posted(root, combo)
+    finally:
+        root.destroy()
+
+
+def test_scrollable_page_wheel_closes_plain_ttk_combobox_before_scrolling():
+    root = tk.Tk()
+    try:
+        page = CTkScrollableFrame(root, width=320, height=160)
+        page.pack(fill="both", expand=True)
+        combo = ttk.Combobox(page, state="readonly", values=("100", "125", "150"))
+        combo.pack()
+        for index in range(30):
+            ttk.Label(page, text=f"Setting {index}").pack()
+        root.update()
+        _post(root, combo)
+
+        page._on_mousewheel(SimpleNamespace(delta=-120, num=None))
+        root.update()
+        assert not _posted(root, combo)
+    finally:
+        root.destroy()
+
+
+def test_scrollbar_move_also_closes_combobox_popdown():
+    root = tk.Tk()
+    try:
+        page = CTkScrollableFrame(root, width=320, height=160)
+        page.pack(fill="both", expand=True)
+        combo = CTkOptionMenu(page, values=("A", "B", "C"))
+        combo.pack()
+        for index in range(30):
+            ttk.Label(page, text=f"Setting {index}").pack()
+        root.update()
+        _post(root, combo)
+
+        page._on_scrollbar_yview("moveto", "0.5")
+        root.update()
+        assert not _posted(root, combo)
+    finally:
+        root.destroy()

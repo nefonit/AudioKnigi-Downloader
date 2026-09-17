@@ -1,0 +1,40 @@
+from audioknigi import AudioKnigiApp
+
+app = AudioKnigiApp()
+app.update_idletasks()
+
+assert app.ui_mode_var.get() in ("Простой", "Расширенный")
+app.ui_mode_var.set("Простой")
+app._apply_ui_mode()
+assert app.easy_frame.winfo_manager() == "pack"
+
+app.quality_preset_var.set("🎧 Стандартное — оригинальное качество")
+app.on_quality_preset_changed()
+assert app.audio_preset_var.get() == "copy"
+assert app.normalization_mode_var.get() == "off"
+
+app.quality_preset_var.set("📱 Для телефона — меньше размер")
+app.on_quality_preset_changed()
+assert app.audio_preset_var.get() == "64k_mono"
+
+app.quality_preset_var.set("🔊 Выравнять громкость")
+app.on_quality_preset_changed()
+assert app.normalization_mode_var.get() == "two_pass"
+
+app.set_status("Скачано 80%")
+app.event_bus._drain()
+assert "Скачиваем" in app.easy_status_var.get()
+
+app.set_status("Готово")
+app.event_bus._drain()
+assert "Готово" in app.easy_status_var.get()
+
+app.ui_mode_var.set("Расширенный")
+app._apply_ui_mode()
+assert app.advanced_frame.winfo_manager() == "pack"
+
+print("EASY/ADVANCED MODE: OK")
+print("FRIENDLY QUALITY PRESETS: OK")
+print("FRIENDLY STATUS MAPPING: OK")
+print("FRIENDLY UI SMOKETEST: OK")
+app.destroy()

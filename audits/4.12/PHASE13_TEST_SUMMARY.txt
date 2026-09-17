@@ -1,0 +1,11 @@
+AudioKnigi Downloader 4.12.31 — Phase 13 Qt-only verification
+
+Pre-retirement strict parity: 61/61 PASS
+Pre-retirement complete regression: 613/613 PASS
+Post-retirement strict parity: 61/61 PASS
+Post-retirement legacy runtime paths: 0
+Qt import graph: 39 reachable project modules / 0 legacy frontend paths
+Qt-only active release tests: 5/5 PASS
+compileall: PASS
+Builder reproducibility smoke: PASS (61/61 + 5/5 on a freshly generated Qt-only tree)
+Windows NVDA/JAWS frozen-EXE acceptance: REQUIRED on Windows; not claimed in Linux environment.

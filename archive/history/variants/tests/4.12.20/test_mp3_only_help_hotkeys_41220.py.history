@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+
+from audioknigi.actions import ActionsMixin
+from audioknigi.help_center import HOTKEY_ROWS, _topic_map_ru
+from audioknigi.version import __version__
+
+
+ROOT = Path(__file__).resolve().parents[1]
+PKG = ROOT / "audioknigi"
+
+
+def _runtime_python_text() -> str:
+    chunks = []
+    for path in sorted(PKG.rglob("*.py")):
+        chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+    return "\n".join(chunks)
+
+
+def test_version_is_41220():
+    assert __version__ == "4.12.20"
+
+
+def test_runtime_has_no_m4b_feature_code_or_label():
+    # Historical release notes may mention removed functionality, but the
+    # current runtime package must not expose/execute it.
+    assert "m4b" not in _runtime_python_text().lower()
+
+
+def test_mp3_is_the_only_runtime_output_mode():
+    app_source = (PKG / "app.py").read_text(encoding="utf-8")
+    actions_source = (PKG / "actions.py").read_text(encoding="utf-8")
+    settings_source = (PKG / "ui" / "settings_tab.py").read_text(encoding="utf-8")
+    downloader_source = (PKG / "downloader.py").read_text(encoding="utf-8")
+
+    assert 'runtime_output_mode = "mp3"' in app_source
+    assert 'self.runtime_output_mode = "mp3"' in actions_source
+    assert "output_mode_var" not in app_source
+    assert "output_mode_var" not in settings_source
+    assert "_build_m4" not in downloader_source.lower()
+    assert "_write_m4" not in downloader_source.lower()
+
+
+def test_help_center_contains_full_user_manual_topics():
+    topics = _topic_map_ru()
+    expected_topics = {
+        "overview", "quick", "sources", "modes", "book", "player",
+        "download", "queue", "history", "quality", "settings", "files",
+        "backup", "accessibility", "shortcuts", "troubleshooting",
+    }
+    assert expected_topics <= set(topics)
+
+    full = topics["overview"][1]
+    for phrase in (
+        "audioknigi.com.ua", "knigavuhe.org", "poleknig.com",
+        "Простой", "Расширенный", "Озвучка", "Выбрать все", "Снять все",
+        "Воспроизвести", "Пауза", "404/410", "Отмена", "Очередь",
+        "История", "ID3", "Audiobookshelf", "NVDA", "JAWS", "app.log",
+        "BOOK FLOW", "Ctrl+Alt+3", "Python 3.14.7", "MP3",
+    ):
+        assert phrase in full
+
+
+def test_hotkey_reference_covers_all_user_facing_shortcut_groups():
+    labels = {keys for keys, _description in HOTKEY_ROWS}
+    expected = {
+        "Tab / Shift+Tab", "Enter / Num Enter", "Space",
+        "Ctrl+L", "Ctrl+D", "Ctrl+F", "Ctrl+Q", "Ctrl+H",
+        "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5",
+        "Ctrl+Tab", "Ctrl+Shift+Tab",
+        "Ctrl+Alt+1", "Ctrl+Alt+2", "Ctrl+Alt+3",
+        "F1", "Esc", "F4 / Alt+↓", "Shift+F10",
+        "Ctrl+C / Ctrl+Insert", "Ctrl+V / Shift+Insert", "Ctrl+X",
+        "Ctrl+A", "Ctrl+Z", "Ctrl+Y / Ctrl+Shift+Z",
+        "Command+C/V/X/A/Z/Y",
+    }
+    assert expected <= labels
+    assert all(description.strip() for _keys, description in HOTKEY_ROWS)
+
+
+def test_actions_global_bindings_are_documented():
+    source = inspect.getsource(ActionsMixin._bind_shortcuts)
+    for sequence in (
+        "<Control-l>", "<Control-d>", "<Control-q>", "<Control-h>",
+        "<Control-f>", "<Escape>", "<F1>", "<Control-Tab>",
+        "<Control-Shift-Tab>", "<Control-ISO_Left_Tab>",
+    ):
+        assert sequence in source
+
+    labels = {keys for keys, _description in HOTKEY_ROWS}
+    for i in range(1, 6):
+        assert f"Alt+{i}" in labels
+    for i in range(1, 4):
+        assert f"Ctrl+Alt+{i}" in labels
+
+
+def test_context_shortcuts_are_documented_in_help():
+    runtime = _runtime_python_text()
+    labels = {keys for keys, _description in HOTKEY_ROWS}
+    required_pairs = {
+        "<KP_Enter>": "Enter / Num Enter",
+        "<space>": "Space",
+        "<Shift-F10>": "Shift+F10",
+        "<F4>": "F4 / Alt+↓",
+        "<Alt-Down>": "F4 / Alt+↓",
+        "<Control-Insert>": "Ctrl+C / Ctrl+Insert",
+        "<Shift-Insert>": "Ctrl+V / Shift+Insert",
+    }
+    for sequence, help_label in required_pairs.items():
+        assert sequence in runtime
+        assert help_label in labels

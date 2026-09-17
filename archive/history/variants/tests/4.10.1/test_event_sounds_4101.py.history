@@ -1,0 +1,120 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+import audioknigi.actions as actions_module
+import audioknigi.queue_manager as queue_module
+from audioknigi.actions import ActionsMixin
+from audioknigi.core import Cancelled
+from audioknigi.event_sounds import EVENT_FILES
+from audioknigi.models import Book, QueueItem, Track
+from audioknigi.queue_manager import QueueMixin
+
+
+class Var:
+    def __init__(self, value=""):
+        self.value = value
+    def get(self):
+        return self.value
+    def set(self, value):
+        self.value = value
+
+
+def test_all_expanded_sound_assets_are_bundled():
+    expected = {
+        "download_start", "download_complete", "error", "link_pasted",
+        "queue_item_added", "search_complete", "queue_complete", "queue_started",
+        "download_cancelled", "download_resumed", "download_paused",
+        "book_not_found", "book_found",
+    }
+    assert set(EVENT_FILES) == expected
+    root = Path(__file__).resolve().parents[1] / "assets" / "sounds"
+    for filename in EVENT_FILES.values():
+        assert (root / filename).is_file()
+        assert (root / filename).stat().st_size > 1000
+
+
+def test_paste_url_emits_link_pasted(monkeypatch):
+    monkeypatch.setattr(actions_module.messagebox, "showinfo", lambda *a, **k: None)
+    class Host(ActionsMixin):
+        def __init__(self):
+            self.url_var = Var("")
+            self.url_entry = None
+            self.easy_url_entry = None
+            self.busy = True  # do not auto-analyze in this focused test
+            self.sounds = []
+        def clipboard_get(self): return "https://knigavuhe.org/book/test/"
+        def _play_event_sound(self, event, **kwargs): self.sounds.append(event)
+    host = Host()
+    host.paste_url()
+    assert host.url_var.get() == "https://knigavuhe.org/book/test/"
+    assert host.sounds == ["link_pasted"]
+
+
+def test_cancelled_download_emits_cancelled_sound(tmp_path):
+    book = Book(url="https://knigavuhe.org/book/test/", title="T", tracks=[Track(index=1, title="1", file="x")])
+    class Host(ActionsMixin):
+        def __init__(self):
+            self.current_book = book
+            self.runtime_ui_mode = "easy"
+            self.sounds = []
+        def _process_book(self, *_a, **_k): raise Cancelled("stop")
+        def _play_event_sound(self, event, **_kwargs): self.sounds.append(event)
+        def set_progress(self, *_a): pass
+        def set_status(self, *_a): pass
+        def set_stage(self, *_a): pass
+        def log(self, *_a): pass
+        def set_busy(self, *_a): pass
+        def ui(self, cb): cb()
+        def _refresh_unfinished_indicator(self): pass
+    host = Host()
+    host._main_download_worker(book, [1])
+    assert host.sounds == ["download_cancelled"]
+
+
+def test_queue_add_emits_item_added(monkeypatch):
+    monkeypatch.setattr(queue_module.messagebox, "showwarning", lambda *a, **k: None)
+    monkeypatch.setattr(queue_module.messagebox, "showinfo", lambda *a, **k: None)
+    class Host(QueueMixin):
+        def __init__(self):
+            import threading
+            self.queue_url_var = Var("https://knigavuhe.org/book/test/")
+            self.queue_items = []
+            self._queue_lock = threading.RLock()
+            self.current_book = None
+            self.sounds = []
+        def _refresh_queue(self): pass
+        def _play_event_sound(self, event, **kwargs): self.sounds.append(event)
+    host = Host()
+    host.queue_add_url()
+    assert len(host.queue_items) == 1
+    assert host.sounds == ["queue_item_added"]
+
+
+def test_queue_start_uses_queue_started_not_download_started(monkeypatch):
+    class FakeThread:
+        def __init__(self, *a, **k): pass
+        def start(self): pass
+    monkeypatch.setattr(queue_module.threading, "Thread", FakeThread)
+    class Btn:
+        def configure(self, **kwargs): pass
+    class Host(QueueMixin):
+        def __init__(self):
+            import threading
+            self.queue_running = False
+            self.queue_items = [QueueItem(url="https://knigavuhe.org/book/test/")]
+            self._queue_lock = threading.RLock()
+            self._queue_run_token = 0
+            self.cancel_event = threading.Event()
+            self.queue_resume_event = threading.Event()
+            self.queue_pause_btn = Btn()
+            self.sounds = []
+        def _capture_runtime_options(self): pass
+        def ui(self, cb): cb()
+        def set_busy(self, *_a): pass
+        def set_progress(self, *_a): pass
+        def set_stage(self, *_a): pass
+        def _play_event_sound(self, event, **kwargs): self.sounds.append(event)
+        def _queue_worker(self, *_a): pass
+    host = Host()
+    assert host.start_queue() is True
+    assert host.sounds == ["queue_started"]

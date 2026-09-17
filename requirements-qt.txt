@@ -1,0 +1,2 @@
+# Compatibility alias for older build/docs references.
+-r requirements.txt

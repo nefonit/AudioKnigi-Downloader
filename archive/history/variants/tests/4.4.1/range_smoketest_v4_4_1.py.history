@@ -1,0 +1,86 @@
+import hashlib
+import os
+import re
+import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+from audioknigi_v44.downloader import DownloaderMixin
+
+DATA = os.urandom(10 * 1024 * 1024 + 123)
+
+
+class RangeHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        range_header = self.headers.get("Range")
+        if range_header:
+            match = re.match(r"bytes=(\d+)-(\d*)", range_header)
+            if not match:
+                self.send_error(416)
+                return
+            start = int(match.group(1))
+            end = int(match.group(2)) if match.group(2) else len(DATA) - 1
+            end = min(end, len(DATA) - 1)
+            chunk = DATA[start:end + 1]
+            self.send_response(206)
+            self.send_header("Content-Length", str(len(chunk)))
+            self.send_header("Content-Range", f"bytes {start}-{end}/{len(DATA)}")
+            self.send_header("Accept-Ranges", "bytes")
+            self.end_headers()
+            self.wfile.write(chunk)
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(DATA)))
+        self.end_headers()
+        self.wfile.write(DATA)
+
+    def log_message(self, *_args):
+        pass
+
+
+class TestDownloader(DownloaderMixin):
+    def __init__(self):
+        self.cancel_event = threading.Event()
+        self.runtime_bandwidth_limit = 0
+        self.runtime_segment_count = 4
+        self.runtime_segment_threshold_mb = 1
+        self._bandwidth_limiter = None
+
+    def _check_cancel(self):
+        if self.cancel_event.is_set():
+            raise RuntimeError("cancelled")
+
+    def set_progress(self, _value):
+        pass
+
+    def set_status(self, _text):
+        pass
+
+    def log(self, _text):
+        pass
+
+
+server = ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
+thread = threading.Thread(target=server.serve_forever, daemon=True)
+thread.start()
+
+try:
+    downloader = TestDownloader()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        target = Path(temp_dir) / "range_test.mp3"
+        downloader._download_with_resume(
+            f"http://127.0.0.1:{server.server_port}/file.mp3",
+            target,
+            "http://127.0.0.1/",
+        )
+        expected = hashlib.sha256(DATA).digest()
+        actual = hashlib.sha256(target.read_bytes()).digest()
+        assert actual == expected, "Итоговый файл отличается от исходных данных"
+        assert not list(Path(temp_dir).glob("*.seg*")), "Сегментные файлы не очищены"
+        print(f"Размер: {target.stat().st_size} байт")
+        print("RANGE SMOKETEST: OK")
+finally:
+    server.shutdown()
+    server.server_close()

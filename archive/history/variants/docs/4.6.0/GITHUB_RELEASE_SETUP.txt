@@ -1,0 +1,16 @@
+GitHub Actions setup
+====================
+
+Дополнительные secrets для обычной сборки не нужны. Workflow использует встроенный GITHUB_TOKEN.
+Для release job в YAML уже установлен permissions: contents: write.
+
+Рекомендуемый порядок:
+1. Создать GitHub repository.
+2. Загрузить содержимое этой папки в корень repository.
+3. Проверить вкладку Actions — CI должен запуститься на push.
+4. Когда CI зелёный:
+   git tag v4.6.0
+   git push origin v4.6.0
+5. GitHub Actions создаст Windows EXE и GitHub Release.
+
+Если в репозитории включены более строгие Organization policies, разрешите GitHub Actions писать contents/releases или используйте PAT согласно правилам вашей организации.

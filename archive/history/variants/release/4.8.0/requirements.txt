@@ -1,0 +1,11 @@
+requests
+playwright
+Pillow
+mutagen
+pygame-ce>=2.5.8
+ttkbootstrap>=2.2.0,<3
+pystray>=0.19.5
+tkinterdnd2>=0.6.2
+pyinstaller
+
+prismatoid>=0.17.3; platform_system == "Windows"

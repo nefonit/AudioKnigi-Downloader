@@ -1,0 +1,242 @@
+from __future__ import annotations
+
+from audioknigi.actions import ActionsMixin
+from audioknigi.models import Book, NarrationVariant, SearchResult
+
+
+def test_knigavuhe_new_design_other_voices_are_reader_names_not_titles_or_comments():
+    import audioknigi.knigavuhe as kv
+
+    html = """
+    <html><head><title>Про Федота-стрельца, удалого молодца (слушать аудиокнигу бесплатно) - автор Леонид Филатов, читает Леонид Филатов</title></head>
+    <body>
+      <h3>Другие озвучки</h3>
+      <div class="book_info_line icon_reader"><div><a href="/book/skaz-pro-fedota-strelca-udalogo-molodca/">Илья Кривошеев</a></div></div>
+      <div class="book_info_line icon_reader"><div><a href="/book/pro-fedota-strelca-udalogo-molodca-1/">Кристина Лари</a></div></div>
+      <div class="book_info_line icon_reader"><div><a href="/book/pro-fedota-strelca-udalogo-molodca-2/">Илья Кривошеев</a></div></div>
+      <div id="comments_block" class="comments_block">
+        <a href="javascript:void(0)">Отмена</a>
+        <a href="/book/not-a-variant/">Другая книга из комментариев</a>
+      </div>
+    </body></html>
+    """
+    title = "Про Федота-стрельца, удалого молодца"
+    variants = kv._extract_narration_variants(
+        html,
+        "https://knigavuhe.org/book/pro-fedota-strelca-udalogo-molodca/",
+        title=title,
+        current_narrator="Леонид Филатов",
+    )
+    assert [(v.narrator, v.title) for v in variants] == [
+        ("Леонид Филатов", title),
+        ("Илья Кривошеев", title),
+        ("Кристина Лари", title),
+        ("Илья Кривошеев", title),
+    ]
+    assert all(v.narrator != "Отмена" for v in variants)
+
+
+def test_knigavuhe_search_enrichment_counts_other_voice_links(monkeypatch):
+    import audioknigi.knigavuhe as kv
+
+    detail_html = """
+    <html><head><title>Про Федота-стрельца, удалого молодца (слушать аудиокнигу бесплатно) - автор Леонид Филатов, читает Леонид Филатов</title></head>
+    <body>
+      <h3>Другие озвучки</h3>
+      <a href="/book/fedot-ilya-1/">Илья Кривошеев</a>
+      <a href="/book/fedot-lari/">Кристина Лари</a>
+      <a href="/book/fedot-ilya-2/">Илья Кривошеев</a>
+      <div id="comments_block" class="comments_block"></div>
+    </body></html>
+    """
+
+    class Response:
+        text = detail_html
+        url = "https://knigavuhe.org/book/fedot-filatov/"
+
+        def raise_for_status(self):
+            return None
+
+    class Session:
+        def get(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setattr(kv, "get_http_session", lambda: Session())
+    result = SearchResult(
+        title="Про Федота-стрельца, удалого молодца",
+        author="Леонид Филатов",
+        narrator="Леонид Филатов",
+        url="https://knigavuhe.org/book/fedot-filatov/",
+        source="knigavuhe.org",
+    )
+    enriched = kv.enrich_search_variants([result])[0]
+    assert enriched.variant_count == 4
+    assert [v.narrator for v in enriched.narration_variants] == [
+        "Леонид Филатов",
+        "Илья Кривошеев",
+        "Кристина Лари",
+        "Илья Кривошеев",
+    ]
+
+
+def test_audioknigi_duplicate_recordings_collapse_and_keep_reader_variants(monkeypatch):
+    import audioknigi.search as search_module
+
+    items = [
+        SearchResult(title="Про Федота-стрельца, удалого молодца", author="Филатов Леонид", url="https://audioknigi.com.ua/audio-1-fedot"),
+        SearchResult(title="Про Федота-стрельца, удалого молодца", author="Филатов Леонид", url="https://audioknigi.com.ua/audio-2-fedot"),
+        SearchResult(title="Про Федота-стрельца, удалого молодца", author="Филатов Леонид", url="https://audioknigi.com.ua/audio-3-fedot"),
+        SearchResult(title="Дилижанс", author="Филатов Леонид", url="https://audioknigi.com.ua/audio-4-dilizhans"),
+    ]
+    narrators = {
+        items[0].url: "Филатов Леонид",
+        items[1].url: "Кривошеев Илья",
+        items[2].url: "Лари Кристина",
+    }
+
+    def hydrate(item):
+        return SearchResult(
+            title=item.title,
+            author=item.author,
+            narrator=narrators.get(item.url, ""),
+            url=item.url,
+            source=item.source,
+        )
+
+    monkeypatch.setattr(search_module, "_audioknigi_page_metadata", hydrate)
+    grouped = search_module._group_audioknigi_recordings(items)
+    assert [item.title for item in grouped] == ["Про Федота-стрельца, удалого молодца", "Дилижанс"]
+    assert grouped[0].variant_count == 3
+    assert [v.narrator for v in grouped[0].narration_variants] == [
+        "Филатов Леонид",
+        "Кривошеев Илья",
+        "Лари Кристина",
+    ]
+    assert grouped[1].variant_count == 1
+
+
+class _Var:
+    def __init__(self):
+        self.value = ""
+
+    def set(self, value):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+
+class _Combo:
+    def __init__(self):
+        self.values = ()
+
+    def configure(self, **kwargs):
+        if "values" in kwargs:
+            self.values = tuple(kwargs["values"])
+
+
+class _Row:
+    def __init__(self):
+        self.manager = ""
+
+    def winfo_manager(self):
+        return self.manager
+
+    def pack(self, **_kwargs):
+        self.manager = "pack"
+
+    def pack_forget(self):
+        self.manager = ""
+
+
+class _SelectorHost(ActionsMixin):
+    pass
+
+
+def test_reader_selector_names_duplicate_reader_variants_instead_of_generic_variant_labels():
+    host = _SelectorHost()
+    host.narration_row = _Row()
+    host.narration_combo = _Combo()
+    host.narration_var = _Var()
+    book = Book(
+        url="https://knigavuhe.org/book/fedot-filatov/",
+        title="Про Федота-стрельца, удалого молодца",
+        narrator="Леонид Филатов",
+        narration_variants=[
+            NarrationVariant(url="https://knigavuhe.org/book/fedot-filatov/", narrator="Леонид Филатов", current=True),
+            NarrationVariant(url="https://knigavuhe.org/book/fedot-ilya-1/", narrator="Илья Кривошеев"),
+            NarrationVariant(url="https://knigavuhe.org/book/fedot-lari/", narrator="Кристина Лари"),
+            NarrationVariant(url="https://knigavuhe.org/book/fedot-ilya-2/", narrator="Илья Кривошеев"),
+        ],
+    )
+    host._update_narration_selector(book)
+    assert host.narration_combo.values == (
+        "Леонид Филатов",
+        "Илья Кривошеев — вариант 1",
+        "Кристина Лари",
+        "Илья Кривошеев — вариант 2",
+    )
+    assert host.narration_var.get() == "Леонид Филатов"
+
+
+def test_default_download_folders_separate_recordings_with_same_title(tmp_path):
+    from audioknigi.downloader import DownloaderMixin
+
+    class Host(DownloaderMixin):
+        runtime_use_templates = False
+        runtime_output_dir = str(tmp_path)
+
+    variants = [
+        NarrationVariant(url="https://audioknigi.com.ua/audio-1-fedot", narrator="Филатов Леонид", current=True),
+        NarrationVariant(url="https://audioknigi.com.ua/audio-2-fedot", narrator="Кривошеев Илья"),
+        NarrationVariant(url="https://audioknigi.com.ua/audio-3-fedot", narrator="Кривошеев Илья"),
+    ]
+    host = Host()
+    first = Book(
+        url=variants[0].url,
+        title="Про Федота-стрельца",
+        narrator="Филатов Леонид",
+        narration_variants=variants,
+    )
+    second = Book(
+        url=variants[1].url,
+        title="Про Федота-стрельца",
+        narrator="Кривошеев Илья",
+        narration_variants=variants,
+    )
+    third = Book(
+        url=variants[2].url,
+        title="Про Федота-стрельца",
+        narrator="Кривошеев Илья",
+        narration_variants=variants,
+    )
+    assert host._book_folder(first).name == "Про Федота-стрельца [Филатов Леонид]"
+    assert host._book_folder(second).name == "Про Федота-стрельца [Кривошеев Илья - вариант 1]"
+    assert host._book_folder(third).name == "Про Федота-стрельца [Кривошеев Илья - вариант 2]"
+
+
+def test_audioknigi_single_recording_is_hydrated_so_reader_is_visible(monkeypatch):
+    import audioknigi.search as search_module
+
+    item = SearchResult(
+        title="Дилижанс",
+        author="Филатов Леонид",
+        url="https://audioknigi.com.ua/audio-4-dilizhans",
+    )
+
+    def hydrate(result):
+        return SearchResult(
+            title=result.title,
+            author=result.author,
+            narrator="Филатов Леонид",
+            url=result.url,
+            source="audioknigi.com.ua",
+        )
+
+    monkeypatch.setattr(search_module, "_audioknigi_page_metadata", hydrate)
+    grouped = search_module._group_audioknigi_recordings([item])
+
+    assert len(grouped) == 1
+    assert grouped[0].narrator == "Филатов Леонид"
+    assert grouped[0].variant_count == 1
+    assert [v.narrator for v in grouped[0].narration_variants] == ["Филатов Леонид"]

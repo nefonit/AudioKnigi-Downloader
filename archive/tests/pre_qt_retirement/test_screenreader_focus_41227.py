@@ -1,0 +1,181 @@
+from __future__ import annotations
+
+import types
+import tkinter as tk
+
+import pytest
+
+from audioknigi import AudioKnigiApp
+from audioknigi.accessibility import AccessibilityManager
+from audioknigi.ui_kit import CTkButton, CTkToplevel
+
+
+class FakeBridge:
+    def __init__(self, active=True, name="NVDA"):
+        self.active = active
+        self.backend_name = name if active else ""
+        self.spoken = []
+
+    def announce(self, text, interrupt=False):
+        if not self.active:
+            return False
+        self.spoken.append((str(text), bool(interrupt)))
+        return True
+
+    def refresh(self):
+        return self.active
+
+    def diagnostic_summary(self):
+        return f"backend={self.backend_name or 'none'} | active={self.active} | processes=NVDA"
+
+    @staticmethod
+    def _running_reader_processes():
+        return ("NVDA",)
+
+    def close(self):
+        pass
+
+
+@pytest.fixture
+def app():
+    instance = AudioKnigiApp()
+    instance.update_idletasks()
+    instance.update()
+    yield instance
+    try:
+        instance.destroy()
+    except Exception:
+        pass
+
+
+def test_advanced_mode_initial_focus_is_visible_book_url(app):
+    app.set_ui_mode("advanced")
+    app.update_idletasks()
+    app.update()
+    assert app.url_entry.winfo_viewable()
+    assert not app.easy_url_entry.winfo_viewable()
+
+    app.focus_force()
+    app.update()
+    assert app.accessibility.focus_initial_control()
+    app.update()
+    assert app.focus_get() == app.url_entry
+
+
+def test_easy_mode_initial_focus_is_visible_easy_url(app):
+    app.set_ui_mode("easy")
+    app.update_idletasks()
+    app.update()
+    assert app.easy_url_entry.winfo_viewable()
+    assert app.accessibility.focus_initial_control()
+    app.update()
+    assert app.focus_get() == app.easy_url_entry
+
+
+def test_custom_tab_router_moves_only_through_visible_enabled_controls(app):
+    app.set_ui_mode("advanced")
+    app.update_idletasks()
+    app.update()
+    app.accessibility.focus_initial_control()
+    app.update()
+    first = app.focus_get()
+    assert first == app.url_entry
+
+    first.event_generate("<Tab>")
+    app.update()
+    second = app.focus_get()
+    assert second is not None and second != first
+    assert second.winfo_viewable()
+    try:
+        assert not second.instate(["disabled"])
+    except Exception:
+        pass
+
+    second.event_generate("<Shift-Tab>")
+    app.update()
+    assert app.focus_get() == first
+
+
+def test_focusables_exclude_hidden_easy_controls_in_advanced_mode(app):
+    app.set_ui_mode("advanced")
+    app.update_idletasks()
+    app.update()
+    focusables = app.accessibility._focusable_widgets(app)
+    assert app.url_entry in focusables
+    assert app.easy_url_entry not in focusables
+    assert all(w.winfo_viewable() for w in focusables)
+
+
+def test_dynamic_control_is_registered_and_announced_on_first_focus(app):
+    fake = FakeBridge(active=True)
+    app.accessibility.bridge = fake
+    top = CTkToplevel(app)
+    button = CTkButton(top, text="Динамическая кнопка")
+    button.accessible_name = "Динамическая кнопка проверки"
+    button.pack()
+    top.update_idletasks()
+    top.update()
+    assert str(button) not in app.accessibility._registered
+
+    button.focus_force()
+    app.update()
+    assert str(button) in app.accessibility._registered
+    assert any("Динамическая кнопка проверки" in text for text, _ in fake.spoken)
+    top.destroy()
+
+
+def test_focus_announcement_contains_name_role_state_and_value():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        entry = tk.Entry(root)
+        entry.insert(0, "книга")
+        manager = object.__new__(AccessibilityManager)
+        manager.app = root
+        manager.bridge = FakeBridge(active=True)
+        manager._registered = set()
+        manager._tab_bindings = set()
+        manager._global_focus_bound = False
+        manager._tree_bindings = set()
+        manager._notebook_bindings = set()
+        manager._tk_accessible_checked = True
+        manager._tk_accessible_available = False
+        manager._ui_thread_id = __import__('threading').get_ident()
+        manager.register(entry, name="Поиск книги")
+        text = manager._describe_widget(entry)
+        assert "Поиск книги" in text
+        assert "поле ввода" in text
+        assert "книга" in text
+    finally:
+        root.destroy()
+
+
+def test_prism_requirement_and_build_scripts_force_current_bridge_version():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    requirements = (root / "requirements.txt").read_text(encoding="utf-8")
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    assert "prismatoid>=0.18.2,<0.19" in requirements
+    assert "prismatoid>=0.18.2,<0.19" in pyproject
+    for name in ("build_exe.bat", "build_exe_fixed.bat"):
+        text = (root / name).read_text(encoding="utf-8")
+        assert "pip install --upgrade -r requirements.txt" in text
+        assert "prism NVDA/JAWS API: OK" in text
+    build_ci = (root / "build_ci.ps1").read_text(encoding="utf-8-sig")
+    assert "--accessibility-import-selftest" in build_ci
+    assert "accessibility_frozen_selftest.txt" in build_ci
+    assert '"--hidden-import", "prism"' in build_ci
+    assert (root / "hook-prism.py").exists()
+
+
+def test_screen_reader_self_test_shortcut_is_bound(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app.accessibility, "self_test", lambda: (True, "NVDA подключён"))
+    app.focus_force()
+    app.update()
+    app.event_generate("<Control-Shift-F12>")
+    app.update()
+    # Successful self-test is spoken by the accessibility manager itself and
+    # intentionally shows no modal dialog. Reaching here without an error proves
+    # the documented global binding is live.
+    assert "Ctrl+Shift+F12" in app.t("help_shortcuts_body")

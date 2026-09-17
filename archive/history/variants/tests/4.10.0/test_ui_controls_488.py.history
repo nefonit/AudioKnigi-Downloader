@@ -1,0 +1,130 @@
+"""4.8.8 regression coverage for visible controls, labels and tooltips."""
+import tkinter as tk
+from tkinter import ttk
+
+from audioknigi import AudioKnigiApp
+
+
+def _walk(widget):
+    yield widget
+    try:
+        children = widget.winfo_children()
+    except tk.TclError:
+        children = []
+    for child in children:
+        yield from _walk(child)
+
+
+def _buttons_with_text(root):
+    result = {}
+    for widget in _walk(root):
+        if isinstance(widget, ttk.Button):
+            try:
+                text = str(widget.cget("text") or "")
+            except tk.TclError:
+                continue
+            if text:
+                result[text] = widget
+    return result
+
+
+def test_search_history_queue_keep_bottom_actions_visible():
+    app = AudioKnigiApp()
+    app.settings["first_run_complete"] = True
+    try:
+        app.geometry("1360x880")
+        app.set_ui_mode("Расширенный")
+        app.update()
+
+        expectations = {
+            "Поиск": ("Открыть выбранную книгу в программе",),
+            "История": ("Открыть папку", "Создать резервную копию", "Восстановить копию", "Очистить историю"),
+            "Очередь": ("ЗАПУСТИТЬ ОЧЕРЕДЬ", "ПАУЗА", "Повторить ошибки", "Очистить"),
+        }
+        for tab_name, captions in expectations.items():
+            app.tabview.set(tab_name)
+            app.update_idletasks()
+            buttons = _buttons_with_text(app.tabview.tab(tab_name))
+            for caption in captions:
+                assert caption in buttons
+                assert buttons[caption].winfo_ismapped(), (tab_name, caption)
+    finally:
+        app.destroy()
+
+
+def test_player_transport_controls_and_stage_are_reserved_even_with_long_filename():
+    app = AudioKnigiApp()
+    app.settings["first_run_complete"] = True
+    try:
+        app.geometry("1536x864")
+        app.set_ui_mode("Расширенный")
+        app.tabview.set("Книга")
+        app.player_file_var.set("Очень длинное имя файла " * 30)
+        app.update()
+
+        assert app.player_play_btn.cget("text") == "▶ Воспроизвести"
+        assert app.player_pause_btn.cget("text") == "⏸ Пауза"
+        assert app.player_stop_btn.cget("text") == "■ Стоп"
+        for button in (app.player_play_btn, app.player_pause_btn, app.player_stop_btn):
+            assert button.winfo_ismapped()
+            assert button.winfo_width() + 2 >= button.winfo_reqwidth()
+
+        assert app.stage_progress.winfo_ismapped()
+        assert app.stage_progress.accessible_name == "Ход по этапам"
+        assert app.progress.accessible_name == "Прогресс текущей операции"
+        assert app.tree.winfo_ismapped() and app.tree.winfo_height() > 100
+    finally:
+        app.destroy()
+
+
+def test_all_advanced_interactive_controls_have_a_name_or_caption():
+    app = AudioKnigiApp()
+    app.settings["first_run_complete"] = True
+    try:
+        app.set_ui_mode("Расширенный")
+        app.update()
+        interactive = (
+            ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton, ttk.Radiobutton,
+            ttk.Scale, ttk.Scrollbar, ttk.Treeview, ttk.Notebook,
+            tk.Text, tk.Entry, tk.Scale, tk.Scrollbar,
+        )
+        for tab_name in ("Книга", "Поиск", "Очередь", "История", "Настройки"):
+            app.tabview.set(tab_name)
+            app.update_idletasks()
+            unnamed = []
+            for widget in _walk(app.tabview.tab(tab_name)):
+                if not isinstance(widget, interactive):
+                    continue
+                text = ""
+                try:
+                    text = str(widget.cget("text") or "").strip()
+                except (tk.TclError, AttributeError):
+                    pass
+                name = str(getattr(widget, "accessible_name", "") or "").strip()
+                if not text and not name:
+                    unnamed.append((widget.winfo_class(), str(widget)))
+            assert unnamed == [], (tab_name, unnamed)
+    finally:
+        app.destroy()
+
+
+def test_advanced_tooltip_can_open_and_close_in_dark_theme():
+    app = AudioKnigiApp()
+    app.settings["first_run_complete"] = True
+    try:
+        app.theme_var.set("dark")
+        app._apply_theme()
+        app.set_ui_mode("Расширенный")
+        app.tabview.set("Книга")
+        app.update()
+        tips = app.main_tab_view.tooltips
+        assert len(tips) >= 15
+        tip = tips[0]
+        tip._show()
+        app.update()
+        assert tip._tip is not None
+        assert tip._tip.cget("bg").lower() == "#333333"
+        tip._hide()
+        assert tip._tip is None
+    finally:
+        app.destroy()

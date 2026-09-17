@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+import inspect
+import sys
+import types
+from pathlib import Path
+
+import audioknigi_gui
+from audioknigi.accessibility import ScreenReaderBridge
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_runtime_does_not_mask_prism_import_error_with_wrong_module_name():
+    source = inspect.getsource(ScreenReaderBridge._init_backend_locked)
+    assert "from prism import BackendId, Context" in source
+    assert "from prismatoid import BackendId, Context" not in source
+    assert "distribution=prismatoid" in source
+
+
+def test_pyinstaller_has_explicit_prism_hook_and_native_collection():
+    hook = (ROOT / "hook-prism.py").read_text(encoding="utf-8")
+    assert 'collect_all("prism"' in hook
+    assert 'copy_metadata("prismatoid")' in hook
+    assert '"prism._native"' in hook
+    build = (ROOT / "build_ci.ps1").read_text(encoding="utf-8-sig")
+    assert '"--collect-binaries", "prism"' in build
+    assert '"--collect-data", "prism"' in build
+    assert '"--hidden-import", "prism._native"' in build
+
+
+def test_build_runs_accessibility_selftest_inside_finished_exe():
+    build = (ROOT / "build_ci.ps1").read_text(encoding="utf-8-sig")
+    assert "Frozen accessibility smoke test" in build
+    assert "--accessibility-import-selftest" in build
+    assert "accessibility_frozen_selftest.txt" in build
+    assert "The build is NOT valid for NVDA/JAWS" in build
+
+
+def test_accessibility_import_selftest_succeeds_with_complete_fake_prism(monkeypatch, tmp_path):
+    native_dir = tmp_path / "prism" / "_native"
+    native_dir.mkdir(parents=True)
+
+    class BackendId:
+        NVDA = object()
+        JAWS = object()
+
+    class Context:
+        pass
+
+    native = types.SimpleNamespace(_find_native_dir=lambda: native_dir)
+    prism = types.ModuleType("prism")
+    prism.__file__ = str(tmp_path / "prism" / "__init__.py")
+    prism.BackendId = BackendId
+    prism.Context = Context
+    prism._native = native
+
+    prism_cffi = types.ModuleType("prism._prism_cffi")
+    prism_cffi.__file__ = str(tmp_path / "prism" / "_prism_cffi.pyd")
+    cffi_backend = types.ModuleType("_cffi_backend")
+    cffi_backend.__file__ = str(tmp_path / "_cffi_backend.pyd")
+
+    monkeypatch.setitem(sys.modules, "prism", prism)
+    monkeypatch.setitem(sys.modules, "prism._native", native)
+    monkeypatch.setitem(sys.modules, "prism._prism_cffi", prism_cffi)
+    monkeypatch.setitem(sys.modules, "_cffi_backend", cffi_backend)
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.18.2" if name == "prismatoid" else "0")
+    report = tmp_path / "report.txt"
+    monkeypatch.setenv("AUDIOKNIGI_ACCESSIBILITY_SELFTEST_REPORT", str(report))
+
+    assert audioknigi_gui._accessibility_import_selftest() == 0
+    text = report.read_text(encoding="utf-8")
+    assert text.startswith("OK")
+    assert "backends=NVDA,JAWS" in text
+    assert "prism_cffi=" in text
+    assert "cffi_backend=" in text
+
+
+def test_accessibility_import_selftest_fails_when_native_payload_missing(monkeypatch, tmp_path):
+    class BackendId:
+        NVDA = object()
+        JAWS = object()
+
+    class Context:
+        pass
+
+    native = types.SimpleNamespace(_find_native_dir=lambda: None)
+    prism = types.ModuleType("prism")
+    prism.__file__ = str(tmp_path / "prism" / "__init__.py")
+    prism.BackendId = BackendId
+    prism.Context = Context
+    prism._native = native
+
+    prism_cffi = types.ModuleType("prism._prism_cffi")
+    prism_cffi.__file__ = str(tmp_path / "prism" / "_prism_cffi.pyd")
+    cffi_backend = types.ModuleType("_cffi_backend")
+    cffi_backend.__file__ = str(tmp_path / "_cffi_backend.pyd")
+
+    monkeypatch.setitem(sys.modules, "prism", prism)
+    monkeypatch.setitem(sys.modules, "prism._native", native)
+    monkeypatch.setitem(sys.modules, "prism._prism_cffi", prism_cffi)
+    monkeypatch.setitem(sys.modules, "_cffi_backend", cffi_backend)
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.18.2")
+    report = tmp_path / "report.txt"
+    monkeypatch.setenv("AUDIOKNIGI_ACCESSIBILITY_SELFTEST_REPORT", str(report))
+
+    assert audioknigi_gui._accessibility_import_selftest() == 23
+    text = report.read_text(encoding="utf-8")
+    assert text.startswith("FAILED")
+    assert "native payload directory was not found" in text

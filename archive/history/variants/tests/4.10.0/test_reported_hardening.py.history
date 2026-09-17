@@ -1,0 +1,59 @@
+from types import SimpleNamespace
+
+from audioknigi.actions import ActionsMixin
+
+
+def test_show_m4b_preview_source_uses_safe_int():
+    import inspect
+    source = inspect.getsource(ActionsMixin.show_m4b_preview)
+    assert 'safe_int(getattr(tr, "index", 0), 0)' in source
+    assert 'tr.index:02d' not in source
+
+
+def test_set_busy_does_not_require_queue_running_attribute():
+    import inspect
+    source = inspect.getsource(ActionsMixin.set_busy)
+    assert 'getattr(self, "queue_running", False)' in source
+
+
+def test_context_worker_does_not_restore_stale_runtime_mode(monkeypatch):
+    host = SimpleNamespace(
+        runtime_output_mode="mp3",
+        _runtime_options_generation=2,
+    )
+    host._main_download_worker = lambda _book, _selected: setattr(host, "runtime_output_mode", "m4b")
+
+    # The worker belongs to generation 1, but generation 2 already captured a
+    # newer operation. Its finally block must not restore the old value.
+    ActionsMixin._context_part_download_worker(host, object(), [1], "both", 1)
+    assert host.runtime_output_mode == "m4b"
+
+
+def test_context_worker_restores_when_generation_is_still_current():
+    host = SimpleNamespace(
+        runtime_output_mode="mp3",
+        _runtime_options_generation=3,
+    )
+    host._main_download_worker = lambda _book, _selected: None
+    ActionsMixin._context_part_download_worker(host, object(), [1], "both", 3)
+    assert host.runtime_output_mode == "both"
+
+
+def test_context_worker_does_not_swallow_download_error():
+    import pytest
+    host = SimpleNamespace(runtime_output_mode="mp3", _runtime_options_generation=4)
+
+    def fail(_book, _selected):
+        raise RuntimeError("boom")
+
+    host._main_download_worker = fail
+    with pytest.raises(RuntimeError, match="boom"):
+        ActionsMixin._context_part_download_worker(host, object(), [1], "both", 4)
+
+
+def test_option_menu_uses_selective_unbind_helper():
+    import inspect
+    from audioknigi.ui_kit import CTkOptionMenu, _unbind_one
+    assert callable(_unbind_one)
+    source = inspect.getsource(CTkOptionMenu._set_ctk_command)
+    assert '_unbind_one(self, "<<ComboboxSelected>>", old_id)' in source

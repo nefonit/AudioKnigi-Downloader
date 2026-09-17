@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import sys
+import types
+import tkinter as tk
+from tkinter import ttk
+
+from audioknigi import accessibility as a11y
+from audioknigi.ui_kit import (
+    AccessibleRadioButton,
+    CTkButton,
+    CTkEntry,
+    CTkOptionMenu,
+    CTkProgressBar,
+    CTkSlider,
+    CTkSwitch,
+    CTkTabview,
+)
+
+
+def check_native_control_contract():
+    assert issubclass(CTkButton, ttk.Button)
+    assert issubclass(CTkEntry, ttk.Entry)
+    assert issubclass(CTkSwitch, ttk.Checkbutton)
+    assert issubclass(AccessibleRadioButton, ttk.Radiobutton)
+    assert issubclass(CTkOptionMenu, ttk.Combobox)
+    assert issubclass(CTkSlider, ttk.Scale)
+    assert issubclass(CTkProgressBar, ttk.Progressbar)
+
+
+def check_no_user_screen_reader_mode():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    settings = (root / "audioknigi" / "ui" / "settings_tab.py").read_text(encoding="utf-8").lower()
+    app = (root / "audioknigi" / "app.py").read_text(encoding="utf-8").lower()
+    forbidden = ("screen_reader_mode_var", "режим для скринридера", "включить jaws", "включить nvda")
+    for text in forbidden:
+        assert text not in settings
+        assert text not in app
+
+
+def check_prism_bridge_only_uses_screen_readers():
+    spoken = []
+
+    class Id:
+        NVDA = "NVDA"
+        JAWS = "JAWS"
+
+    class Features:
+        is_supported_at_runtime = True
+        supports_output = True
+        supports_speak = True
+        supports_braille = True
+
+    class Backend:
+        name = "NVDA"
+        features = Features()
+        def output(self, text, interrupt=False):
+            spoken.append((text, interrupt))
+
+    class Context:
+        def acquire(self, backend_id):
+            if backend_id == Id.NVDA:
+                return Backend()
+            raise ValueError("not running")
+
+    fake = types.SimpleNamespace(BackendId=Id, Context=Context)
+    old_mod = sys.modules.get("prism")
+    old_name = a11y.os.name
+    sys.modules["prism"] = fake
+    a11y.os.name = "nt"
+    try:
+        bridge = a11y.ScreenReaderBridge()
+        assert bridge.active
+        assert bridge.backend_name == "NVDA"
+        assert bridge.announce("Книга готова", interrupt=True)
+        assert spoken == [("Книга готова", True)]
+    finally:
+        a11y.os.name = old_name
+        if old_mod is None:
+            sys.modules.pop("prism", None)
+        else:
+            sys.modules["prism"] = old_mod
+
+
+def check_no_tts_fallback_when_reader_absent():
+    calls = []
+
+    class Id:
+        NVDA = "NVDA"
+        JAWS = "JAWS"
+
+    class Context:
+        def acquire(self, backend_id):
+            calls.append(backend_id)
+            raise ValueError("reader not running")
+        def create_best(self):
+            raise AssertionError("must never fall back to SAPI/TTS")
+
+    fake = types.SimpleNamespace(BackendId=Id, Context=Context)
+    old_mod = sys.modules.get("prism")
+    old_name = a11y.os.name
+    sys.modules["prism"] = fake
+    a11y.os.name = "nt"
+    try:
+        bridge = a11y.ScreenReaderBridge()
+        assert not bridge.active
+        assert calls == [Id.NVDA, Id.JAWS]
+    finally:
+        a11y.os.name = old_name
+        if old_mod is None:
+            sys.modules.pop("prism", None)
+        else:
+            sys.modules["prism"] = old_mod
+
+
+def check_progress_throttling():
+    manager = object.__new__(a11y.AccessibilityManager)
+    manager.app = None
+    manager._registered = set()
+    manager._last_status = ""
+    manager._last_progress_bucket = -1
+    manager._tree_bindings = set()
+    manager._notebook_bindings = set()
+    out = []
+    manager.bridge = types.SimpleNamespace(active=True, announce=lambda text, interrupt=False: out.append(text) or True)
+    for value in (1, 9, 10, 11, 19, 20, 29, 99, 100):
+        manager.announce_progress(value)
+    assert out[0] == "Загрузка, 10 процентов"
+    assert out[1] == "Загрузка, 20 процентов"
+    assert out[-1] == "Загрузка, 100 процентов"
+    assert out.count("Загрузка, 10 процентов") == 1
+
+
+def check_widget_descriptions_under_tk():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        var = tk.BooleanVar(root, value=True)
+        button = CTkButton(root, text="Скачать книгу")
+        switch = CTkSwitch(root, text="Добавлять обложку", variable=var)
+        entry = CTkEntry(root)
+        entry.insert(0, "https://example.test/book")
+        secret = CTkEntry(root, show="*")
+        secret.insert(0, "TOP-SECRET")
+        manager = object.__new__(a11y.AccessibilityManager)
+        manager.app = root
+        manager._registered = set()
+        manager._last_status = ""
+        manager._last_progress_bucket = -1
+        manager._tree_bindings = set()
+        manager._notebook_bindings = set()
+        manager.bridge = types.SimpleNamespace(active=False)
+        assert "Скачать книгу" in manager._describe_widget(button)
+        assert "кнопка" in manager._describe_widget(button)
+        desc = manager._describe_widget(switch)
+        assert "флажок" in desc and "выбрано" in desc
+        assert "поле ввода" in manager._describe_widget(entry)
+        secret_desc = manager._describe_widget(secret)
+        assert "TOP-SECRET" not in secret_desc and "введено" in secret_desc
+    finally:
+        root.destroy()
+
+
+def main():
+    check_native_control_contract()
+    check_no_user_screen_reader_mode()
+    check_prism_bridge_only_uses_screen_readers()
+    check_no_tts_fallback_when_reader_absent()
+    check_progress_throttling()
+    check_widget_descriptions_under_tk()
+    print("UNIVERSAL ACCESSIBILITY: OK")
+    print("NATIVE INTERACTIVE CONTROLS: OK")
+    print("AUTO NVDA/JAWS BRIDGE: OK")
+    print("NO SCREEN-READER MODE TOGGLE: OK")
+
+
+if __name__ == "__main__":
+    main()

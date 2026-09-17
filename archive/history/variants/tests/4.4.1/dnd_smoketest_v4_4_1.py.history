@@ -1,0 +1,33 @@
+from pathlib import Path
+import tempfile
+
+from audioknigi_v44.dnd import DragDropMixin
+
+class FakeTk:
+    @staticmethod
+    def splitlist(raw):
+        return tuple(raw.split())
+
+class Fake(DragDropMixin):
+    tk = FakeTk()
+
+fake = Fake()
+url1 = "https://audioknigi.com.ua/audio-90422-filatov-valeriy-ubiystvo-na-stancii"
+url2 = "https://audioknigi.com.ua/audio-12345-test"
+
+assert fake._extract_urls_from_drop_data(url1) == [url1]
+assert fake._extract_urls_from_drop_data(url1 + "\n" + url2) == [url1, url2]
+assert fake._extract_urls_from_drop_data("https://example.com/not-allowed") == []
+
+with tempfile.TemporaryDirectory() as td:
+    p = Path(td) / "book.url"
+    p.write_text("[InternetShortcut]\nURL=" + url1 + "\n", encoding="utf-8")
+    assert fake._extract_urls_from_drop_data(str(p)) == [url1]
+
+print("DnD URL parser: OK")
+try:
+    import tkinterdnd2
+    print("tkinterdnd2 import: OK")
+except ImportError:
+    print("tkinterdnd2 import: НЕ УСТАНОВЛЕН (установится через requirements)")
+print("DND SMOKETEST: OK")

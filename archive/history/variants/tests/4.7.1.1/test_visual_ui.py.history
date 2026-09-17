@@ -1,0 +1,33 @@
+from pathlib import Path
+
+from audioknigi import AudioKnigiApp
+from audioknigi.core import resource_path
+
+assert resource_path("assets", "app_icon_64.png").exists()
+assert resource_path("assets", "app_icon.ico").exists()
+
+app = AudioKnigiApp()
+app.update_idletasks()
+assert app.title().endswith("4.7.1.1")
+assert hasattr(app, "easy_mode_btn")
+assert hasattr(app, "advanced_mode_btn")
+assert hasattr(app, "easy_download_btn")
+assert hasattr(app, "easy_queue_count_var")
+assert len(app.easy_home_view.quality_cards) == 3
+app.easy_home_view.refresh_quality_cards()
+app._refresh_easy_sidebar()
+print("BRAND ASSETS: OK")
+print("QUALITY CARDS: OK")
+print("VISUAL SIDEBAR: OK")
+print("VISUAL UI SMOKETEST: OK")
+app.destroy()
+
+# HiDPI image regression: in CustomTkinter mode the UI image objects must be
+# CTkImage, not tkinter.PhotoImage.
+try:
+    from audioknigi.ui_kit import HAS_CUSTOMTKINTER, CTkImage
+    if HAS_CUSTOMTKINTER:
+        assert isinstance(app.brand_icon_header, CTkImage)
+        assert isinstance(app.brand_icon_small, CTkImage)
+except Exception as exc:
+    raise AssertionError(f"HiDPI brand image check failed: {exc}")

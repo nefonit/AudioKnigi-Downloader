@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import audioknigi.player as player_module
+import audioknigi.ui_kit as ui_kit_module
+from audioknigi.accessibility import AccessibilityManager
+from audioknigi.actions import ActionsMixin
+from audioknigi.i18n import STRINGS
+from audioknigi.player import PlayerMixin
+from audioknigi.storage import StorageMixin
+from audioknigi.ui_kit import (
+    CTkButton,
+    CTkOptionMenu,
+    CTkProgressBar,
+    CTkScrollableFrame,
+    CTkSwitch,
+    CTkTabview,
+    Tooltip,
+    set_button_active,
+)
+
+
+class Var:
+    def __init__(self, value=0): self.value = value
+    def get(self): return self.value
+    def set(self, value): self.value = value
+
+
+class ButtonStub:
+    def __init__(self): self.kwargs = {}
+    def configure(self, **kwargs): self.kwargs.update(kwargs)
+
+
+def test_reported_source_truncations_are_false_positives():
+    source = inspect.getsource(ActionsMixin.download_full)
+    assert "target=self._full_worker" in source
+    assert "args=(self.current_book, files[0])" in source
+    ui_source = Path("audioknigi/ui_kit.py").read_text(encoding="utf-8")
+    assert "def apply_tree_zebra" in ui_source
+    compile(ui_source, "ui_kit.py", "exec")
+
+
+def test_prismatoid_distribution_keeps_prism_runtime_import():
+    source = Path("audioknigi/accessibility.py").read_text(encoding="utf-8")
+    assert "from prism import BackendId, Context" in source
+
+
+def test_context_part_runtime_mode_is_restored():
+    class Host(ActionsMixin):
+        def _main_download_worker(self, book, selected):
+            assert self.runtime_output_mode == "mp3"
+            self.called = (book, selected)
+    host = Host()
+    host.runtime_output_mode = "mp3"
+    host._context_part_download_worker("book", [1], "m4b")
+    assert host.called == ("book", [1])
+    assert host.runtime_output_mode == "m4b"
+
+
+def test_completion_actions_do_not_require_easy_cover_widget(tmp_path):
+    class Host(ActionsMixin):
+        current_book = SimpleNamespace(title="Book", author="A", tracks=[], cover_cache=(b"bad",))
+        def _refresh_easy_sidebar(self): pass
+    host = Host()
+    host._show_completion_actions(tmp_path)
+    assert host.last_completed_folder == str(tmp_path)
+
+
+def test_player_seek_while_paused_repositions_decoder_and_stays_paused(monkeypatch, tmp_path):
+    calls = []
+    class Music:
+        @staticmethod
+        def load(path): calls.append(("load", path))
+        @staticmethod
+        def play(*args): calls.append(("play", args))
+        @staticmethod
+        def pause(): calls.append(("pause",))
+    monkeypatch.setattr(player_module, "pygame", SimpleNamespace(mixer=SimpleNamespace(music=Music())))
+
+    audio = tmp_path / "part.mp3"
+    audio.write_bytes(b"x")
+    class Host(PlayerMixin):
+        def __init__(self):
+            self.player_file = audio
+            self.player_position_var = Var(42.0)
+            self.player_playing = True
+            self.player_paused = True
+            self.player_pause_btn = ButtonStub()
+            self._player_seek_active = True
+        def _player_init(self): return True
+        def _update_player_time_text(self, _v): pass
+        def _save_current_player_position(self, **_kwargs): pass
+    host = Host()
+    host._player_seek_release()
+    assert ("pause",) in calls
+    assert any(call[0] == "play" and call[1][1] == 42.0 for call in calls)
+    assert host.player_paused is True
+    assert host.player_pause_btn.kwargs["text"] == "▶ Продолжить"
+
+
+def test_container_audio_opens_externally_instead_of_pygame(monkeypatch, tmp_path):
+    audio = tmp_path / "book.m4b"
+    audio.write_bytes(b"x")
+    opened = []
+    class Host(PlayerMixin):
+        def _open_path(self, path): opened.append(Path(path))
+        def set_status(self, _text): pass
+        def _player_init(self): raise AssertionError("pygame must not initialize for m4b")
+    Host().player_play_file(audio)
+    assert opened == [audio]
+
+
+def test_wizard_m4b_switch_is_localized_for_all_languages():
+    for language in ("ru", "uk", "de", "en"):
+        assert STRINGS[language]["wizard_m4b_switch"]
+    source = Path("audioknigi/onboarding.py").read_text(encoding="utf-8")
+    assert 'app.t("wizard_m4b_switch")' in source
+
+
+def test_unfinished_scan_tolerates_ui_teardown():
+    class Host(StorageMixin):
+        previous_session_unclean = False
+    host = Host()
+    host._apply_unfinished_scan([], [], prompt=False)
+    assert host._unfinished_records == []
+
+
+def test_nearby_label_handles_root_level_parent():
+    import tkinter as tk
+    root = tk.Tk(); root.withdraw()
+    try:
+        entry = tk.Entry(root)
+        entry.pack()
+        root.update_idletasks()
+        assert AccessibilityManager._nearby_label(entry) == ""
+    finally:
+        root.destroy()
+
+
+def test_optionmenu_configure_variable_and_ctk_compat_methods():
+    import tkinter as tk
+    root = tk.Tk(); root.withdraw()
+    try:
+        first = tk.StringVar(root, "A")
+        second = tk.StringVar(root, "B")
+        option = CTkOptionMenu(root, values=["A", "B"], variable=first)
+        option.configure(variable=second)
+        assert option.get() == "B"
+
+        flag = tk.BooleanVar(root, False)
+        switch = CTkSwitch(root, variable=flag, hover=False, switch_width=42, checkmark_color="#fff")
+        switch.select(); assert bool(flag.get()) is True
+        switch.deselect(); assert bool(flag.get()) is False
+        switch.toggle(); assert bool(flag.get()) is True
+
+        progress = CTkProgressBar(root)
+        progress.set(0.35)
+        assert progress.get() == pytest.approx(0.35)
+    finally:
+        root.destroy()
+
+
+def test_scrollable_frame_geometry_proxies_and_dynamic_child_binding():
+    import tkinter as tk
+    root = tk.Tk(); root.geometry("500x350")
+    try:
+        frame = CTkScrollableFrame(root, activate_scrollbars=True)
+        frame.pack(fill="both", expand=True)
+        root.update_idletasks()
+        assert frame.pack_info()
+        child = tk.Button(frame, text="late child")
+        child.pack()
+        root.update_idletasks()
+        root.update()
+        assert child.bind("<MouseWheel>")
+        assert "_start_scroll_binding_watch" not in inspect.getsource(CTkScrollableFrame)
+    finally:
+        root.destroy()
+
+
+def test_macos_small_wheel_deltas_are_accumulated(monkeypatch):
+    calls = []
+    host = object.__new__(CTkScrollableFrame)
+    host._mac_scroll_remainder = 0.0
+    host._scroll_canvas = SimpleNamespace(yview_scroll=lambda steps, unit: calls.append((steps, unit)))
+    monkeypatch.setattr(ui_kit_module.sys, "platform", "darwin")
+    event = SimpleNamespace(num=None, delta=1)
+    assert host._on_mousewheel(event) == "break"
+    assert host._on_mousewheel(event) == "break"
+    assert calls == []
+    assert host._on_mousewheel(event) == "break"
+    assert calls == [(-1, "units")]
+
+
+def test_macos_command_keypress_does_not_pollute_entry_undo(monkeypatch):
+    import tkinter as tk
+    root = tk.Tk(); root.withdraw()
+    try:
+        from audioknigi.ui_kit import CTkEntry
+        entry = CTkEntry(root)
+        remembered = []
+        entry._remember_undo_state = lambda: remembered.append(True)
+        monkeypatch.setattr(ui_kit_module.sys, "platform", "darwin")
+        event = SimpleNamespace(state=0x0010, keycode=0, keysym="z", char="z")
+        entry._physical_edit_shortcut(event)
+        assert remembered == []
+    finally:
+        root.destroy()
+
+
+def test_tooltip_does_not_show_for_unmapped_owner():
+    import tkinter as tk
+    root = tk.Tk(); root.geometry("300x120")
+    try:
+        label = tk.Label(root, text="x")
+        label.pack()
+        root.update()
+        tip = Tooltip(label, "help", delay=100)
+        label.pack_forget()
+        root.update_idletasks()
+        tip._show()
+        assert tip._tip is None
+    finally:
+        root.destroy()
+
+
+def test_tab_delete_and_active_style_restore():
+    import tkinter as tk
+    root = tk.Tk(); root.withdraw()
+    try:
+        tabs = CTkTabview(root)
+        tabs.add("A"); tabs.add("B")
+        assert tabs.delete("A") is True
+        assert tabs.delete("missing") is False
+        assert "A" not in tabs._tabs
+
+        button = CTkButton(root, text="x", style="AudioKnigi.Ghost.TButton")
+        set_button_active(button, True)
+        assert button.cget("style") == "AudioKnigi.Accent.TButton"
+        set_button_active(button, False)
+        assert button.cget("style") == "AudioKnigi.Ghost.TButton"
+    finally:
+        root.destroy()

@@ -1,0 +1,457 @@
+{
+  " Системный трей активен.": {
+    "de": " System-Tray ist aktiv.",
+    "en": " System tray is active.",
+    "uk": " Системний трей активний."
+  },
+  " Системный трей недоступен.": {
+    "de": " System-Tray ist nicht verfügbar.",
+    "en": " System tray is unavailable.",
+    "uk": " Системний трей недоступний."
+  },
+  "Audiobookshelf: запущено сканирование библиотеки.": {
+    "de": "Audiobookshelf: Bibliotheksscan gestartet.",
+    "en": "Audiobookshelf: library scan started.",
+    "uk": "Audiobookshelf: сканування бібліотеки запущено."
+  },
+  "FFmpeg вернул неполную статистику loudnorm первого прохода; использую безопасную однопроходную нормализацию.": {
+    "de": "FFmpeg hat unvollständige Loudnorm-Statistiken für den ersten Durchlauf geliefert; sichere Ein-Pass-Normalisierung wird verwendet.",
+    "en": "FFmpeg returned incomplete first-pass loudnorm statistics; using safe single-pass normalization.",
+    "uk": "FFmpeg повернув неповну статистику loudnorm першого проходу; використовую безпечну однопрохідну нормалізацію."
+  },
+  "ID3-теги полного MP3": {
+    "de": "ID3-Tags für vollständige MP3",
+    "en": "Tagging full MP3",
+    "uk": "ID3-теги повного MP3"
+  },
+  "Анализ выполнен через requests (Chromium не запускался).": {
+    "de": "Analyse über requests abgeschlossen (Chromium wurde nicht gestartet).",
+    "en": "Analysis completed with requests (Chromium was not started).",
+    "uk": "Аналіз виконано через requests (Chromium не запускався)."
+  },
+  "Анализ выполняется": {
+    "de": "Analyse läuft",
+    "en": "Analysis in progress",
+    "uk": "Аналіз виконується"
+  },
+  "Анализ книги ещё выполняется. Отменить его и закрыть программу после завершения?": {
+    "de": "Die Buchanalyse läuft noch. Abbrechen und die Anwendung danach schließen?",
+    "en": "Book analysis is still running. Cancel it and close the application when it stops?",
+    "uk": "Аналіз книги ще виконується. Скасувати його й закрити програму після завершення?"
+  },
+  "Анализ книги отменён.": {
+    "de": "Buchanalyse abgebrochen.",
+    "en": "Book analysis cancelled.",
+    "uk": "Аналіз книги скасовано."
+  },
+  "Аудиоссылка вернула HTTP 404/410. Обновляю страницу и плейлист…": {
+    "de": "Der Audio-Link lieferte HTTP 404/410. Seite und Playlist werden aktualisiert…",
+    "en": "The audio link returned HTTP 404/410. Refreshing the page and playlist…",
+    "uk": "Аудіопосилання повернуло HTTP 404/410. Оновлюю сторінку та плейлист…"
+  },
+  "В буфере найдена поддерживаемая ссылка аудиокниги. Вставить её в поле книги?": {
+    "de": "In der Zwischenablage wurde ein unterstützter Hörbuch-Link gefunden. In das Buchfeld einfügen?",
+    "en": "A supported audiobook link was found in the clipboard. Paste it into the book field?",
+    "uk": "У буфері знайдено підтримуване посилання на аудіокнигу. Вставити його в поле книги?"
+  },
+  "Введите минимум 3 символа для поиска.": {
+    "de": "Gib mindestens 3 Zeichen für die Suche ein.",
+    "en": "Enter at least 3 characters to search.",
+    "uk": "Введіть мінімум 3 символи для пошуку."
+  },
+  "Введите название/автора для поиска или вставьте ссылку на поддерживаемый сайт": {
+    "de": "Titel/Autor für die Suche eingeben oder einen Link zu einer unterstützten Website einfügen.",
+    "en": "Enter a title/author to search, or paste a link from a supported website.",
+    "uk": "Введіть назву/автора для пошуку або вставте посилання на підтримуваний сайт."
+  },
+  "Восстановление": {
+    "de": "Wiederherstellung",
+    "en": "Recovery",
+    "uk": "Відновлення"
+  },
+  "Восстановление завершено": {
+    "de": "Wiederherstellung abgeschlossen",
+    "en": "Recovery completed",
+    "uk": "Відновлення завершено"
+  },
+  "Доступность и горячие клавиши": {
+    "de": "Barrierefreiheit und Tastenkürzel",
+    "en": "Accessibility and keyboard shortcuts",
+    "uk": "Доступність і гарячі клавіші"
+  },
+  "Зависимости": {
+    "de": "Abhängigkeiten",
+    "en": "Dependencies",
+    "uk": "Залежності"
+  },
+  "Загрузка требует решения пользователя. Открываю окно программы.": {
+    "de": "Der Download erfordert eine Benutzerentscheidung. Das Anwendungsfenster wird geöffnet.",
+    "en": "The download requires a user decision. Opening the application window.",
+    "uk": "Завантаження потребує рішення користувача. Відкриваю вікно програми."
+  },
+  "Запрошена отмена анализа…": {
+    "de": "Analyse wird abgebrochen…",
+    "en": "Cancelling analysis…",
+    "uk": "Запитано скасування аналізу…"
+  },
+  "Запрошена отмена скачивания…": {
+    "de": "Download wird abgebrochen…",
+    "en": "Cancelling download…",
+    "uk": "Запитано скасування завантаження…"
+  },
+  "История очищена.": {
+    "de": "Verlauf geleert.",
+    "en": "History cleared.",
+    "uk": "Історію очищено."
+  },
+  "История пуста — экспортировать нечего.": {
+    "de": "Der Verlauf ist leer – es gibt nichts zu exportieren.",
+    "en": "History is empty — there is nothing to export.",
+    "uk": "Історія порожня — немає чого експортувати."
+  },
+  "Источник: knigavuhe.org": {
+    "de": "Quelle: knigavuhe.org",
+    "en": "Source: knigavuhe.org",
+    "uk": "Джерело: knigavuhe.org"
+  },
+  "Источник: poleknig.com": {
+    "de": "Quelle: poleknig.com",
+    "en": "Source: poleknig.com",
+    "uk": "Джерело: poleknig.com"
+  },
+  "На паузе": {
+    "de": "Pausiert",
+    "en": "Paused",
+    "uk": "На паузі"
+  },
+  "Найти resume.json, повторно проанализировать книгу и восстановить выбранные части": {
+    "de": "resume.json finden, das Buch erneut analysieren und die ausgewählten Teile wiederherstellen.",
+    "en": "Find resume.json, re-analyze the book, and restore the selected parts.",
+    "uk": "Знайти resume.json, повторно проаналізувати книгу та відновити вибрані частини."
+  },
+  "Настройки сохранены. Масштаб применится после перезапуска приложения.": {
+    "de": "Einstellungen gespeichert. Die Skalierung wird nach einem Neustart angewendet.",
+    "en": "Settings saved. Scaling will apply after restarting the application.",
+    "uk": "Налаштування збережено. Масштаб застосується після перезапуску програми."
+  },
+  "Настройки, история, позиции плеера и сохранённая очередь из ZIP заменят текущие данные. Продолжить?": {
+    "de": "Einstellungen, Verlauf, Player-Positionen und die gespeicherte Warteschlange aus der ZIP-Datei ersetzen die aktuellen Daten. Fortfahren?",
+    "en": "Settings, history, player positions, and the saved queue from the ZIP will replace the current data. Continue?",
+    "uk": "Налаштування, історія, позиції плеєра та збережена черга з ZIP замінять поточні дані. Продовжити?"
+  },
+  "Незавершено": {
+    "de": "Unvollständig",
+    "en": "Incomplete",
+    "uk": "Незавершено"
+  },
+  "Незавершённых загрузок с resume.json не найдено.": {
+    "de": "Keine unvollständigen Downloads mit resume.json gefunden.",
+    "en": "No unfinished downloads with resume.json were found.",
+    "uk": "Незавершених завантажень із resume.json не знайдено."
+  },
+  "Неподдерживаемая ссылка": {
+    "de": "Nicht unterstützter Link",
+    "en": "Unsupported link",
+    "uk": "Непідтримуване посилання"
+  },
+  "Нет активной операции для отмены.": {
+    "de": "Kein aktiver Vorgang zum Abbrechen.",
+    "en": "There is no active operation to cancel.",
+    "uk": "Немає активної операції для скасування."
+  },
+  "Ничего не найдено.": {
+    "de": "Keine Ergebnisse gefunden.",
+    "en": "Nothing found.",
+    "uk": "Нічого не знайдено."
+  },
+  "Обработка полного MP3": {
+    "de": "Vollständige MP3 wird verarbeitet",
+    "en": "Processing full MP3",
+    "uk": "Обробка повного MP3"
+  },
+  "Общий файл audioknigi.com.ua не содержит аудио возле последнего таймкода. Ищу исправную копию этой же озвучки на knigavuhe.org.": {
+    "de": "Die gemeinsame Datei von audioknigi.com.ua enthält nahe der letzten Zeitmarke kein Audio. Eine intakte Kopie derselben Sprecherfassung wird auf knigavuhe.org gesucht.",
+    "en": "The shared audioknigi.com.ua file has no audio near the final timestamp. Looking for an intact copy of the same narration on knigavuhe.org.",
+    "uk": "Спільний файл audioknigi.com.ua не містить аудіо біля останньої часової мітки. Шукаю справну копію цього ж озвучення на knigavuhe.org."
+  },
+  "Объединяю результаты": {
+    "de": "Ergebnisse werden zusammengeführt",
+    "en": "Combining results",
+    "uk": "Об’єдную результати"
+  },
+  "Одним MP3": {
+    "de": "Als eine MP3",
+    "en": "Single MP3",
+    "uk": "Одним MP3"
+  },
+  "Ожидает": {
+    "de": "Wartet",
+    "en": "Pending",
+    "uk": "Очікує"
+  },
+  "Ожидает повтор": {
+    "de": "Wartet auf Wiederholung",
+    "en": "Waiting to retry",
+    "uk": "Очікує повтору"
+  },
+  "Озвучка {index}": {
+    "de": "Aufnahme {index}",
+    "en": "Recording {index}",
+    "uk": "Озвучення {index}"
+  },
+  "Останавливается…": {
+    "de": "Wird gestoppt…",
+    "en": "Stopping…",
+    "uk": "Зупиняється…"
+  },
+  "Отчёт об ошибке скопирован в буфер обмена.": {
+    "de": "Fehlerbericht in die Zwischenablage kopiert.",
+    "en": "Error report copied to the clipboard.",
+    "uk": "Звіт про помилку скопійовано в буфер обміну."
+  },
+  "Очередь завершена.": {
+    "de": "Warteschlange abgeschlossen.",
+    "en": "Queue completed.",
+    "uk": "Чергу завершено."
+  },
+  "Очередь очищена.": {
+    "de": "Warteschlange geleert.",
+    "en": "Queue cleared.",
+    "uk": "Чергу очищено."
+  },
+  "Очистить всю историю загрузок? Аудиофайлы на диске останутся.": {
+    "de": "Den gesamten Downloadverlauf löschen? Die Audiodateien auf dem Datenträger bleiben erhalten.",
+    "en": "Clear the entire download history? Audio files on disk will remain.",
+    "uk": "Очистити всю історію завантажень? Аудіофайли на диску залишаться."
+  },
+  "Ошибка": {
+    "de": "Fehler",
+    "en": "Error",
+    "uk": "Помилка"
+  },
+  "Ошибка анализа": {
+    "de": "Analysefehler",
+    "en": "Analysis error",
+    "uk": "Помилка аналізу"
+  },
+  "Ошибка восстановления": {
+    "de": "Wiederherstellungsfehler",
+    "en": "Recovery error",
+    "uk": "Помилка відновлення"
+  },
+  "Ошибка плеера": {
+    "de": "Playerfehler",
+    "en": "Player error",
+    "uk": "Помилка плеєра"
+  },
+  "Ошибка резервной копии": {
+    "de": "Sicherungsfehler",
+    "en": "Backup error",
+    "uk": "Помилка резервної копії"
+  },
+  "Ошибка скачивания": {
+    "de": "Downloadfehler",
+    "en": "Download error",
+    "uk": "Помилка завантаження"
+  },
+  "Ошибка экспорта": {
+    "de": "Exportfehler",
+    "en": "Export error",
+    "uk": "Помилка експорту"
+  },
+  "Параллельная нарезка одного исходника: 2 FFmpeg-процесса (режим SSD).": {
+    "de": "Paralleles Aufteilen einer Quelle: 2 FFmpeg-Prozesse (SSD-Modus).",
+    "en": "Parallel splitting of one source: 2 FFmpeg processes (SSD mode).",
+    "uk": "Паралельна нарізка одного джерела: 2 процеси FFmpeg (режим SSD)."
+  },
+  "Пауза…": {
+    "de": "Pausiert…",
+    "en": "Pausing…",
+    "uk": "Пауза…"
+  },
+  "Плейлист найден через Playwright fallback.": {
+    "de": "Playlist über den Playwright-Fallback gefunden.",
+    "en": "Playlist found through the Playwright fallback.",
+    "uk": "Плейлист знайдено через резервний Playwright."
+  },
+  "Повторно анализирую импортированную задачу…": {
+    "de": "Importierte Aufgabe wird erneut analysiert…",
+    "en": "Re-analyzing the imported task…",
+    "uk": "Повторно аналізую імпортоване завдання…"
+  },
+  "Поддерживаются audioknigi.com.ua, knigavuhe.org и poleknig.com.": {
+    "de": "Unterstützt werden audioknigi.com.ua, knigavuhe.org und poleknig.com.",
+    "en": "Supported sources are audioknigi.com.ua, knigavuhe.org, and poleknig.com.",
+    "uk": "Підтримуються audioknigi.com.ua, knigavuhe.org і poleknig.com."
+  },
+  "Поиск выполняется": {
+    "de": "Suche läuft",
+    "en": "Search in progress",
+    "uk": "Пошук виконується"
+  },
+  "Поиск ещё выполняется. Отменить его и закрыть программу после остановки?": {
+    "de": "Die Suche läuft noch. Abbrechen und die Anwendung danach schließen?",
+    "en": "Search is still running. Cancel it and close the application when it stops?",
+    "uk": "Пошук ще виконується. Скасувати його й закрити програму після зупинки?"
+  },
+  "Поиск завершён": {
+    "de": "Suche abgeschlossen",
+    "en": "Search complete",
+    "uk": "Пошук завершено"
+  },
+  "Поиск запущен": {
+    "de": "Suche gestartet",
+    "en": "Search started",
+    "uk": "Пошук запущено"
+  },
+  "Получить сведения о книге и список доступных частей": {
+    "de": "Buchinformationen und die Liste der verfügbaren Teile abrufen.",
+    "en": "Get book information and the list of available parts.",
+    "uk": "Отримати відомості про книгу та список доступних частин."
+  },
+  "Последний отчёт об ошибке отсутствует.": {
+    "de": "Kein letzter Fehlerbericht vorhanden.",
+    "en": "No recent crash report is available.",
+    "uk": "Останній звіт про помилку відсутній."
+  },
+  "Приложение готово.": {
+    "de": "Anwendung bereit.",
+    "en": "Application ready.",
+    "uk": "Застосунок готовий."
+  },
+  "Применится после перезапуска": {
+    "de": "Wird nach einem Neustart angewendet.",
+    "en": "Applies after restart.",
+    "uk": "Застосується після перезапуску."
+  },
+  "Проверка доступности": {
+    "de": "Barrierefreiheitsprüfung",
+    "en": "Accessibility check",
+    "uk": "Перевірка доступності"
+  },
+  "Программа продолжает работать в системном трее.": {
+    "de": "Die Anwendung läuft im System-Tray weiter.",
+    "en": "The application continues running in the system tray.",
+    "uk": "Програма продовжує працювати в системному треї."
+  },
+  "Скачивается": {
+    "de": "Wird heruntergeladen",
+    "en": "Downloading",
+    "uk": "Завантажується"
+  },
+  "Скачивание": {
+    "de": "Download",
+    "en": "Download",
+    "uk": "Завантаження"
+  },
+  "Скачивание аудиокниги завершено.": {
+    "de": "Der Hörbuch-Download ist abgeschlossen.",
+    "en": "Audiobook download completed.",
+    "uk": "Завантаження аудіокниги завершено."
+  },
+  "Скачивание выполняется": {
+    "de": "Download läuft",
+    "en": "Download in progress",
+    "uk": "Завантаження виконується"
+  },
+  "Скачивание ещё выполняется. Отменить его и закрыть программу после остановки?": {
+    "de": "Der Download läuft noch. Abbrechen und die Anwendung danach schließen?",
+    "en": "A download is still running. Cancel it and close the application when it stops?",
+    "uk": "Завантаження ще виконується. Скасувати його й закрити програму після зупинки?"
+  },
+  "Скачивание отменено пользователем.": {
+    "de": "Download vom Benutzer abgebrochen.",
+    "en": "Download cancelled by user.",
+    "uk": "Завантаження скасовано користувачем."
+  },
+  "Скачивание полного MP3": {
+    "de": "Vollständige MP3 wird heruntergeladen",
+    "en": "Downloading full MP3",
+    "uk": "Завантаження повного MP3"
+  },
+  "Скачивание уже выполняется.": {
+    "de": "Ein Download läuft bereits.",
+    "en": "A download is already running.",
+    "uk": "Завантаження вже виконується."
+  },
+  "Сначала выберите книгу в результатах поиска.": {
+    "de": "Wähle zuerst ein Buch in den Suchergebnissen aus.",
+    "en": "Select a book in the search results first.",
+    "uk": "Спочатку оберіть книгу в результатах пошуку."
+  },
+  "Сначала выберите часть книги.": {
+    "de": "Wähle zuerst einen Buchteil aus.",
+    "en": "Select a book part first.",
+    "uk": "Спочатку оберіть частину книги."
+  },
+  "Сначала проанализируйте книгу.": {
+    "de": "Analysiere zuerst das Buch.",
+    "en": "Analyze the book first.",
+    "uk": "Спочатку проаналізуйте книгу."
+  },
+  "Ссылка в буфере обмена": {
+    "de": "Link in der Zwischenablage",
+    "en": "Link in clipboard",
+    "uk": "Посилання в буфері обміну"
+  },
+  "Ссылка полного аудиофайла устарела. Обновляю страницу и плейлист один раз…": {
+    "de": "Der Link zur vollständigen Audiodatei ist abgelaufen. Seite und Playlist werden einmal aktualisiert…",
+    "en": "The full-audio link expired. Refreshing the page and playlist once…",
+    "uk": "Посилання на повний аудіофайл застаріло. Один раз оновлюю сторінку та плейлист…"
+  },
+  "Требуется повторный анализ": {
+    "de": "Erneute Analyse erforderlich",
+    "en": "Re-analysis required",
+    "uk": "Потрібен повторний аналіз"
+  },
+  "У выбранной части пока нет доступного локального файла. Сначала скачайте её или откройте готовый аудиофайл на вкладке «Плеер».": {
+    "de": "Für den ausgewählten Teil ist noch keine lokale Datei verfügbar. Lade ihn zuerst herunter oder öffne eine vorhandene Audiodatei auf der Registerkarte „Player“.",
+    "en": "The selected part does not have a local file yet. Download it first or open an existing audio file on the Player tab.",
+    "uk": "Для вибраної частини поки немає доступного локального файла. Спочатку завантажте її або відкрийте готовий аудіофайл на вкладці «Плеєр»."
+  },
+  "У книги несколько исходных файлов. Используйте очередь по частям.": {
+    "de": "Das Buch hat mehrere Quelldateien. Füge es stattdessen in Teilen zur Warteschlange hinzu.",
+    "en": "The book has multiple source files. Add it to the queue as separate parts instead.",
+    "uk": "Книга має кілька вихідних аудіофайлів. Додайте її до черги частинами."
+  },
+  "У книги несколько исходных файлов. Используйте скачивание по частям.": {
+    "de": "Das Buch hat mehrere Quelldateien. Verwende den Download nach Teilen.",
+    "en": "The book has multiple source files. Use per-part downloading.",
+    "uk": "Книга має кілька вихідних аудіофайлів. Використовуйте завантаження частинами."
+  },
+  "У книги нет доступных аудиофайлов.": {
+    "de": "Für dieses Buch sind keine Audiodateien verfügbar.",
+    "en": "This book has no available audio files.",
+    "uk": "У книги немає доступних аудіофайлів."
+  },
+  "Удалить все задачи из очереди? Загруженные аудиофайлы останутся на диске.": {
+    "de": "Alle Aufgaben aus der Warteschlange entfernen? Heruntergeladene Audiodateien bleiben auf dem Datenträger.",
+    "en": "Remove all tasks from the queue? Downloaded audio files will remain on disk.",
+    "uk": "Видалити всі завдання з черги? Завантажені аудіофайли залишаться на диску."
+  },
+  "Файл не найден": {
+    "de": "Datei nicht gefunden",
+    "en": "File not found",
+    "uk": "Файл не знайдено"
+  },
+  "Часть источников недоступна.": {
+    "de": "Einige Quellen sind nicht verfügbar.",
+    "en": "Some sources are unavailable.",
+    "uk": "Частина джерел недоступна."
+  },
+  "доступно": {
+    "de": "verfügbar",
+    "en": "available",
+    "uk": "доступно"
+  },
+  "недоступно": {
+    "de": "nicht verfügbar",
+    "en": "unavailable",
+    "uk": "недоступно"
+  },
+  "ограничено": {
+    "de": "eingeschränkt",
+    "en": "restricted",
+    "uk": "обмежено"
+  }
+}

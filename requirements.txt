@@ -1,0 +1,6 @@
+# Qt-only runtime dependencies (Python 3.11+).
+PySide6>=6.8,<7
+requests
+playwright
+Pillow
+mutagen

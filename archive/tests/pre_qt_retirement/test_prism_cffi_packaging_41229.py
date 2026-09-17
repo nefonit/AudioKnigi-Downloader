@@ -1,0 +1,53 @@
+from pathlib import Path
+
+from audioknigi.version import __version__
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_release_version_41229():
+    assert __version__ == "4.12.31"
+
+
+def test_windows_requires_current_prismatoid_0182():
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "prismatoid>=0.18.2,<0.19" in requirements
+    assert "prismatoid>=0.18.2,<0.19" in pyproject
+
+
+def test_hook_explicitly_bundles_out_of_line_cffi_extensions():
+    hook = (ROOT / "hook-prism.py").read_text(encoding="utf-8")
+    assert '"prism._prism_cffi"' in hook
+    assert '"_cffi_backend"' in hook
+    assert 'get_module_file_attribute("prism._prism_cffi")' not in hook  # loop uses variable deliberately
+    assert '("prism._prism_cffi", "prism")' in hook
+    assert '("_cffi_backend", ".")' in hook
+    assert "get_module_file_attribute(_module_name)" in hook
+
+
+def test_build_ci_resolves_and_adds_exact_pyd_files():
+    build = (ROOT / "build_ci.ps1").read_text(encoding="utf-8-sig")
+    assert "import prism._prism_cffi as m; print(m.__file__)" in build
+    assert "import _cffi_backend as m; print(m.__file__)" in build
+    assert '"--hidden-import", "prism._prism_cffi"' in build
+    assert '"--hidden-import", "_cffi_backend"' in build
+    assert '"--add-binary", "$prismCffi;prism"' in build
+    assert '"--add-binary", "$cffiBackend;."' in build
+
+
+def test_frozen_selftest_checks_both_cffi_extensions():
+    gui = (ROOT / "audioknigi_gui.py").read_text(encoding="utf-8")
+    assert "import prism._prism_cffi as prism_cffi" in gui
+    assert "import _cffi_backend" in gui
+    assert "prism_cffi=" in gui
+    assert "cffi_backend=" in gui
+    assert "accessibility_frozen_selftest.txt" in gui
+
+
+def test_build_waits_for_windowed_frozen_selftest_process():
+    build = (ROOT / "build_ci.ps1").read_text(encoding="utf-8-sig")
+    assert "Start-Process -FilePath $exe" in build
+    assert "-Wait -PassThru" in build
+    assert "$accessibilityProcess.ExitCode" in build

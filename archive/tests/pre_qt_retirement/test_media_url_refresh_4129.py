@@ -1,0 +1,238 @@
+"""4.12.9 regressions for refreshing short-lived media URLs after HTTP 404/410."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from audioknigi.downloader import (
+    DownloaderMixin,
+    MissingMediaSourceError,
+    MissingSelectedTracksError,
+)
+from audioknigi.models import Book, Track
+
+
+class _RefreshHost(DownloaderMixin):
+    def __init__(self, folder: Path, fresh: Book):
+        self.folder = Path(folder)
+        self.fresh = fresh
+        self.messages = []
+        self.statuses = []
+        self.stages = []
+
+    def _check_cancel(self):
+        return None
+
+    def _book_folder(self, _book):
+        self.folder.mkdir(parents=True, exist_ok=True)
+        return self.folder
+
+    def _analyze_book(self, _url):
+        return self.fresh
+
+    def log(self, text):
+        self.messages.append(str(text))
+
+    def set_status(self, text):
+        self.statuses.append(str(text))
+
+    def set_stage(self, *parts):
+        self.stages.append(parts)
+
+
+def test_refresh_replaces_media_urls_preserves_local_state_and_cleans_temp(tmp_path):
+    old = Track(
+        index=1,
+        title="Part 1",
+        file="https://cdn.invalid/old.mp3",
+        duration=10,
+        selected=False,
+        local_status="есть",
+        actual_duration=9.9,
+        local_path="C:/book/01.mp3",
+    )
+    book = Book(
+        url="https://audioknigi.com.ua/book",
+        title="Book",
+        playlist_url="https://cdn.invalid/old.pl.txt",
+        tracks=[old],
+    )
+    fresh = Book(
+        url=book.url,
+        title="Book",
+        playlist_url="https://cdn.invalid/new.pl.txt",
+        tracks=[Track(index=1, title="Part 1", file="https://cdn.invalid/new.mp3", duration=10)],
+    )
+    host = _RefreshHost(tmp_path, fresh)
+    for name in ("_source.mp3", "_source.mp3.part", "_source.mp3.part.seg000", "_repair_source_01.mp3"):
+        (tmp_path / name).write_bytes(b"temp")
+    (tmp_path / "01.mp3").write_bytes(b"keep")
+
+    changed = host._refresh_book_media_playlist(book, [1])
+
+    assert changed == 1
+    assert book.playlist_url.endswith("new.pl.txt")
+    assert book.tracks[0].file.endswith("new.mp3")
+    assert book.tracks[0].selected is False
+    assert book.tracks[0].local_status == "есть"
+    assert book.tracks[0].actual_duration == pytest.approx(9.9)
+    assert book.tracks[0].local_path == "C:/book/01.mp3"
+    assert (tmp_path / "01.mp3").exists()
+    assert not any(tmp_path.glob("_source*.mp3*"))
+    assert not any(tmp_path.glob("_repair_source_*.mp3*"))
+    assert any("Повторяю загрузку один раз" in message for message in host.messages)
+
+
+def test_process_book_refreshes_once_after_wrapped_404():
+    class Host(DownloaderMixin):
+        def __init__(self):
+            self.calls = 0
+            self.refreshes = 0
+
+        def _process_book_once(self, _book, _selected=None, _status=None):
+            self.calls += 1
+            if self.calls == 1:
+                inner = RuntimeError("404 Client Error: Not Found for url")
+                raise RuntimeError("Сетевая ошибка после автоматических повторов") from inner
+            return "done"
+
+        def _refresh_book_media_playlist(self, _book, _selected):
+            self.refreshes += 1
+            return 1
+
+    host = Host()
+    book = Book(url="https://audioknigi.com.ua/book", title="Book", tracks=[Track(1, "One", "old")])
+    assert host._process_book(book, [1]) == "done"
+    assert host.calls == 2
+    assert host.refreshes == 1
+
+
+def test_second_404_after_refresh_is_reported_as_unavailable():
+    class Host(DownloaderMixin):
+        def __init__(self):
+            self.refreshes = 0
+
+        def _process_book_once(self, *_args, **_kwargs):
+            raise RuntimeError("404 Client Error: Not Found")
+
+        def _refresh_book_media_playlist(self, *_args, **_kwargs):
+            self.refreshes += 1
+            return 0
+
+    host = Host()
+    book = Book(url="https://audioknigi.com.ua/book", title="Book", tracks=[Track(1, "One", "old")])
+    with pytest.raises(RuntimeError, match="даже после обновления плейлиста"):
+        host._process_book(book, [1])
+    assert host.refreshes == 1
+
+
+def test_non_404_error_is_not_reanalyzed():
+    class Host(DownloaderMixin):
+        def __init__(self):
+            self.refreshes = 0
+
+        def _process_book_once(self, *_args, **_kwargs):
+            raise RuntimeError("FFmpeg failed")
+
+        def _refresh_book_media_playlist(self, *_args, **_kwargs):
+            self.refreshes += 1
+
+    host = Host()
+    book = Book(url="https://audioknigi.com.ua/book", title="Book", tracks=[Track(1, "One", "old")])
+    with pytest.raises(RuntimeError, match="FFmpeg failed"):
+        host._process_book(book, [1])
+    assert host.refreshes == 0
+
+
+def test_second_404_can_skip_only_affected_part_and_continue(tmp_path):
+    class Host(DownloaderMixin):
+        def __init__(self):
+            self.calls = []
+            self.refreshes = 0
+            self.prompts = []
+            self.messages = []
+
+        def _process_book_once(self, _book, selected, _status=None):
+            selected = set(selected)
+            self.calls.append(selected)
+            if len(self.calls) == 1:
+                raise MissingMediaSourceError(
+                    "404 Client Error: Not Found",
+                    source_url="old-2.mp3",
+                    track_indices=[2],
+                )
+            if len(self.calls) == 2:
+                raise MissingMediaSourceError(
+                    "404 Client Error: Not Found",
+                    source_url="new-2.mp3",
+                    track_indices=[2],
+                )
+            return "done"
+
+        def _refresh_book_media_playlist(self, _book, _selected):
+            self.refreshes += 1
+            return 1
+
+        def _ask_missing_media_action(self, indices, **_kwargs):
+            self.prompts.append(list(indices))
+            return "skip"
+
+        def _clear_stale_source_downloads(self, _book):
+            return None
+
+        def log(self, text):
+            self.messages.append(str(text))
+
+    host = Host()
+    book = Book(
+        url="https://audioknigi.com.ua/book",
+        title="Book",
+        tracks=[Track(1, "One", "one.mp3"), Track(2, "Two", "old-2.mp3")],
+    )
+    assert host._process_book(book, [1, 2]) == "done"
+    assert host.refreshes == 1
+    assert host.prompts == [[2]]
+    assert host.calls[-1] == {1}
+    assert host._last_process_skipped_indices == [2]
+    assert any("пропустил недоступные части: 2" in m for m in host.messages)
+
+
+def test_missing_part_in_refreshed_playlist_can_be_skipped():
+    class Host(DownloaderMixin):
+        def __init__(self):
+            self.calls = []
+            self.prompts = []
+            self.messages = []
+
+        def _process_book_once(self, _book, selected, _status=None):
+            selected = set(selected)
+            self.calls.append(selected)
+            if len(self.calls) == 1:
+                raise MissingMediaSourceError(
+                    "404 Client Error: Not Found",
+                    source_url="two.mp3",
+                    track_indices=[2],
+                )
+            return "done"
+
+        def _refresh_book_media_playlist(self, _book, _selected):
+            raise MissingSelectedTracksError([2])
+
+        def _ask_missing_media_action(self, indices, **_kwargs):
+            self.prompts.append(list(indices))
+            return "skip"
+
+        def log(self, text):
+            self.messages.append(str(text))
+
+    host = Host()
+    book = Book(
+        url="https://audioknigi.com.ua/book",
+        title="Book",
+        tracks=[Track(1, "One", "one.mp3"), Track(2, "Two", "two.mp3")],
+    )
+    assert host._process_book(book, [1, 2]) == "done"
+    assert host.prompts == [[2]]
+    assert host.calls[-1] == {1}
+    assert host._last_process_skipped_indices == [2]

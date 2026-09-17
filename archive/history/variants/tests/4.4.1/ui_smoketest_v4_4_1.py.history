@@ -1,0 +1,11 @@
+from audioknigi_v44 import AudioKnigiApp
+
+app = AudioKnigiApp()
+app.update_idletasks()
+assert app.tabview.get() == "Книга"
+assert app.tree is not None
+assert app.search_tree is not None
+print("Окно:", app.title())
+print("Вкладки: Книга, Поиск, Очередь, История, Настройки")
+print("UI SMOKETEST: OK")
+app.destroy()

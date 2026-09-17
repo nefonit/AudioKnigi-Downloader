@@ -1,0 +1,8 @@
+requests
+playwright
+Pillow
+mutagen
+pygame-ce>=2.5.8
+customtkinter>=6.0.0
+pystray>=0.19.5
+pyinstaller

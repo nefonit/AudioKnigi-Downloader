@@ -1,0 +1,394 @@
+[
+  [
+    "^Найдено (.+) книг, источников: (.+)\\.$",
+    {
+      "de": "{0} Bücher gefunden, Quellen: {1}.",
+      "en": "Found {0} books, sources: {1}.",
+      "uk": "Знайдено {0} книг, джерел: {1}."
+    }
+  ],
+  [
+    "^Найдено (.+) книг\\.$",
+    {
+      "de": "{0} Bücher gefunden.",
+      "en": "Found {0} books.",
+      "uk": "Знайдено {0} книг."
+    }
+  ],
+  [
+    "^Скачивается (\\d+/\\d+)$",
+    {
+      "de": "Wird heruntergeladen {0}",
+      "en": "Downloading {0}",
+      "uk": "Завантажується {0}"
+    }
+  ],
+  [
+    "^Скачано (.+?) из (.+?)\\s+•\\s+(.+?)\\s+•\\s+ETA\\s+(.+)$",
+    {
+      "de": "Heruntergeladen {0} von {1} • {2} • ETA {3}",
+      "en": "Downloaded {0} of {1} • {2} • ETA {3}",
+      "uk": "Завантажено {0} із {1} • {2} • ETA {3}"
+    }
+  ],
+  [
+    "^Range (\\d+/\\d+)\\s+•\\s+(.+?) из (.+?)\\s+•\\s+(.+?)\\s+•\\s+ETA\\s+(.+)$",
+    {
+      "de": "Range {0} • {1} von {2} • {3} • ETA {4}",
+      "en": "Range {0} • {1} of {2} • {3} • ETA {4}",
+      "uk": "Range {0} • {1} із {2} • {3} • ETA {4}"
+    }
+  ],
+  [
+    "^Обрабатываю полный файл \\(исходный кодек: (.+?)\\) с выбранным профилем качества и нормализацией\\.$",
+    {
+      "de": "Vollständige Datei wird verarbeitet (Quellcodec: {0}) mit dem gewählten Qualitätsprofil und Normalisierung.",
+      "en": "Processing full file (source codec: {0}) with the selected quality profile and normalization.",
+      "uk": "Обробляю повний файл (вихідний кодек: {0}) з вибраним профілем якості та нормалізацією."
+    }
+  ],
+  [
+    "^Скачано (.+) из (.+)$",
+    {
+      "de": "Heruntergeladen {0} von {1}",
+      "en": "Downloaded {0} of {1}",
+      "uk": "Завантажено {0} із {1}"
+    }
+  ],
+  [
+    "^Скачано (.+?)\\s+•\\s+(.+)$",
+    {
+      "de": "Heruntergeladen {0} • {1}",
+      "en": "Downloaded {0} • {1}",
+      "uk": "Завантажено {0} • {1}"
+    }
+  ],
+  [
+    "^Ищу на (.+)$",
+    {
+      "de": "Suche auf {0}",
+      "en": "Searching {0}",
+      "uk": "Шукаю на {0}"
+    }
+  ],
+  [
+    "^Источник (.+) обработан$",
+    {
+      "de": "Quelle {0} verarbeitet",
+      "en": "Source {0} processed",
+      "uk": "Джерело {0} оброблено"
+    }
+  ],
+  [
+    "^Анализ завершён\\. Найдено (.+) частей; выбрано (.+)\\.$",
+    {
+      "de": "Analyse abgeschlossen. {0} Teile gefunden; {1} ausgewählt.",
+      "en": "Analysis complete. Found {0} parts; selected {1}.",
+      "uk": "Аналіз завершено. Знайдено {0} частин; вибрано {1}."
+    }
+  ],
+  [
+    "^Выбрано частей: (.+) из (.+)\\.$",
+    {
+      "de": "Ausgewählte Teile: {0} von {1}.",
+      "en": "Selected parts: {0} of {1}.",
+      "uk": "Вибрано частин: {0} із {1}."
+    }
+  ],
+  [
+    "^История обновлена: (.+) записей\\.$",
+    {
+      "de": "Verlauf aktualisiert: {0} Einträge.",
+      "en": "History refreshed: {0} entries.",
+      "uk": "Історію оновлено: {0} записів."
+    }
+  ],
+  [
+    "^Audiobookshelf доступен\\. Библиотек: (.+)\\.$",
+    {
+      "de": "Audiobookshelf erreichbar. Bibliotheken: {0}.",
+      "en": "Audiobookshelf available. Libraries: {0}.",
+      "uk": "Audiobookshelf доступний. Бібліотек: {0}."
+    }
+  ],
+  [
+    "^На повтор поставлено задач: (.+)\\.$",
+    {
+      "de": "Aufgaben für Wiederholung vorgemerkt: {0}.",
+      "en": "Tasks queued for retry: {0}.",
+      "uk": "Поставлено на повтор завдань: {0}."
+    }
+  ],
+  [
+    "^Удалено завершённых задач: (.+)\\.$",
+    {
+      "de": "Abgeschlossene Aufgaben entfernt: {0}.",
+      "en": "Completed tasks removed: {0}.",
+      "uk": "Видалено завершених завдань: {0}."
+    }
+  ],
+  [
+    "^Начинаю скачивание выбранных частей: (.+)\\.$",
+    {
+      "de": "Download ausgewählter Teile wird gestartet: {0}.",
+      "en": "Starting download of selected parts: {0}.",
+      "uk": "Починаю завантаження вибраних частин: {0}."
+    }
+  ],
+  [
+    "^Плеер: продолжаю (.+) с (.+)\\.$",
+    {
+      "de": "Player: {0} wird ab {1} fortgesetzt.",
+      "en": "Player: resuming {0} from {1}.",
+      "uk": "Плеєр: продовжую {0} з {1}."
+    }
+  ],
+  [
+    "^Плеер: загружен (.+)\\.$",
+    {
+      "de": "Player: {0} geladen.",
+      "en": "Player: loaded {0}.",
+      "uk": "Плеєр: завантажено {0}."
+    }
+  ],
+  [
+    "^Плеер: следующая глава — (.+)\\.$",
+    {
+      "de": "Player: nächstes Kapitel — {0}.",
+      "en": "Player: next chapter — {0}.",
+      "uk": "Плеєр: наступна глава — {0}."
+    }
+  ],
+  [
+    "^Воспроизведение книги завершено: (.+)$",
+    {
+      "de": "Buchwiedergabe abgeschlossen: {0}",
+      "en": "Book playback completed: {0}",
+      "uk": "Відтворення книги завершено: {0}"
+    }
+  ],
+  [
+    "^Восстанавливаю загрузку: (.+)$",
+    {
+      "de": "Download wird wiederhergestellt: {0}",
+      "en": "Restoring download: {0}",
+      "uk": "Відновлюю завантаження: {0}"
+    }
+  ],
+  [
+    "^Выбрана другая озвучка: (.+)$",
+    {
+      "de": "Andere Sprecherfassung ausgewählt: {0}",
+      "en": "Different narration selected: {0}",
+      "uk": "Вибрано інше озвучення: {0}"
+    }
+  ],
+  [
+    "^Выбрана книга: (.+)$",
+    {
+      "de": "Buch ausgewählt: {0}",
+      "en": "Selected book: {0}",
+      "uk": "Обрано книгу: {0}"
+    }
+  ],
+  [
+    "^Готово: (.+)$",
+    {
+      "de": "Fertig: {0}",
+      "en": "Done: {0}",
+      "uk": "Готово: {0}"
+    }
+  ],
+  [
+    "^Добавлено в очередь: (.+)$",
+    {
+      "de": "Zur Warteschlange hinzugefügt: {0}",
+      "en": "Added to queue: {0}",
+      "uk": "Додано до черги: {0}"
+    }
+  ],
+  [
+    "^Ищу: (.+)$",
+    {
+      "de": "Suche: {0}",
+      "en": "Searching: {0}",
+      "uk": "Шукаю: {0}"
+    }
+  ],
+  [
+    "^Качество: (.+)\\.$",
+    {
+      "de": "Qualität: {0}.",
+      "en": "Quality: {0}.",
+      "uk": "Якість: {0}."
+    }
+  ],
+  [
+    "^Позиция: (.+)\\.$",
+    {
+      "de": "Position: {0}.",
+      "en": "Position: {0}.",
+      "uk": "Позиція: {0}."
+    }
+  ],
+  [
+    "^На паузе: (.+)$",
+    {
+      "de": "Pausiert: {0}",
+      "en": "Paused: {0}",
+      "uk": "На паузі: {0}"
+    }
+  ],
+  [
+    "^Очередь: начинаю (.+)\\.$",
+    {
+      "de": "Warteschlange: starte {0}.",
+      "en": "Queue: starting {0}.",
+      "uk": "Черга: починаю {0}."
+    }
+  ],
+  [
+    "^Очередь остановлена на книге: (.+)$",
+    {
+      "de": "Warteschlange bei Buch gestoppt: {0}",
+      "en": "Queue stopped at book: {0}",
+      "uk": "Чергу зупинено на книзі: {0}"
+    }
+  ],
+  [
+    "^Ошибка в очереди: (.+?): (.+)$",
+    {
+      "de": "Warteschlangenfehler: {0}: {1}",
+      "en": "Queue error: {0}: {1}",
+      "uk": "Помилка в черзі: {0}: {1}"
+    }
+  ],
+  [
+    "^Не удалось открыть папку загрузок: (.+)$",
+    {
+      "de": "Downloadordner konnte nicht geöffnet werden: {0}",
+      "en": "Could not open the downloads folder: {0}",
+      "uk": "Не вдалося відкрити папку завантажень: {0}"
+    }
+  ],
+  [
+    "^Библиотека экспортирована: (.+)$",
+    {
+      "de": "Bibliothek exportiert: {0}",
+      "en": "Library exported: {0}",
+      "uk": "Бібліотеку експортовано: {0}"
+    }
+  ],
+  [
+    "^Полный MP3 сохранён: (.+)$",
+    {
+      "de": "Vollständige MP3 gespeichert: {0}",
+      "en": "Full MP3 saved: {0}",
+      "uk": "Повний MP3 збережено: {0}"
+    }
+  ],
+  [
+    "^Скачивание завершено: (.+)$",
+    {
+      "de": "Download abgeschlossen: {0}",
+      "en": "Download completed: {0}",
+      "uk": "Завантаження завершено: {0}"
+    }
+  ],
+  [
+    "^Источник audioknigi\\.com\\.ua короче плейлиста \\((.+) с вместо (.+) с\\)\\. Ищу резервный источник…$",
+    {
+      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Wiedergabeliste ({0} s statt {1} s). Suche nach einer Ersatzquelle…",
+      "en": "The audioknigi.com.ua source is shorter than the playlist ({0}s instead of {1}s). Looking for a fallback source…",
+      "uk": "Джерело audioknigi.com.ua коротше за плейлист ({0} с замість {1} с). Шукаю резервне джерело…"
+    }
+  ],
+  [
+    "^Источник audioknigi\\.com\\.ua короче таймкодов плейлиста \\((.+) вместо (.+)\\)\\. Ищу исправную копию этой же озвучки на knigavuhe\\.org\\.$",
+    {
+      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Zeitmarken der Wiedergabeliste ({0} statt {1}). Suche auf knigavuhe.org nach einer intakten Kopie derselben Sprecherfassung.",
+      "en": "The audioknigi.com.ua source is shorter than the playlist timeline ({0} instead of {1}). Looking on knigavuhe.org for a valid copy of the same narration.",
+      "uk": "Джерело audioknigi.com.ua коротше за таймкоди плейлиста ({0} замість {1}). Шукаю справну копію цього ж озвучення на knigavuhe.org."
+    }
+  ],
+  [
+    "^Скачивание завершено\\. Пропущены недоступные части: (.+)$",
+    {
+      "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: {0}",
+      "en": "Download completed. Unavailable parts were skipped: {0}",
+      "uk": "Завантаження завершено. Пропущено недоступні частини: {0}"
+    }
+  ],
+  [
+    "^Определяю длительность частей: (.+)/(.+)$",
+    {
+      "de": "Dauer der Teile wird ermittelt: {0}/{1}",
+      "en": "Determining part durations: {0}/{1}",
+      "uk": "Визначаю тривалість частин: {0}/{1}"
+    }
+  ],
+  [
+    "^Определена длительность частей: (.+)/(.+)$",
+    {
+      "de": "Dauer der Teile ermittelt: {0}/{1}",
+      "en": "Part durations determined: {0}/{1}",
+      "uk": "Визначено тривалість частин: {0}/{1}"
+    }
+  ],
+  [
+    "^Найдено частей: (.+)$",
+    {
+      "de": "Teile gefunden: {0}",
+      "en": "Parts found: {0}",
+      "uk": "Знайдено частин: {0}"
+    }
+  ],
+  [
+    "^Анализирую audioknigi\\.com\\.ua быстрым HTTP-способом…$",
+    {
+      "de": "Analysiere audioknigi.com.ua per schnellem HTTP-Verfahren…",
+      "en": "Analyzing audioknigi.com.ua using the fast HTTP method…",
+      "uk": "Аналізую audioknigi.com.ua швидким HTTP-способом…"
+    }
+  ],
+  [
+    "^Анализирую (.+)…$",
+    {
+      "de": "Analysiere {0}…",
+      "en": "Analyzing {0}…",
+      "uk": "Аналізую {0}…"
+    }
+  ],
+  [
+    "^HTTP-анализ не сработал\\. Пробую Playwright fallback…$",
+    {
+      "de": "HTTP-Analyse fehlgeschlagen. Playwright-Fallback wird versucht…",
+      "en": "HTTP analysis failed. Trying the Playwright fallback…",
+      "uk": "HTTP-аналіз не спрацював. Пробую резервний Playwright…"
+    }
+  ],
+  [
+    "^Резервная копия создана:\\r?\\n([\\s\\S]+)$",
+    {
+      "de": "Sicherung erstellt:\n{0}",
+      "en": "Backup created:\n{0}",
+      "uk": "Резервну копію створено:\n{0}"
+    }
+  ],
+  [
+    "^Файл загружен\\. Продолжение с сохранённой позиции (.+) секунд\\.$",
+    {
+      "de": "Datei geladen. Fortsetzung ab gespeicherter Position {0} Sekunden.",
+      "en": "File loaded. Resuming from the saved position at {0} seconds.",
+      "uk": "Файл завантажено. Продовження зі збереженої позиції {0} секунд."
+    }
+  ],
+  [
+    "^Файл загружен: (.+)$",
+    {
+      "de": "Datei geladen: {0}",
+      "en": "File loaded: {0}",
+      "uk": "Файл завантажено: {0}"
+    }
+  ]
+]

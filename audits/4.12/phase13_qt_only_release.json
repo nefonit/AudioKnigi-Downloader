@@ -1,0 +1,27 @@
+{
+  "stage": "phase-13",
+  "strict_full_parity_before_retirement": {
+    "passed": 61,
+    "total": 61
+  },
+  "pre_retirement_regression": {
+    "passed": 613,
+    "total": 613
+  },
+  "strict_full_parity_after_retirement": {
+    "passed": 61,
+    "total": 61,
+    "legacy_runtime_paths_present": 0
+  },
+  "qt_import_audit": {
+    "reachable_project_modules": 39,
+    "legacy_frontend_paths": 0
+  },
+  "qt_only_active_tests": {
+    "passed": 5,
+    "total": 5
+  },
+  "compileall": "pass",
+  "legacy_test_reference": "archive/tests/pre_qt_retirement",
+  "windows_nvda_jaws_acceptance": "required_on_final_exe"
+}

@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import ttk
+
+import pytest
+
+from audioknigi import AudioKnigiApp
+from audioknigi.core import APP_VERSION
+from audioknigi.models import SearchResult
+from audioknigi.ui_kit import CTkButton, CTkOptionMenu, install_keyboard_accessibility
+
+
+@pytest.fixture
+def app():
+    instance = AudioKnigiApp()
+    instance.update_idletasks()
+    instance.ui_mode_var.set("Простой")
+    instance.runtime_ui_mode = "easy"
+    instance._apply_ui_mode()
+    yield instance
+    try:
+        dialog = getattr(instance, "_easy_validation_dialog", None)
+        if dialog is not None and dialog.winfo_exists():
+            dialog.destroy()
+    except Exception:
+        pass
+    try:
+        instance.destroy()
+    except Exception:
+        pass
+
+
+def _walk(widget):
+    yield widget
+    try:
+        children = widget.winfo_children()
+    except Exception:
+        children = ()
+    for child in children:
+        yield from _walk(child)
+
+
+def test_version_is_4125():
+    assert APP_VERSION == "4.12.5"
+
+
+def test_empty_universal_input_opens_modal_instead_of_bottom_card(app):
+    app.url_var.set("")
+    app.easy_universal_action()
+    app.update_idletasks()
+
+    dialog = app._easy_validation_dialog
+    assert dialog is not None
+    assert dialog.winfo_exists()
+    assert dialog.title() == "Поле не заполнено"
+    assert app.easy_action_frame.winfo_manager() == ""
+    texts = []
+    for widget in _walk(dialog):
+        try:
+            value = widget.cget("text")
+        except Exception:
+            continue
+        if value:
+            texts.append(str(value))
+    assert "Введите название книги, автора или вставьте ссылку на страницу книги." in texts
+    assert "Перейти к полю" in texts
+    assert "Закрыть" in texts
+
+
+def test_modal_primary_action_returns_focus_to_universal_field(app):
+    app.url_var.set("")
+    dialog = app._show_empty_universal_dialog()
+    assert dialog is app._easy_validation_dialog
+
+    app._close_easy_validation_dialog(focus_input=True)
+    app.update_idletasks()
+
+    assert app._easy_validation_dialog is None
+    # Focus may be virtualized by Xvfb, so verify the intended target is
+    # focusable and the app helper can focus it without scrolling manually.
+    assert str(app.easy_url_entry.cget("takefocus")).lower() not in {"", "0", "false", "none"}
+    assert app._focus_easy_url_entry() is True
+
+
+def test_escape_closes_modal_before_canceling_operation(app, monkeypatch):
+    cancelled = []
+    monkeypatch.setattr(app, "cancel_current", lambda: cancelled.append(True))
+    app.busy = True
+    app._show_empty_universal_dialog()
+
+    assert app._handle_escape() == "break"
+    assert app._easy_validation_dialog is None
+    assert cancelled == []
+
+
+def test_escape_cancels_busy_operation_when_no_transient_ui_is_open(app, monkeypatch):
+    cancelled = []
+    monkeypatch.setattr(app, "cancel_current", lambda: cancelled.append(True))
+    app.busy = True
+    assert app._handle_escape() == "break"
+    assert cancelled == [True]
+
+
+def test_alt_shortcuts_open_all_five_advanced_tabs(app):
+    expected = {
+        "book": "Книга",
+        "search": "Поиск",
+        "queue": "Очередь",
+        "history": "История",
+        "settings": "Настройки",
+    }
+    for key, label in expected.items():
+        app._open_tab_shortcut(key)
+        app.update_idletasks()
+        assert app.ui_mode_var.get() == "Расширенный"
+        assert app.tabview.get() == label
+
+
+def test_ctrl_tab_cycle_wraps_between_work_tabs(app):
+    app.open_advanced_tab("settings")
+    app._cycle_advanced_tab(1)
+    assert app.tabview.get() == "Книга"
+    app._cycle_advanced_tab(-1)
+    assert app.tabview.get() == "Настройки"
+
+
+def test_enter_invokes_native_ttk_button_via_keyboard_layer():
+    root = tk.Tk()
+    try:
+        install_keyboard_accessibility(root)
+        calls = []
+        button = CTkButton(root, text="Action", command=lambda: calls.append("ok"))
+        button.pack()
+        root.update()
+        button.focus_force()
+        button.event_generate("<Return>")
+        root.update()
+        assert calls == ["ok"]
+    finally:
+        root.destroy()
+
+
+def test_f4_opens_and_escape_closes_native_combobox():
+    root = tk.Tk()
+    try:
+        install_keyboard_accessibility(root)
+        combo = CTkOptionMenu(root, values=("A", "B", "C"))
+        combo.pack()
+        root.update()
+        combo.focus_force()
+        combo.event_generate("<F4>")
+        root.update()
+        popdown = root.tk.call("ttk::combobox::PopdownWindow", combo._w)
+        assert bool(int(root.tk.call("winfo", "ismapped", popdown)))
+        combo.event_generate("<Escape>")
+        root.update()
+        assert not bool(int(root.tk.call("winfo", "ismapped", popdown)))
+    finally:
+        root.destroy()
+
+
+def test_easy_search_tree_enter_opens_selected_book(app, monkeypatch):
+    app.search_results = [
+        SearchResult(
+            title="Книга",
+            author="Автор",
+            narrator="Чтец",
+            source="poleknig.com",
+            url="https://poleknig.com/books/1",
+        )
+    ]
+    app._refresh_search_results()
+    app.update_idletasks()
+    app.easy_search_tree.selection_set("0")
+    app.easy_search_tree.focus("0")
+    app.easy_search_tree.focus_force()
+    app.update()
+    calls = []
+    monkeypatch.setattr(app, "_begin_analysis", lambda auto_download=False: calls.append(auto_download))
+
+    app.easy_search_tree.event_generate("<Return>")
+    app.update()
+    assert calls == [False]
+    assert app.url_var.get() == "https://poleknig.com/books/1"
+
+
+def test_advanced_search_and_history_have_keyboard_activation_bindings(app):
+    # Bind scripts provide a regression check without invoking OS folders.
+    assert app.search_tree.bind("<Return>")
+    assert app.search_tree.bind("<Shift-F10>")
+    assert app.search_tree.bind("<Menu>")
+    assert app.history_tree.bind("<Return>")
+    assert app.history_tree.bind("<Shift-F10>")
+    assert app.history_tree.bind("<Menu>")
+    assert app.queue_tree.bind("<Shift-F10>")
+    assert app.queue_tree.bind("<Menu>")
+    assert app.tree.bind("<Return>")
+    assert app.tree.bind("<Shift-F10>")
+    assert app.tree.bind("<Menu>")

@@ -1,0 +1,201 @@
+"""4.12.5 regressions: modal validation and full keyboard navigation."""
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import ttk
+
+import pytest
+
+from audioknigi import AudioKnigiApp
+from audioknigi.core import APP_VERSION
+from audioknigi.models import SearchResult
+from audioknigi.ui_kit import CTkButton, CTkOptionMenu, post_combobox_popdown, unpost_combobox_popdowns
+
+
+@pytest.fixture
+def app():
+    instance = AudioKnigiApp()
+    instance.update_idletasks()
+    instance.ui_mode_var.set("Простой")
+    instance._apply_ui_mode()
+    instance.runtime_ui_mode = "easy"
+    yield instance
+    try:
+        dialog = getattr(instance, "_required_input_dialog", None)
+        if dialog is not None and dialog.winfo_exists():
+            dialog.destroy()
+    except Exception:
+        pass
+    try:
+        instance.destroy()
+    except Exception:
+        pass
+
+
+def _posted(root, combo) -> bool:
+    popdown = root.tk.call("ttk::combobox::PopdownWindow", combo._w)
+    return bool(int(root.tk.call("winfo", "ismapped", popdown)))
+
+
+def test_version_4125():
+    assert APP_VERSION == "4.12.13"
+
+
+def test_empty_easy_input_uses_centered_modal_not_hidden_recovery_card(app):
+    app.url_var.set("")
+    app.easy_universal_action()
+    app.update_idletasks()
+
+    dialog = app._required_input_dialog
+    assert dialog is not None and dialog.winfo_exists()
+    assert dialog.title() == "Поле не заполнено"
+    assert str(dialog.transient()) == str(app)
+    assert app.easy_action_frame.winfo_manager() == ""
+
+
+def test_validation_enter_goes_to_field_and_escape_only_closes_dialog(app, monkeypatch):
+    cancelled = []
+    monkeypatch.setattr(app, "cancel_current", lambda: cancelled.append(True))
+    app.url_var.set("")
+    app.easy_universal_action()
+    dialog = app._required_input_dialog
+    dialog.event_generate("<Escape>")
+    app.update()
+    assert getattr(app, "_required_input_dialog", None) is None
+    assert cancelled == []
+
+    app.easy_universal_action()
+    dialog = app._required_input_dialog
+    dialog.event_generate("<Return>")
+    app.update()
+    assert getattr(app, "_required_input_dialog", None) is None
+    assert cancelled == []
+
+
+def test_ctk_button_activates_with_enter_and_keypad_enter():
+    root = tk.Tk()
+    calls = []
+    try:
+        button = CTkButton(root, text="Action", command=lambda: calls.append("go"))
+        button.pack()
+        root.update()
+        button.focus_force()
+        root.update()
+        button.event_generate("<Return>")
+        root.update()
+        button.event_generate("<KP_Enter>")
+        root.update()
+        assert calls == ["go", "go"]
+    finally:
+        root.destroy()
+
+
+def test_combobox_keyboard_f4_opens_and_escape_closes():
+    root = tk.Tk()
+    try:
+        combo = CTkOptionMenu(root, values=("A", "B", "C"))
+        combo.pack()
+        root.update()
+        assert unpost_combobox_popdowns(root) == 0
+        combo.focus_force()
+        root.update()
+        combo.event_generate("<F4>")
+        root.update()
+        assert _posted(root, combo)
+        combo.event_generate("<Escape>")
+        root.update()
+        assert not _posted(root, combo)
+    finally:
+        root.destroy()
+
+
+def test_alt_tab_shortcuts_and_ctrl_tab_cycle_advanced_tabs(app):
+    app._open_tab_shortcut(1)
+    app.update_idletasks()
+    assert app.ui_mode_var.get() == "Расширенный"
+    assert app._active_advanced_tab_key() == "search"
+
+    app._cycle_advanced_tab(1)
+    app.update_idletasks()
+    assert app._active_advanced_tab_key() == "queue"
+
+    app._cycle_advanced_tab(-1)
+    app.update_idletasks()
+    assert app._active_advanced_tab_key() == "search"
+
+
+def test_search_results_can_be_opened_with_enter(app, monkeypatch):
+    opened = []
+    app.search_results = [
+        SearchResult(title="Книга", author="Автор", url="https://poleknig.com/books/1", source="poleknig.com")
+    ]
+    monkeypatch.setattr(app, "analyze", lambda: opened.append(app.url_var.get()))
+    app.open_advanced_tab("search")
+    app._refresh_search_results()
+    app.update()
+    app.search_tree.selection_set("0")
+    app.search_tree.focus("0")
+    app.search_tree.focus_force()
+    app.update()
+    app.search_tree.event_generate("<Return>")
+    app.update()
+    assert opened == ["https://poleknig.com/books/1"]
+
+
+def test_history_tree_enter_runs_primary_open_action(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app, "history_open_folder", lambda: calls.append("open"))
+    app.open_advanced_tab("history")
+    app.update()
+    app.history_tree.focus_force()
+    app.update()
+    app.history_tree.event_generate("<Return>")
+    app.update()
+    assert calls == ["open"]
+
+
+def test_new_shortcut_help_mentions_keyboard_navigation(app):
+    text = app.t("help_shortcuts_body")
+    assert "Alt+1…5" in text
+    assert "Ctrl+Tab" in text
+    assert "Shift+F10" in text
+    assert "F4" in text
+
+
+def test_escape_closes_dropdown_before_cancelling_operation(app, monkeypatch):
+    cancelled = []
+    monkeypatch.setattr(app, "cancel_current", lambda: cancelled.append("cancel"))
+    combo = app.narration_combo
+    app.open_advanced_tab("book")
+    app.update()
+    combo.focus_force()
+    app.update()
+    assert post_combobox_popdown(combo)
+    app.update()
+    assert _posted(app, combo)
+
+    assert app._handle_escape() == "break"
+    app.update()
+    assert not _posted(app, combo)
+    assert cancelled == []
+
+    app._handle_escape()
+    assert cancelled == ["cancel"]
+
+
+def test_real_root_shortcuts_work_without_mouse(app):
+    app.focus_force()
+    app.update()
+    app.event_generate("<Alt-Key-4>")
+    app.update()
+    assert app.ui_mode_var.get() == "Расширенный"
+    assert app._active_advanced_tab_key() == "history"
+
+    app.event_generate("<Control-Tab>")
+    app.update()
+    assert app._active_advanced_tab_key() == "settings"
+
+    app.event_generate("<Control-l>")
+    app.update()
+    assert app._active_advanced_tab_key() == "book"
+    assert app.focus_get() == app.url_entry

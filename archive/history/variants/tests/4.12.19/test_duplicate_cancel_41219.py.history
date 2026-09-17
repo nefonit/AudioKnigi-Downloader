@@ -1,0 +1,189 @@
+import json
+import threading
+from pathlib import Path
+
+from audioknigi.actions import ActionsMixin
+from audioknigi.downloader import DownloaderMixin
+from audioknigi.models import Book, Track
+
+
+class _Button:
+    def __init__(self):
+        self.kwargs = {}
+    def configure(self, **kwargs):
+        self.kwargs.update(kwargs)
+
+
+class _CancelHost(ActionsMixin):
+    def __init__(self):
+        self.busy = True
+        self.cancel_event = threading.Event()
+        self.cancel_btn = _Button()
+        self.queue_cancel_btn = _Button()
+        self.statuses = []
+        self.logs = []
+        self.network_interrupts = 0
+    def _cancel_active_network_io(self):
+        self.network_interrupts += 1
+        return 1
+    def ui(self, func):
+        func()
+    def set_status(self, text):
+        self.statuses.append(text)
+    def log(self, text):
+        self.logs.append(text)
+
+
+def test_cancel_is_idempotent_and_disables_buttons_immediately():
+    host = _CancelHost()
+    assert host.cancel_current() is True
+    assert host.cancel_event.is_set()
+    assert host.network_interrupts == 1
+    assert host.cancel_btn.kwargs["state"] == "disabled"
+    assert host.cancel_btn.kwargs["text"] == "ОТМЕНЯЮ…"
+    assert host.queue_cancel_btn.kwargs["state"] == "disabled"
+    assert host.statuses[-1].startswith("Отменяю")
+    assert host.cancel_current() is False
+    assert len(host.logs) == 1
+
+
+class _DuplicateHost(ActionsMixin):
+    def __init__(self, folder):
+        self.folder = Path(folder)
+        self.runtime_output_mode = "mp3"
+        self.history = []
+    def _book_folder(self, book):
+        return self.folder
+    def _scan_book_files(self, book):
+        return {"ready": len(book.tracks), "existing": len(book.tracks), "damaged": 0, "total": len(book.tracks)}
+    def _book_outputs_complete(self, book, scan=None):
+        return True
+
+
+def _book():
+    return Book(
+        url="https://knigavuhe.org/book/example/",
+        title="Книга",
+        author="Автор",
+        narrator="Чтец",
+        genre="Фантастика",
+        year="2026",
+        description="Описание книги",
+        cover_url="https://example.test/cover.jpg",
+        tracks=[
+            Track(index=1, title="Глава 1", file="https://example.test/1.mp3", duration=100.0),
+            Track(index=2, title="Глава 2", file="https://example.test/2.mp3", duration=200.0),
+        ],
+    )
+
+
+def _write_metadata(folder, book, *, narrator=None):
+    payload = {
+        "title": book.title,
+        "author": book.author,
+        "narrator": narrator if narrator is not None else book.narrator,
+        "genre": book.genre,
+        "year": book.year,
+        "description": book.description,
+        "source_url": book.url,
+        "cover_url": book.cover_url,
+        "tracks": [
+            {"index": 1, "title": "Глава 1", "start": None, "end": None, "duration": 100.0},
+            {"index": 2, "title": "Глава 2", "start": None, "end": None, "duration": 200.0},
+        ],
+    }
+    Path(folder, "metadata.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def test_exact_duplicate_requires_full_selection_and_matching_metadata(tmp_path):
+    book = _book()
+    host = _DuplicateHost(tmp_path)
+    _write_metadata(tmp_path, book)
+    assert host._exact_duplicate_download(book, [1, 2]) is True
+    assert host._exact_duplicate_download(book, [2]) is False
+
+
+def test_exact_duplicate_rejects_changed_metadata(tmp_path):
+    book = _book()
+    host = _DuplicateHost(tmp_path)
+    _write_metadata(tmp_path, book, narrator="Другой чтец")
+    assert host._exact_duplicate_download(book, [1, 2]) is False
+
+
+def test_exact_duplicate_can_fall_back_to_matching_history_when_sidecar_missing(tmp_path):
+    book = _book()
+    host = _DuplicateHost(tmp_path)
+    host.history = [{
+        "url": book.url,
+        "folder": str(tmp_path),
+        "parts": 2,
+        "title": book.title,
+        "author": book.author,
+        "narrator": book.narrator,
+        "genre": book.genre,
+        "year": book.year,
+        "description": book.description,
+        "cover_url": book.cover_url,
+    }]
+    assert host._exact_duplicate_download(book, [1, 2]) is True
+
+
+def test_recheck_button_removed_from_advanced_book_ui():
+    source = (Path(__file__).parents[1] / "audioknigi" / "ui" / "main_tab.py").read_text(encoding="utf-8")
+    assert "Проверить скачанные файлы" not in source
+    assert "command=app.recheck_current_book" not in source
+
+
+def test_auto_download_uses_common_download_preflight():
+    source = (Path(__file__).parents[1] / "audioknigi" / "actions.py").read_text(encoding="utf-8")
+    auto_block = source[source.index("if auto_requested:"):source.index("except Cancelled:", source.index("if auto_requested:"))]
+    assert "_start_auto_download_selected" in auto_block
+    assert "_offer_duplicate_book" not in auto_block
+
+
+class _Response:
+    def __init__(self):
+        self.closed = 0
+    def close(self):
+        self.closed += 1
+
+
+class _NetworkHost(DownloaderMixin):
+    pass
+
+
+def test_cancel_active_network_io_closes_registered_streams():
+    host = _NetworkHost()
+    first = _Response()
+    second = _Response()
+    host._register_active_network_response(first)
+    host._register_active_network_response(second)
+    assert host._cancel_active_network_io() == 2
+    assert first.closed == 1
+    assert second.closed == 1
+    host._unregister_active_network_response(first)
+    host._unregister_active_network_response(second)
+
+class _DownloadEntryHost(ActionsMixin):
+    def __init__(self):
+        self.current_book = _book()
+        self.cancel_event = threading.Event()
+        self.duplicate_calls = 0
+        self.disk_checks = 0
+    def _capture_runtime_options(self):
+        pass
+    def _exact_duplicate_download(self, book, selected):
+        return True
+    def _offer_duplicate_book(self, book):
+        self.duplicate_calls += 1
+        return False
+    def _check_disk_space(self, *args, **kwargs):
+        self.disk_checks += 1
+        return True
+
+
+def test_download_selected_runs_duplicate_preflight_before_disk_and_worker():
+    host = _DownloadEntryHost()
+    assert host.download_selected() is False
+    assert host.duplicate_calls == 1
+    assert host.disk_checks == 0

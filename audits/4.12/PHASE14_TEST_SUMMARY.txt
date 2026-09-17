@@ -1,0 +1,33 @@
+AudioKnigi Downloader 4.12.31 — Qt-only Phase 14 verification
+Date: 2026-09-07
+
+Trigger:
+- Real Windows PySide6 startup crash in AudioKnigiQtWindow._apply_large_mode:
+  QObject.findChildren((QTableView, QTableWidget)) -> TypeError.
+
+Final gates in the Linux audit environment:
+- Active Qt-only tests: 17/17 PASS.
+- Strict full parity: 61/61 PASS.
+- Qt static import boundary: 39 project modules reachable, 0 legacy frontend paths.
+- compileall: PASS.
+- Legacy Tk runtime: absent (Phase 13 retirement preserved).
+
+Phase 14 additionally hardens:
+- QStyleFactory theme switching.
+- QAccessible announcement politeness fallback.
+- missing-media modal cancellation lifecycle.
+- queue clear/reset selection lifecycle.
+- keyboard player seeking.
+- QMediaPlayer Stop resume sequencing.
+- dynamic modal accessibility IDs.
+- duplicate settings writes.
+- Playwright analysis local initialization/cleanup.
+- track checkbox EditRole/CheckStateRole compatibility.
+- source-window accessibility self-test before PyInstaller.
+
+Not executed here:
+- Native Windows PySide6 source launch.
+- NVDA / JAWS speech acceptance.
+Run on Windows after extraction:
+  py audioknigi_qt.py --qt-accessibility-selftest
+  py audioknigi_qt.py

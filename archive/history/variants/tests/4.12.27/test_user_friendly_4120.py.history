@@ -1,0 +1,237 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from audioknigi import AudioKnigiApp
+from audioknigi.core import APP_VERSION
+from audioknigi.models import Book, NarrationVariant, SearchResult, Track
+from audioknigi.onboarding import FirstRunWizard
+
+
+@pytest.fixture
+def app():
+    instance = AudioKnigiApp()
+    instance.update_idletasks()
+    instance.ui_mode_var.set("Простой")
+    instance._apply_ui_mode()
+    instance.runtime_ui_mode = "easy"
+    yield instance
+    try:
+        instance.destroy()
+    except Exception:
+        pass
+
+
+def _walk_texts(widget):
+    values = []
+    try:
+        text = widget.cget("text")
+        if text:
+            values.append(str(text))
+    except Exception:
+        pass
+    for child in widget.winfo_children():
+        values.extend(_walk_texts(child))
+    return values
+
+
+def test_version_and_mode_labels_are_user_friendly(app):
+    assert APP_VERSION == "4.12.27"
+    assert app.easy_mode_btn.cget("text") == "Простой режим"
+    assert app.advanced_mode_btn.cget("text") == "Расширенный режим"
+    assert app.easy_download_btn.cget("text") == "Найти или открыть"
+
+
+def test_universal_field_routes_plain_text_to_all_site_search(app, monkeypatch):
+    called = []
+    monkeypatch.setattr(app, "search_books", lambda: called.append(app.search_query_var.get()))
+    app.url_var.set("Филатов")
+
+    app.easy_universal_action()
+
+    assert app.search_query_var.get() == "Филатов"
+    assert called == ["Филатов"]
+
+
+def test_universal_field_routes_supported_url_to_analysis_without_autodownload(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app, "_begin_analysis", lambda auto_download=False: calls.append(auto_download))
+    app.url_var.set("https://poleknig.com/books/147736")
+
+    app.easy_universal_action()
+
+    assert calls == [False]
+    assert app.url_var.get().startswith("https://poleknig.com/books/")
+
+
+def test_simple_and_advanced_search_tables_hide_raw_url_and_show_status(app):
+    app.search_results = [
+        SearchResult(
+            title="Тестовая книга",
+            author="Автор",
+            narrator="Чтец",
+            source="poleknig.com",
+            url="https://poleknig.com/books/1",
+            variant_count=3,
+            availability="available",
+        )
+    ]
+    app._refresh_search_results()
+
+    assert "url" not in tuple(app.search_tree.cget("columns"))
+    assert "url" not in tuple(app.easy_search_tree.cget("columns"))
+    assert "status" in tuple(app.search_tree.cget("columns"))
+    assert app.search_tree.item("0", "values")[4] == "3 озвучки"
+    assert app.easy_search_tree.item("0", "values")[3] == "3 озвучки"
+
+
+def test_pre_download_confirmation_summarizes_book_parts_and_folder(app, tmp_path):
+    app.runtime_output_dir = str(tmp_path)
+    app.runtime_use_templates = False
+    book = Book(
+        url="https://poleknig.com/books/1",
+        title="Мастер и Маргарита",
+        author="Михаил Булгаков",
+        narrator="Тестовый чтец",
+        tracks=[
+            Track(index=1, title="01", file="https://example/1.mp3"),
+            Track(index=2, title="02", file="https://example/2.mp3"),
+        ],
+    )
+    app.current_book = book
+
+    app._show_easy_download_confirmation(book)
+    app.update_idletasks()
+
+    assert app.easy_confirm_frame.winfo_manager() == "pack"
+    assert app.easy_confirm_title_var.get() == "Мастер и Маргарита"
+    assert "Михаил Булгаков" in app.easy_confirm_meta_var.get()
+    assert "Частей: 2" in app.easy_confirm_meta_var.get()
+    assert "Сохранить в:" in app.easy_confirm_path_var.get()
+
+
+def test_restricted_narration_marks_availability_and_exposes_recovery_button(app):
+    book = Book(
+        url="https://poleknig.com/books/10",
+        title="Про Федота-стрельца",
+        narrator="Леонид Филатов",
+        restricted=True,
+        narration_variants=[
+            NarrationVariant(
+                url="https://poleknig.com/books/10",
+                narrator="Леонид Филатов",
+                current=True,
+                available=False,
+            ),
+            NarrationVariant(
+                url="https://poleknig.com/books/11",
+                narrator="Кристина Лари",
+                available=True,
+            ),
+        ],
+    )
+
+    app._update_narration_selector(book)
+    app.update_idletasks()
+
+    values = tuple(app.narration_combo.cget("values"))
+    assert "Леонид Филатов — недоступно" in values
+    assert "Кристина Лари — доступно" in values
+    assert app.narration_available_btn.winfo_manager() == "pack"
+
+
+def test_human_progress_translates_technical_worker_messages(app):
+    assert app._friendly_status_text("Анализ страницы") == "Получаем информацию о книге"
+    assert app._friendly_status_text("Проверка 12/48") == "Проверяем файлы — 12 из 48"
+
+
+def test_completion_card_states_full_result_and_folder(app, tmp_path):
+    book = Book(
+        url="https://poleknig.com/books/1",
+        title="Готовая книга",
+        author="Автор",
+        tracks=[
+            Track(index=1, title="01", file="https://example/1.mp3"),
+            Track(index=2, title="02", file="https://example/2.mp3"),
+        ],
+    )
+    folder = tmp_path / "Готовая книга"
+    folder.mkdir()
+    (folder / "01.mp3").write_bytes(b"x" * 1024)
+    (folder / "02.mp3").write_bytes(b"x" * 1024)
+    app.current_book = book
+
+    app._show_completion_actions(folder)
+    app.event_bus._drain()
+    app.update_idletasks()
+
+    assert app.easy_result_status_var.get() == "Книга скачана полностью. 2 из 2 частей."
+    assert app.easy_result_path_var.get() == f"Папка: {folder}"
+    assert app.easy_completion_frame.winfo_manager() == "pack"
+
+
+def test_f1_context_help_maps_current_workflow(app, monkeypatch):
+    topics = []
+    monkeypatch.setattr(app, "show_friendly_help", lambda topic=None: topics.append(topic))
+
+    app.ui_mode_var.set("Простой")
+    app.show_context_help()
+    assert topics[-1] == "download"
+
+    app.ui_mode_var.set("Расширенный")
+    app._apply_ui_mode()
+    app._select_advanced_tab("search")
+    app.show_context_help()
+    assert topics[-1] == "search"
+
+    app._select_advanced_tab("queue")
+    app.show_context_help()
+    assert topics[-1] == "queue"
+
+
+def test_first_run_starts_with_two_clear_choices_and_uses_two_steps(app):
+    wizard = FirstRunWizard(app)
+    try:
+        texts = _walk_texts(wizard.body)
+        assert "Найти книгу по названию или автору" in texts
+        assert "У меня уже есть ссылка на книгу" in texts
+        assert wizard.step == 0
+        wizard.next(); assert wizard.step == 1
+        wizard.next(); assert wizard.step == 1
+    finally:
+        try:
+            wizard.win.destroy()
+        except Exception:
+            pass
+
+
+def test_ctrl_d_simple_mode_does_not_bypass_confirmation(app, monkeypatch):
+    calls = []
+    book = Book(
+        url="https://poleknig.com/books/1",
+        title="Книга",
+        tracks=[Track(index=1, title="01", file="https://example/1.mp3")],
+    )
+    app.current_book = book
+    monkeypatch.setattr(app, "easy_confirm_download", lambda: calls.append("confirm"))
+    monkeypatch.setattr(app, "download_book_main", lambda: calls.append("advanced"))
+
+    app.runtime_ui_mode = "easy"
+    app._shortcut_download()
+    assert calls == ["confirm"]
+
+    app.runtime_ui_mode = "advanced"
+    app._shortcut_download()
+    assert calls == ["confirm", "advanced"]
+
+
+def test_simple_mode_change_folder_opens_folder_picker_directly(app, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app, "choose_folder", lambda: calls.append("choose"))
+
+    app.easy_change_folder_btn.invoke()
+
+    assert calls == ["choose"]
+    assert app.ui_mode_var.get() == "Простой"

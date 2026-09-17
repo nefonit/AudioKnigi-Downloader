@@ -1,0 +1,16 @@
+Historical Qt-retirement acceptance marker retained for audit evidence.
+Current runtime stage: Phase 39 (see audioknigi/qt/__init__.py and CHANGELOG.md).
+
+AudioKnigi Downloader 4.12.31 — Phase 13 Qt-only
+
+Strict full parity before retirement: 61/61 PASS
+Pre-retirement full regression: 613/613 PASS
+Strict full parity after retirement: 61/61 PASS
+Legacy runtime paths after retirement: 0
+Qt import graph: 39 modules / 0 legacy frontend paths
+Qt-only active release tests: 5/5 PASS
+compileall: PASS
+
+The legacy Tk runtime is not included in this tree.
+Reference tests from the final coexistence state are archived under archive/tests/pre_qt_retirement/.
+Windows NVDA/JAWS acceptance remains required for the final built EXE.

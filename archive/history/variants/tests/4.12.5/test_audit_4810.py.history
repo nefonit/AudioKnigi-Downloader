@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+from types import SimpleNamespace
+
+from audioknigi import dnd as dnd_module
+from audioknigi import storage as storage_module
+from audioknigi import tray as tray_module
+from audioknigi.app import AudioKnigiApp
+from audioknigi.models import MappingDataclass, QueueItem, Track
+from audioknigi.queue_manager import QueueMixin
+from audioknigi.storage import StorageMixin
+from audioknigi.ui.settings_tab import SettingsTab
+from audioknigi.ui_kit import ensure_app_string_var
+from audioknigi import ui_kit
+
+
+class _Tree:
+    def __init__(self, selected=("99",)):
+        self._selected = selected
+        self.selection_updates = []
+    def selection(self):
+        return self._selected
+    def selection_set(self, value):
+        self.selection_updates.append(value)
+
+
+class _Queue(QueueMixin):
+    def __init__(self):
+        self.queue_running = False
+        self.queue_items = [QueueItem(url="https://audioknigi.com.ua/audio-1-test")]
+        self.queue_tree = _Tree()
+        self.refreshed = 0
+    def _refresh_queue(self):
+        self.refreshed += 1
+
+
+def test_app_runtime_attributes_are_initialized_before_callbacks():
+    source = Path(inspect.getsourcefile(AudioKnigiApp)).read_text(encoding="utf-8")
+    assert "self._clipboard_offer_after = None" in source
+    assert 'self._last_clipboard_offer = ""' in source
+    assert "self.last_completed_folder = None" in source
+    assert "self.speed_history = deque(" in source
+
+
+def test_mapping_base_explicitly_has_empty_slots_and_slots_models_import():
+    assert MappingDataclass.__slots__ == ()
+    track = Track(index=1, title="one", file="one.mp3")
+    assert track.title == "one"
+
+
+def test_queue_commands_ignore_stale_tree_indices():
+    q = _Queue()
+    q.queue_move_up()
+    q.queue_move_down()
+    q.queue_toggle_priority()
+    q.queue_toggle_item_pause()
+    assert len(q.queue_items) == 1
+    assert q.refreshed == 0
+
+
+def test_resume_indices_are_normalized_to_unique_ints():
+    assert StorageMixin._normalize_selected_indices(["1", 2, "2", "bad", None, -1, "3"]) == [1, 2, 3]
+
+
+def test_windows_path_compare_key_is_case_insensitive(monkeypatch):
+    monkeypatch.setattr(storage_module.os, "name", "nt", raising=False)
+    first = StorageMixin._path_compare_key(r"C:\\Audio\\Book")
+    second = StorageMixin._path_compare_key(r"c:\\audio\\BOOK")
+    assert first == second
+
+
+def test_settings_fallback_vars_are_application_owned():
+    source = inspect.getsource(SettingsTab._ensure_string_var)
+    assert 'ensure_app_string_var(self.app, self.frame, name, default)' in source
+    helper = inspect.getsource(ensure_app_string_var)
+    assert 'master = app if hasattr(app, "tk") else fallback_master' in helper
+    assert "var.get()" in helper
+
+
+def test_fractional_pixel_width_is_converted_to_integer_chars():
+    assert ui_kit._pixel_width_to_chars("120.5") == round(120 / 9)
+
+
+def test_set_appearance_mode_updates_constructor_palette_state(monkeypatch):
+    ui_kit.set_appearance_mode("light")
+    assert ui_kit._CURRENT_DARK is False
+    ui_kit.set_appearance_mode("dark")
+    assert ui_kit._CURRENT_DARK is True
+
+
+def test_tkdnd_wrapper_api_can_be_attached_to_native_tk_base():
+    class Wrapper:
+        _subst_format_dnd = ("%A",)
+        _subst_format_str_dnd = "%A"
+        def _substitute_dnd(self, *args): return args
+        def _dnd_bind(self, *args, **kwargs): return "id"
+        def dnd_bind(self, *args, **kwargs): return self._dnd_bind(*args, **kwargs)
+        def drop_target_register(self, *args): return args
+        def drop_target_unregister(self): return None
+
+    class NativeBase:
+        pass
+
+    assert dnd_module._install_tkdnd_wrapper_methods(Wrapper, NativeBase) is True
+    target = NativeBase()
+    assert target.drop_target_register("DND_Text") == ("DND_Text",)
+    assert hasattr(NativeBase, "_subst_format_str_dnd")
+
+
+def test_player_direct_play_does_not_write_saved_label_twice():
+    from audioknigi.player import PlayerMixin
+    apply_source = inspect.getsource(PlayerMixin._apply_saved_position)
+    play_source = inspect.getsource(PlayerMixin.player_play_file)
+    assert "update_file_label=True" in apply_source
+    assert "update_file_label=False" in play_source
+
+
+def test_analysis_folder_resolution_uses_runtime_snapshot_not_tk_getters():
+    from audioknigi.downloader import DownloaderMixin
+    source = inspect.getsource(DownloaderMixin._book_folder)
+    assert "runtime_output_dir" in source
+    assert ".get()" not in source
+
+
+def test_id3_failure_is_logged():
+    from audioknigi.downloader import DownloaderMixin
+    source = inspect.getsource(DownloaderMixin._write_id3)
+    assert "Не удалось записать ID3" in source
+    assert "self.log" in source
+
+
+def test_shortcuts_use_logical_tab_keys_not_visible_russian_captions():
+    from audioknigi.actions import ActionsMixin
+    source = inspect.getsource(ActionsMixin._bind_shortcuts)
+    assert ('_select_advanced_tab("queue")' in source or 'open_advanced_tab("queue")' in source)
+    assert ('_select_advanced_tab("history")' in source or 'open_advanced_tab("history")' in source)
+    assert ('_select_advanced_tab("search")' in source or 'open_advanced_tab("search")' in source)
+
+
+def test_tray_rapid_show_request_is_queued_while_old_loop_retires(monkeypatch):
+    class FakeThread:
+        def is_alive(self): return True
+    monkeypatch.setattr(tray_module, "pystray", object())
+    monkeypatch.setattr(tray_module, "Image", object())
+    monkeypatch.setattr(tray_module, "ImageDraw", object())
+    manager = tray_module.TrayManager(SimpleNamespace())
+    manager._retiring_thread = FakeThread()
+    assert manager.show() is True
+    assert manager._show_when_retired is True
+    assert manager.icon is None
+
+
+def test_outer_scroll_frame_does_not_steal_wheel_from_nested_text():
+    import tkinter as tk
+    from audioknigi.ui_kit import CTkEntry, CTkScrollableFrame
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        scroll = CTkScrollableFrame(root)
+        scroll.pack(fill="both", expand=True)
+        entry = CTkEntry(scroll)
+        entry.pack()
+        text = tk.Text(scroll, height=4, width=20)
+        text.pack()
+        scroll._bind_scroll_descendants()
+        assert entry.bind("<MouseWheel>")
+        # No widget-specific outer-frame wheel binding is installed on Text;
+        # its own class/native scrolling remains authoritative.
+        assert not text.bind("<MouseWheel>")
+    finally:
+        root.destroy()
