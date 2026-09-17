@@ -113,3 +113,10 @@ def test_round21_does_not_change_queue_empty_selection_or_proxy_drain_contracts(
     proxy_source = (ROOT / "audioknigi/network_dns.py").read_text(encoding="utf-8")
     assert "half_close_deadline" in proxy_source
     assert "return_when_right_closes=True" in proxy_source
+
+
+def test_ci_installs_pytest_and_python314_synthetic_global_is_allowlisted() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    audit = (ROOT / "tools/undefined_global_audit.py").read_text(encoding="utf-8")
+    assert "python -m pip install pytest" in ci
+    assert '"__conditional_annotations__"' in audit
