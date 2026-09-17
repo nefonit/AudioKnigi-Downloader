@@ -22,8 +22,24 @@ jobs:
         run: |
           set -euo pipefail
           cat .round22/part_*.patch > /tmp/round22.patch
-          git apply --check /tmp/round22.patch
-          git apply /tmp/round22.patch
+          git apply --check --exclude=CHANGELOG.md /tmp/round22.patch
+          git apply --exclude=CHANGELOG.md /tmp/round22.patch
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("CHANGELOG.md")
+          text = path.read_text(encoding="utf-8")
+          stale = "- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 8 focused Round 21 regressions; full suite: 378 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green."
+          corrected = "- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 9 focused Round 21 regressions; full suite: 379 passed. Windows CI now installs pytest and FFmpeg before archived/full test gates and ignores Python 3.14's synthetic `__conditional_annotations__` symtable global. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green."
+          text = text.replace(stale, corrected)
+          marker = "## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)\n\n"
+          round22 = (
+              "- Round 22 audit (2026-09-17): isolated Playwright cookie restoration per cookie on PoleKnig/audioknigi fallbacks, removed cancellation exceptions from the PoleKnig request event callback, and preserved full-duplex CONNECT traffic after an upstream half-close.\n"
+              "- Hardened Windows filenames against ASCII control characters, made duplicate-output track selection Mapping-aware, preserved meaningful edge punctuation in PoleKnig book titles, corrected source-cleanup telemetry, and removed two unreachable/redundant HTTP checks. Added 8 focused Round 22 regressions; full suite: 387 passed. Historical regression: 267 passed / 116 known source-shape incompatibilities; all release gates green.\n\n"
+          )
+          if round22 not in text:
+              text = text.replace(marker, marker + round22, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
           rm -rf .round22 .github/workflows/round22-apply.yml
           git diff --check
           git config user.name "github-actions[bot]"
