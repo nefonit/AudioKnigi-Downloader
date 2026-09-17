@@ -1,0 +1,120 @@
+         try:
+             position_value = max(0.0, float(position or 0.0))
+@@ -108,7 +117,6 @@ class PlayerPositionStore:
+         except (TypeError, ValueError):
+             duration_value = 0.0
+ 
+-        key = self.key(path)
+         guard = self._resume_guard_seconds(duration_value)
+         with self._lock:
+             if (duration_value > 0 and position_value >= max(0.0, duration_value - guard)) or position_value < guard:
+@@ -129,6 +137,8 @@ class PlayerPositionStore:
+ 
+     def clear(self, file_path: str | Path, *, persist: bool = True) -> bool:
+         key = self.key(file_path)
++        if not key:
++            return False
+         with self._lock:
+             self._positions.pop(key, None)
+             snapshot = {
+diff --git a/tests/integration/test_report_followup_round18_20260917.py b/tests/integration/test_report_followup_round18_20260917.py
+index f4a9fb19bc0dc0c03ac083c52a501fcc56c78e97..3652b41a30e607f4c7a0726c120f000ba50f8113 100644
+--- a/tests/integration/test_report_followup_round18_20260917.py
++++ b/tests/integration/test_report_followup_round18_20260917.py
+@@ -91,7 +91,7 @@ def test_restore_backup_rolls_back_already_written_members_on_late_failure(tmp_p
+ def test_round18_network_and_probe_cancellation_contracts_are_present() -> None:
+     network = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
+     probe = (ROOT / "audioknigi/download/probe.py").read_text(encoding="utf-8")
+-    assert 'part.with_name(part.name + ".assembling").unlink(missing_ok=True)' in network
++    assert 'unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)' in network
+     assert "replace_with_retry(assembling, target)" in network
+     assert 'wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)' in probe
+     assert 'cancel_active = getattr(self, "_cancel_active_subprocesses", None)' in probe
+diff --git a/tests/integration/test_report_followup_round21_20260917.py b/tests/integration/test_report_followup_round21_20260917.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3858c1ffbefbcf421289c73436b82fdccf63811
+--- /dev/null
++++ b/tests/integration/test_report_followup_round21_20260917.py
+@@ -0,0 +1,115 @@
++from __future__ import annotations
++
++import os
++from pathlib import Path
++from types import SimpleNamespace
++
++from audioknigi import core, knigavuhe, poleknig
++from audioknigi.diagnostics.support_bundle import create_support_bundle
++from audioknigi.download_engine import _DownloadEngine
++from audioknigi.services.player_position_store import PlayerPositionStore
++
++
++ROOT = Path(__file__).resolve().parents[2]
++
++
++def test_save_json_retries_transient_replace_lock(tmp_path, monkeypatch) -> None:
++    target = tmp_path / "settings.json"
++    real_replace = core.os.replace
++    attempts = {"count": 0}
++
++    def flaky_replace(source, destination):
++        if Path(destination) == target and attempts["count"] < 2:
++            attempts["count"] += 1
++            raise PermissionError("sharing violation")
++        return real_replace(source, destination)
++
++    monkeypatch.setattr(core.os, "replace", flaky_replace)
++    assert core.save_json(target, {"round": 21}, raise_errors=True)
++    assert target.read_text(encoding="utf-8").strip().endswith("}")
++    assert attempts["count"] == 2
++
++
++def test_delete_existing_outputs_uses_retry_helper(tmp_path, monkeypatch) -> None:
++    target = tmp_path / "book.mp3"
++    target.write_bytes(b"old")
++    engine = object.__new__(_DownloadEngine)
++    engine.request = SimpleNamespace(book=SimpleNamespace())
++    engine._book_folder = lambda *_a, **_k: tmp_path
++    engine._full_mp3_target = lambda *_a, **_k: target
++
++    calls = []
++
++    def fake_unlink(path, *, missing_ok=True, attempts=5):
++        calls.append((Path(path), missing_ok, attempts))
++        Path(path).unlink(missing_ok=missing_ok)
++        return True
++
++    import audioknigi.download_engine as engine_module
++
++    monkeypatch.setattr(engine_module, "unlink_with_retry", fake_unlink)
++    assert engine.delete_existing_outputs(full_mp3=True) == 1
++    assert calls and calls[0][0] == target
++    assert not target.exists()
++
++
++def test_knigavuhe_script_fallback_exposes_current_narration_variant() -> None:
++    html = '''
++        <html><head><title>Тестовая книга — автор Автор Тест</title></head>
++        <body><script>const audio = "https://cdn.example.test/book/001.mp3";</script></body></html>
++    '''
++    book = knigavuhe._fallback_script_book(html, "https://knigavuhe.org/book/test/")
++    assert book is not None
++    assert len(book.narration_variants) == 1
++    variant = book.narration_variants[0]
++    assert variant.current is True
++    assert variant.available is True
++    assert variant.url == book.url
++    assert variant.title == book.title
++
++
++def test_poleknig_author_keys_accept_initials_but_reject_unrelated_people() -> None:
++    full = poleknig._person_key("Илья Ильф, Евгений Петров")
++    initials = poleknig._person_key("И. Ильф, Е. Петров")
++    unrelated = poleknig._person_key("Иван Бунин")
++    assert poleknig._person_keys_compatible(full, initials)
++    assert poleknig._person_keys_compatible(initials, full)
++    assert not poleknig._person_keys_compatible(full, unrelated)
++
++
++def test_network_cleanup_uses_windows_retry_helper_everywhere() -> None:
++    source = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
++    assert "from .common import atomic_write_text, replace_with_retry, unlink_with_retry" in source
