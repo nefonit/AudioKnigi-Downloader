@@ -1,0 +1,38 @@
+name: Prepare Round 21 branch
+
+on:
+  push:
+    branches: ["round21-publish"]
+    paths:
+      - ".round21/**"
+      - ".github/workflows/publish-round21.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Reassemble verified Round 21 patch
+        shell: bash
+        run: |
+          cat .round21/part_aa.patch .round21/part_ab.patch .round21/part_ac.patch .round21/part_ad.patch .round21/part_ae.patch > /tmp/round21.patch
+          git fetch origin main
+          git checkout -B round21-ready origin/main
+          git apply --index --check /tmp/round21.patch
+          git apply --index /tmp/round21.patch
+          git diff --cached --check
+      - name: Compile changed Python tree
+        shell: bash
+        run: python -m compileall -q audioknigi audioknigi_qt.py tools tests
+      - name: Commit Round 21
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "AudioKnigi Downloader 4.12.42 Round 21"
+          git push --force-with-lease origin round21-ready
