@@ -498,7 +498,7 @@ class _DownloadEngine(DownloaderMixin):
             return count
         selected = set(self.request.resolved_selected_indices())
         for track in list(getattr(self.request.book, "tracks", []) or []):
-            if int(getattr(track, "index", 0) or 0) not in selected:
+            if self.request.track_index(track) not in selected:
                 continue
             try:
                 path = Path(self._track_path(self.request.book, track, create_folder=False))

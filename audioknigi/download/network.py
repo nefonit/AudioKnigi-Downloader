@@ -487,7 +487,6 @@ class NetworkDownloadMixin:
                         if status != 206:
                             response.raise_for_status()
                             raise RuntimeError(f"Неожиданный HTTP-статус Range: {status}")
-                        response.raise_for_status()
                         cr = response.headers.get("content-range", "")
                         match = re.match(r"(?i)^bytes\s+(\d+)-(\d+)/(\d+|\*)$", cr.strip())
                         if not match:

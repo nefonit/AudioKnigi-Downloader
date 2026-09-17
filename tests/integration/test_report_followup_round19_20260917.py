@@ -69,7 +69,7 @@ def test_round19_windows_file_retry_contracts_are_used() -> None:
     flow = (ROOT / "audioknigi/download/book_flow.py").read_text(encoding="utf-8")
     assert "replace_with_retry(part, target)" in network
     assert "from .common import unlink_with_retry" in flow
-    assert "unlink_with_retry(path, missing_ok=True)" in flow
+    assert "unlink_with_retry(path, missing_ok=False)" in flow
 
 
 def test_round19_duplicate_metadata_uses_mapping_aware_book_fields() -> None:

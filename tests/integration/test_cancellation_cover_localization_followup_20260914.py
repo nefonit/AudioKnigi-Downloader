@@ -72,10 +72,11 @@ def test_media_sidecar_supports_webp_and_central_json_writer():
     assert "_atomic_write_text(" not in source
 
 
-def test_connect_proxy_ends_relay_on_upstream_eof():
+def test_connect_proxy_preserves_full_duplex_after_upstream_half_close():
     source = (ROOT / "audioknigi/network_dns.py").read_text(encoding="utf-8")
     connect_block = source[source.index('if method.upper() == "CONNECT"'):source.index('parsed = urlsplit(target)')]
-    assert '_relay_bidirectional(client, upstream, return_when_right_closes=True)' in connect_block
+    assert '_relay_bidirectional(client, upstream)' in connect_block
+    assert 'return_when_right_closes=True' not in connect_block
 
 
 def test_crash_report_survives_traceback_format_failure(monkeypatch, tmp_path):

@@ -36,12 +36,13 @@ def test_connect_relay_forwards_payload_before_returning_on_upstream_eof():
                 pass
 
 
-def test_connect_handler_keeps_bounded_upstream_eof_contract():
+def test_connect_handler_keeps_full_duplex_half_close_contract():
     source = (ROOT / "audioknigi" / "network_dns.py").read_text(encoding="utf-8")
     connect_start = source.index('if method.upper() == "CONNECT":')
     plain_start = source.index("parsed = urlsplit(target)", connect_start)
     connect_block = source[connect_start:plain_start]
-    assert "_relay_bidirectional(client, upstream, return_when_right_closes=True)" in connect_block
+    assert "_relay_bidirectional(client, upstream)" in connect_block
+    assert "return_when_right_closes=True" not in connect_block
 
 def test_poleknig_title_fallback_extracts_only_quoted_book_name():
     from audioknigi.poleknig import _book_page_metadata

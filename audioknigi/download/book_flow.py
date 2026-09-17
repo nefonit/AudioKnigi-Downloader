@@ -774,7 +774,7 @@ class BookFlowMixin:
             removed_sources = 0
             for path in cleanup_sources:
                 try:
-                    unlink_with_retry(path, missing_ok=True)
+                    unlink_with_retry(path, missing_ok=False)
                     removed_sources += 1
                 except FileNotFoundError:
                     # The source may already have been moved/removed by an earlier

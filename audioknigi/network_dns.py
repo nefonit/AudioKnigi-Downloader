@@ -487,7 +487,10 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
                     upstream.sendall(remainder)
                 client.settimeout(None)
                 upstream.settimeout(None)
-                _relay_bidirectional(client, upstream, return_when_right_closes=True)
+                # CONNECT is a full-duplex tunnel. Preserve the surviving
+                # direction after either peer half-closes so TLS shutdown/late
+                # client bytes are not cut off merely because upstream sent FIN.
+                _relay_bidirectional(client, upstream)
                 return
 
             parsed = urlsplit(target)
