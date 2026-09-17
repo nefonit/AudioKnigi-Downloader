@@ -1,0 +1,46 @@
++    assert ".unlink(" not in source
++    assert "unlink_with_retry(seg, missing_ok=True)" in source
++    assert 'unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)' in source
++
++
++def test_support_bundle_trailing_separator_means_explicit_missing_directory(tmp_path) -> None:
++    folder = tmp_path / "new-diagnostics"
++    target = create_support_bundle(str(folder) + os.sep, settings={"language": "en"})
++    assert folder.is_dir()
++    assert target.parent == folder
++    assert target.name.startswith("support_bundle_")
++    assert target.suffix == ".zip"
++
++
++def test_player_position_store_rejects_empty_media_path(tmp_path) -> None:
++    store_path = tmp_path / "positions.json"
++    store = PlayerPositionStore(store_path)
++    assert PlayerPositionStore.key("") == ""
++    assert store.saved_seconds("") == 0.0
++    assert store.update("", 120.0, 600.0) is False
++    assert store.clear("") is False
++    assert store.snapshot() == {}
++    assert not store_path.exists()
++
++
++def test_round21_does_not_change_queue_empty_selection_or_proxy_drain_contracts() -> None:
++    queue_source = (ROOT / "audioknigi/services/queue_service.py").read_text(encoding="utf-8")
++    assert 'An explicit empty' in queue_source
++    assert 'return result' in queue_source
++
++    proxy_source = (ROOT / "audioknigi/network_dns.py").read_text(encoding="utf-8")
++    assert "half_close_deadline" in proxy_source
++    assert "return_when_right_closes=True" in proxy_source
+diff --git a/tools/exception_allowlist.json b/tools/exception_allowlist.json
+index 8a6c8699b743d9b5da46a0c83f716107b95424b0..715efd1846e3a7168a984e1147185a65c1418e95 100644
+--- a/tools/exception_allowlist.json
++++ b/tools/exception_allowlist.json
+@@ -31,8 +31,6 @@
+   "audioknigi/download/network.py:_cleanup_partial_download:Exception#2": "best-effort cleanup: failure must not mask the primary operation or shutdown",
+   "audioknigi/download/network.py:_download_segmented:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
+   "audioknigi/download/network.py:_download_segmented:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
+-  "audioknigi/download/network.py:_download_segmented:Exception#3": "best-effort optional parsing/probing fallback; caller handles absence",
+-  "audioknigi/download/network.py:_download_segmented:Exception#4": "best-effort optional parsing/probing fallback; caller handles absence",
+   "audioknigi/download/network.py:_download_single:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
+   "audioknigi/download/network.py:_download_single:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
+   "audioknigi/download/network.py:_unregister_active_subprocess:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
