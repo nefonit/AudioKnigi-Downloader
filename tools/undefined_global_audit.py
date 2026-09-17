@@ -16,6 +16,10 @@ PACKAGE_ROOT = ROOT / "audioknigi"
 _SPECIAL_GLOBALS = {
     "__annotations__",
     "__builtins__",
+    # Python 3.14+ compiler/symtable implementation detail for conditional
+    # annotation evaluation. It can appear as a referenced synthetic module
+    # global even though user code never defines or reads it directly.
+    "__conditional_annotations__",
     "__doc__",
     "__file__",
     "__loader__",
