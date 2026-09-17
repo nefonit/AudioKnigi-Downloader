@@ -119,4 +119,5 @@ def test_ci_installs_pytest_and_python314_synthetic_global_is_allowlisted() -> N
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     audit = (ROOT / "tools/undefined_global_audit.py").read_text(encoding="utf-8")
     assert "python -m pip install pytest" in ci
+    assert "choco install ffmpeg -y --no-progress" in ci
     assert '"__conditional_annotations__"' in audit
