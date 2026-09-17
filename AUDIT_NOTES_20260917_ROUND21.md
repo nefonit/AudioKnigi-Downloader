@@ -36,7 +36,7 @@ New `tests/integration/test_report_followup_round21_20260917.py` covers:
 6. explicit missing support-bundle directory handling;
 7. empty player-position path rejection;
 8. unchanged queue empty-selection and bounded proxy-drain contracts;
-9. Windows CI pytest availability plus Python 3.14 synthetic-global handling.
+9. Windows CI pytest/FFmpeg availability plus Python 3.14 synthetic-global handling.
 
 ## Verification
 
@@ -50,6 +50,6 @@ New `tests/integration/test_report_followup_round21_20260917.py` covers:
 - Full parity: **PASS 61/61**.
 - Qt import boundary: **OK** (73 project modules, no legacy frontend path).
 - `compileall`: **PASS**.
-- Windows CI follow-up: installs `pytest` before historical/full pytest gates and recognizes Python 3.14 synthetic `__conditional_annotations__` in the undefined-global audit.
+- Windows CI follow-up: installs `pytest` before historical/full pytest gates, installs FFmpeg for archived loudnorm contracts, and recognizes Python 3.14 synthetic `__conditional_annotations__` in the undefined-global audit.
 
 The Windows frozen EXE is not claimed as validated from this Linux environment; GitHub Actions/Windows build results remain the authoritative frozen-runtime evidence.
