@@ -7,6 +7,7 @@ import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
+from collections.abc import Mapping
 from urllib.parse import urlsplit
 try:
     from mutagen.mp3 import MP3
@@ -147,8 +148,18 @@ class ProbeMixin:
             )
         mode = mode or getattr(self, "runtime_naming_mode", "number") or "number"
         width = track_number_width(book)
-        number = f"{int(track.index):0{width}d}"
-        raw_title = str(track.title or number).strip()
+        if isinstance(track, Mapping):
+            raw_index = track.get("index", 0)
+            raw_track_title = track.get("title", "")
+        else:
+            raw_index = getattr(track, "index", 0)
+            raw_track_title = getattr(track, "title", "")
+        try:
+            track_index = int(raw_index if raw_index is not None else 0)
+        except (TypeError, ValueError):
+            track_index = 0
+        number = f"{track_index:0{width}d}"
+        raw_title = str(raw_track_title or number).strip()
         lowered_title = raw_title.casefold()
         for candidate in sorted(AUDIO_EXTENSIONS, key=len, reverse=True):
             if lowered_title.endswith(candidate):

@@ -195,6 +195,7 @@ class HistoryUiMixin:
         if not folder.is_dir():
             self.set_status("Папка выбранной книги не найдена.", assertive=True)
             return
+        self.set_ui_mode("advanced", persist=False)
         self.tabs.setCurrentIndex(self.TAB_PLAYER)
         self.load_book_folder(folder, autoplay=True)
 

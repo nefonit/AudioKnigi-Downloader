@@ -335,7 +335,8 @@ class NetworkDownloadMixin:
                         )
                         if complete_match and existing == int(complete_match.group(1)):
                             resume_already_complete = True
-                            self.set_progress(100)
+                            if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
+                                self.set_progress(100)
                         else:
                             # A stale/oversized partial can never satisfy the same
                             # Range request. Close this response, discard the bad
@@ -376,15 +377,16 @@ class NetworkDownloadMixin:
                                 if now - last_report >= 0.20:
                                     last_report = now
                                     speed_text = f"{fmt_size(speed)}/s" if speed > 0 else "—"
-                                    if total:
-                                        self.set_progress(done * 100 / total)
-                                        eta = (total - done) / speed if speed > 0 else None
-                                        self.set_status(
-                                            f"Скачано {fmt_size(done)} из {fmt_size(total)}  •  "
-                                            f"{speed_text}  •  ETA {fmt_time(eta) if eta is not None else '—'}"
-                                        )
-                                    else:
-                                        self.set_status(f"Скачано {fmt_size(done)}  •  {speed_text}")
+                                    if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
+                                        if total:
+                                            self.set_progress(done * 100 / total)
+                                            eta = (total - done) / speed if speed > 0 else None
+                                            self.set_status(
+                                                f"Скачано {fmt_size(done)} из {fmt_size(total)}  •  "
+                                                f"{speed_text}  •  ETA {fmt_time(eta) if eta is not None else '—'}"
+                                            )
+                                        else:
+                                            self.set_status(f"Скачано {fmt_size(done)}  •  {speed_text}")
                 finally:
                     self._unregister_active_network_response(response)
 
@@ -735,13 +737,14 @@ class NetworkDownloadMixin:
                         f"Auto-Chunker: увеличиваю активные Range-потоки "
                         f"{previous} → {target_workers}: скорость восстановилась."
                     )
-            self.set_progress(done * 100 / total_size)
-            eta = (total_size - done) / speed if speed > 0 else None
-            self.set_status(
-                f"Range {target_workers}/{initial_workers} • {fmt_size(done)} из {fmt_size(total_size)} • "
-                f"{fmt_size(speed) + '/s' if speed > 0 else '—'} • "
-                f"ETA {fmt_time(eta) if eta is not None else '—'}"
-            )
+            if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
+                self.set_progress(done * 100 / total_size)
+                eta = (total_size - done) / speed if speed > 0 else None
+                self.set_status(
+                    f"Range {target_workers}/{initial_workers} • {fmt_size(done)} из {fmt_size(total_size)} • "
+                    f"{fmt_size(speed) + '/s' if speed > 0 else '—'} • "
+                    f"ETA {fmt_time(eta) if eta is not None else '—'}"
+                )
             try:
                 self.record_transfer_metrics(speed, target_workers)
             except Exception:
@@ -873,7 +876,8 @@ class NetworkDownloadMixin:
             segment_meta.unlink(missing_ok=True)
         except OSError:
             pass
-        self.set_progress(100)
+        if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
+            self.set_progress(100)
         try:
             self.record_transfer_metrics(0, 0)
         except Exception:

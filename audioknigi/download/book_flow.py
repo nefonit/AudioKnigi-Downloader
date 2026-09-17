@@ -499,39 +499,49 @@ class BookFlowMixin:
                 )
             else:
                 max_workers = min(3, len(download_jobs))
-                with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                    futures = {
-                        pool.submit(self._download_source_with_fallback, url, fallback_url, target, book.url): (file_index, url, target)
-                        for file_index, url, fallback_url, target in download_jobs
-                    }
-                    for pos, future in enumerate(as_completed(futures), 1):
-                        self._check_cancel()
-                        file_index, url, target = futures[future]
-                        try:
-                            future.result()
-                        except Cancelled:
-                            for pending in futures:
-                                if pending is not future:
-                                    pending.cancel()
-                            self._cancel_active_network_io()
-                            raise
-                        except Exception as exc:
-                            for pending in futures:
-                                if pending is not future:
-                                    pending.cancel()
-                            self._cancel_active_network_io()
-                            if self._is_expired_media_error(exc):
-                                affected = [int(tr.index) for tr in source_tracks if tr.file == url]
-                                raise MissingMediaSourceError(
-                                    str(exc), source_url=url, track_indices=affected
-                                ) from exc
-                            raise
-                        self._log_book_flow(
-                            "source_download_complete", book, level="debug", source_index=file_index,
-                            file=target.name, bytes=target.stat().st_size if target.exists() else 0,
-                            progress=f"{pos}/{len(download_jobs)}",
-                        )
-                        report(f"Скачивается {pos}/{len(download_jobs)}")
+                # Individual network workers report percentages for their own
+                # source file.  Letting all of them write to one global progress
+                # bar makes it jump backwards and forwards.  During parallel
+                # source downloads, expose stable book-level progress by completed
+                # source count instead.
+                self._suppress_source_transfer_ui = True
+                try:
+                    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                        futures = {
+                            pool.submit(self._download_source_with_fallback, url, fallback_url, target, book.url): (file_index, url, target)
+                            for file_index, url, fallback_url, target in download_jobs
+                        }
+                        for pos, future in enumerate(as_completed(futures), 1):
+                            self._check_cancel()
+                            file_index, url, target = futures[future]
+                            try:
+                                future.result()
+                            except Cancelled:
+                                for pending in futures:
+                                    if pending is not future:
+                                        pending.cancel()
+                                self._cancel_active_network_io()
+                                raise
+                            except Exception as exc:
+                                for pending in futures:
+                                    if pending is not future:
+                                        pending.cancel()
+                                self._cancel_active_network_io()
+                                if self._is_expired_media_error(exc):
+                                    affected = [int(tr.index) for tr in source_tracks if tr.file == url]
+                                    raise MissingMediaSourceError(
+                                        str(exc), source_url=url, track_indices=affected
+                                    ) from exc
+                                raise
+                            self._log_book_flow(
+                                "source_download_complete", book, level="debug", source_index=file_index,
+                                file=target.name, bytes=target.stat().st_size if target.exists() else 0,
+                                progress=f"{pos}/{len(download_jobs)}",
+                            )
+                            self.set_progress(pos * 100 / max(1, len(download_jobs)))
+                            report(f"Скачивается {pos}/{len(download_jobs)}")
+                finally:
+                    self._suppress_source_transfer_ui = False
             self._log_book_flow("source_downloads_complete", book, jobs=len(download_jobs))
         elif unique_files:
             self._log_book_flow("source_reused", book, sources=len(unique_files))
@@ -757,7 +767,7 @@ class BookFlowMixin:
             elif tag_jobs:
                 self._log_book_flow("id3_skipped", book, files=len(tag_jobs), reason="disabled")
 
-        self._save_book_sidecars(book, folder, chosen)
+        self._save_book_sidecars(book, folder, list(getattr(book, "tracks", None) or []))
         self._scan_audiobookshelf_after_book()
 
         if bool(getattr(self, "runtime_delete_source", True)):

@@ -417,8 +417,11 @@ def search_audioknigi(query: str, cancel_event=None) -> list[SearchResult]:
     response.raise_for_status()
     if cancel_event is not None and cancel_event.is_set():
         raise Cancelled("Поиск отменён пользователем")
+    html_text = bytes(getattr(response, "content", b"") or b"").decode("utf-8", errors="replace")
+    if not html_text:
+        html_text = str(getattr(response, "text", "") or "")
     return _group_audioknigi_recordings(
-        parse_audioknigi_results(response.text, response.url, query=query),
+        parse_audioknigi_results(html_text, response.url, query=query),
         cancel_event=cancel_event,
         query=query,
     )

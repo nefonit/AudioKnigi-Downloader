@@ -712,13 +712,27 @@ def _tracks_from_playerjs(html_text: str, page_url: str) -> list[Track]:
 
 
 def _external_playlist_url(html_text: str, page_url: str) -> str:
-    argument = _extract_balanced_call_argument(html_text, "Playerjs")
-    if not argument:
-        return ""
-    for key in ("playlist", "file"):
-        value = _decode_js_string(_extract_js_property(argument, key)).strip()
-        if re.search(r"\.(?:json|txt)(?:\?|$)", value, re.I):
-            return urljoin(page_url, value)
+    normalized = str(html_text or "")
+    argument = _extract_balanced_call_argument(normalized, "Playerjs")
+    if argument:
+        for key in ("playlist", "file"):
+            value = _decode_js_string(_extract_js_property(argument, key)).strip()
+            if re.search(r"\.(?:json|txt)(?:\?|$)", value, re.I):
+                return urljoin(page_url, value)
+
+    # Some templates build the PlayerJS config in a variable and pass only the
+    # variable name to ``new Playerjs(...)``.  Search script object properties
+    # conservatively before paying the cost of a browser fallback.
+    script_chunks = re.findall(r"<script\b[^>]*>(.*?)</script>", normalized, re.I | re.S) or [normalized]
+    for script_text in script_chunks:
+        for key in ("playlist", "file"):
+            pattern = rf"(?:^|[,{{\s])(?:[\"']?{re.escape(key)}[\"']?)\s*:\s*"
+            for match in re.finditer(pattern, script_text, re.I):
+                if not _js_position_is_code(script_text, match.start()):
+                    continue
+                value = _decode_js_string(_read_js_value(script_text, match.end())).strip()
+                if re.search(r"\.(?:json|txt)(?:\?|$)", value, re.I):
+                    return urljoin(page_url, value)
     return ""
 
 
@@ -1536,7 +1550,7 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
     for item in filtered:
         title_key = _logical_title_key(item.title)
         author_key = _person_key(item.author)
-        key = (title_key, author_key) if author_key else (item.url, "")
+        key = (title_key, author_key) if (title_key and author_key) else (item.url, "")
         if key not in groups:
             groups[key] = []
             order.append(key)

@@ -102,13 +102,13 @@ def _extract_call_argument(text: str, marker: str = "BookController.enter") -> s
             bracket_depth = max(0, bracket_depth - 1)
         elif ch == "(":
             paren_depth += 1
-        elif ch == ")" and brace_depth == 0 and bracket_depth == 0:
+        elif ch == ")":
+            if brace_depth == 0 and bracket_depth == 0 and paren_depth == 0:
+                if start is None:
+                    return ""
+                return source[start:idx].strip()
             if paren_depth > 0:
                 paren_depth -= 1
-                continue
-            if start is None:
-                return ""
-            return source[start:idx].strip()
         elif ch == "," and brace_depth == 0 and bracket_depth == 0 and paren_depth == 0:
             if start is None:
                 return ""

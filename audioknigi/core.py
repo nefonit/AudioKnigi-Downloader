@@ -264,14 +264,14 @@ def parse_time_seconds(value):
             number = float(value)
         except Exception:
             return None
-        return number if number >= 0 else None
+        return number if number >= 0 and math.isfinite(number) else None
 
     text = str(value).strip()
     if not text:
         return None
     try:
         number = float(text.replace(",", "."))
-        return number if number >= 0 else None
+        return number if number >= 0 and math.isfinite(number) else None
     except (TypeError, ValueError):
         pass
 
@@ -282,13 +282,15 @@ def parse_time_seconds(value):
         nums = [float(part.strip().replace(",", ".")) for part in parts]
     except (TypeError, ValueError):
         return None
-    if any(number < 0 for number in nums):
+    if any(number < 0 or not math.isfinite(number) for number in nums):
         return None
     if len(nums) == 2:
         minutes, seconds = nums
-        return minutes * 60.0 + seconds
-    hours, minutes, seconds = nums
-    return hours * 3600.0 + minutes * 60.0 + seconds
+        total = minutes * 60.0 + seconds
+    else:
+        hours, minutes, seconds = nums
+        total = hours * 3600.0 + minutes * 60.0 + seconds
+    return total if math.isfinite(total) else None
 
 
 def effective_track_duration(track):
@@ -373,7 +375,10 @@ def fmt_size(size):
 
 def fmt_eta(seconds):
     try:
-        seconds = max(0, int(seconds))
+        value = float(seconds)
+        if not math.isfinite(value):
+            return "—"
+        seconds = max(0, int(value))
     except Exception:
         return "—"
     return fmt_time(seconds)

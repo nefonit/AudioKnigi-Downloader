@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 import base64
 import binascii
+import re
 import time
 import uuid
 
@@ -161,7 +162,7 @@ def _parse_selected_indices_payload(payload) -> list[int] | None:
         value = payload.strip()
         if not value or value.casefold() in {"all", "*"}:
             return None
-        payload = [value]
+        payload = [part for part in re.split(r"[,;\s]+", value) if part]
     try:
         values = list(payload)
     except TypeError:
