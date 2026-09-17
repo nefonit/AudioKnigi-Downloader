@@ -394,6 +394,20 @@ def load_json(path, default):
             pass
     return default
 
+def _replace_json_temp_with_retry(source: Path, target: Path, *, attempts: int = 5) -> None:
+    """Atomically replace JSON while tolerating short Windows sharing locks."""
+    tries = max(1, int(attempts))
+    for attempt in range(tries):
+        try:
+            os.replace(source, target)
+            return
+        except OSError as exc:
+            transient = isinstance(exc, PermissionError) or getattr(exc, "winerror", None) in {5, 32}
+            if attempt >= tries - 1 or not transient:
+                raise
+            time.sleep(0.025 * (2**attempt))
+
+
 def save_json(path, data, *, raise_errors=False):
     """Atomically write JSON and serialize concurrent writers.
 
@@ -412,7 +426,7 @@ def save_json(path, data, *, raise_errors=False):
                 f".{target.name}.{os.getpid()}.{threading.get_ident()}.tmp"
             )
             temp_path.write_text(payload, encoding="utf-8")
-            os.replace(temp_path, target)
+            _replace_json_temp_with_retry(temp_path, target)
             return True
         except Exception:
             try:

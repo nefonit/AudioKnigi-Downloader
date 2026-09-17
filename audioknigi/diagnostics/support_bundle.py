@@ -134,7 +134,11 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
 
 def create_support_bundle(destination: str | Path, *, settings: Mapping[str, Any] | None = None) -> Path:
     """Create a shareable support ZIP without API keys, cookies or book media."""
+    raw_destination = str(destination)
     target = Path(destination).expanduser()
+    explicit_directory = raw_destination.endswith(("/", "\\"))
+    if explicit_directory and not target.exists():
+        target.mkdir(parents=True, exist_ok=True)
     if target.is_dir():
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         target = target / f"support_bundle_{stamp}.zip"

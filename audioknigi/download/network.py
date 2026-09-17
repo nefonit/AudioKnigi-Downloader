@@ -16,7 +16,7 @@ from ..core import Cancelled, fmt_size, fmt_time, get_http_session
 from ..cover_fetch import fetch_cover_bytes
 from ..logging_utils import app_logger
 from ..sources import source_name
-from .common import atomic_write_text, replace_with_retry
+from .common import atomic_write_text, replace_with_retry, unlink_with_retry
 from .errors import RangeUnsupported
 
 _ACTIVE_IO_INIT_LOCK = threading.Lock()
@@ -392,7 +392,7 @@ class NetworkDownloadMixin:
 
             if restart_from_zero:
                 try:
-                    part.unlink(missing_ok=True)
+                    unlink_with_retry(part, missing_ok=True)
                 except OSError as exc:
                     raise RuntimeError(
                         f"Не удалось удалить повреждённый временный файл {part.name}: {exc}"
@@ -427,7 +427,7 @@ class NetworkDownloadMixin:
         segment_size = end_byte - start_byte + 1
         existing = seg_path.stat().st_size if seg_path.exists() else 0
         if existing > segment_size:
-            seg_path.unlink(missing_ok=True)
+            unlink_with_retry(seg_path, missing_ok=True)
             existing = 0
         if existing == segment_size:
             progress_cb(0, force=True)
@@ -662,11 +662,11 @@ class NetworkDownloadMixin:
         if existing_segments and existing_signature != segment_signature:
             for stale_segment in existing_segments:
                 try:
-                    stale_segment.unlink(missing_ok=True)
+                    unlink_with_retry(stale_segment, missing_ok=True)
                 except OSError:
                     pass
             try:
-                part.with_name(part.name + ".assembling").unlink(missing_ok=True)
+                unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)
             except OSError:
                 pass
         atomic_write_text(
@@ -686,7 +686,7 @@ class NetworkDownloadMixin:
             segment_size = end - start + 1
             existing = seg.stat().st_size
             if existing > segment_size:
-                seg.unlink(missing_ok=True)
+                unlink_with_retry(seg, missing_ok=True)
                 continue
             aggregate += existing
         progress_lock = threading.Lock()
@@ -829,15 +829,15 @@ class NetworkDownloadMixin:
             if isinstance(err, RangeUnsupported):
                 for _idx, _start, _end, seg in ranges:
                     try:
-                        seg.unlink(missing_ok=True)
+                        unlink_with_retry(seg, missing_ok=True)
                     except OSError:
                         pass
                 try:
-                    segment_meta.unlink(missing_ok=True)
+                    unlink_with_retry(segment_meta, missing_ok=True)
                 except OSError:
                     pass
                 try:
-                    part.with_name(part.name + ".assembling").unlink(missing_ok=True)
+                    unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)
                 except OSError:
                     pass
             raise err
@@ -859,21 +859,21 @@ class NetworkDownloadMixin:
             replace_with_retry(assembling, target)
         except Exception:
             try:
-                assembling.unlink(missing_ok=True)
+                unlink_with_retry(assembling, missing_ok=True)
             except Exception:
                 pass
             raise
         try:
-            part.unlink()
-        except Exception:
+            unlink_with_retry(part, missing_ok=True)
+        except OSError:
             pass
         for _idx, _start, _end, seg in ranges:
             try:
-                seg.unlink()
-            except Exception:
+                unlink_with_retry(seg, missing_ok=True)
+            except OSError:
                 pass
         try:
-            segment_meta.unlink(missing_ok=True)
+            unlink_with_retry(segment_meta, missing_ok=True)
         except OSError:
             pass
         if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
@@ -899,7 +899,7 @@ class NetworkDownloadMixin:
             pass
         for candidate in candidates:
             try:
-                Path(candidate).unlink(missing_ok=True)
+                unlink_with_retry(Path(candidate), missing_ok=True)
             except Exception:
                 pass
 

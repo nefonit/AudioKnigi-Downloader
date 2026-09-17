@@ -39,10 +39,13 @@ class PlayerPositionStore:
 
     @staticmethod
     def key(file_path: str | Path) -> str:
+        raw = str(file_path or "").strip()
+        if not raw:
+            return ""
         try:
-            return str(Path(file_path).resolve()).lower()
+            return str(Path(raw).resolve()).lower()
         except Exception:
-            return str(file_path).lower()
+            return raw.lower()
 
     @staticmethod
     def _resume_guard_seconds(duration: float) -> float:
@@ -67,8 +70,11 @@ class PlayerPositionStore:
             self._prune_locked()
 
     def saved_seconds(self, file_path: str | Path, *, duration: float = 0.0) -> float:
+        key = self.key(file_path)
+        if not key:
+            return 0.0
         with self._lock:
-            raw = self._positions.get(self.key(file_path), {})
+            raw = self._positions.get(key, {})
             record = dict(raw) if isinstance(raw, dict) else {}
         try:
             position = max(0.0, float(record.get("position", 0.0) or 0.0))
@@ -98,6 +104,9 @@ class PlayerPositionStore:
         *,
         persist: bool = True,
     ) -> bool:
+        key = self.key(file_path)
+        if not key:
+            return False
         path = Path(file_path)
         try:
             position_value = max(0.0, float(position or 0.0))
@@ -108,7 +117,6 @@ class PlayerPositionStore:
         except (TypeError, ValueError):
             duration_value = 0.0
 
-        key = self.key(path)
         guard = self._resume_guard_seconds(duration_value)
         with self._lock:
             if (duration_value > 0 and position_value >= max(0.0, duration_value - guard)) or position_value < guard:
@@ -129,6 +137,8 @@ class PlayerPositionStore:
 
     def clear(self, file_path: str | Path, *, persist: bool = True) -> bool:
         key = self.key(file_path)
+        if not key:
+            return False
         with self._lock:
             self._positions.pop(key, None)
             snapshot = {

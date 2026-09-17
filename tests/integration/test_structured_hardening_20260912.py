@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import subprocess
 import sys
@@ -81,8 +82,9 @@ def test_track_status_is_language_neutral_and_legacy_value_normalizes():
 
 def test_support_bundle_path_privacy_handles_both_windows_slash_styles(monkeypatch):
     monkeypatch.setattr(support_bundle.Path, "home", classmethod(lambda cls: cls("C:/Users/Alice")))
-    assert support_bundle._privacy_path(r"C:\Users\Alice\Books") == r"~\Books"
-    assert support_bundle._privacy_path("C:/Users/Alice/Books") == "~/Books"
+    placeholder = "%USERPROFILE%" if os.name == "nt" else "~"
+    assert support_bundle._privacy_path(r"C:\Users\Alice\Books") == placeholder + r"\Books"
+    assert support_bundle._privacy_path("C:/Users/Alice/Books") == placeholder + "/Books"
 
 
 def test_support_bundle_tail_starts_at_clean_utf8_line_boundary(tmp_path):
@@ -92,8 +94,9 @@ def test_support_bundle_tail_starts_at_clean_utf8_line_boundary(tmp_path):
     payload = support_bundle._tail(path, max_bytes=20)
     decoded = payload.decode("utf-8")
     assert decoded
-    assert decoded in text
-    assert not decoded.startswith("ока")
+    normalized = decoded.replace("\r\n", "\n")
+    assert normalized in text
+    assert not normalized.startswith("ока")
 
 
 def test_support_bundle_queue_uses_opaque_nonempty_ids_and_excludes_private_book_data(tmp_path, monkeypatch):

@@ -2,6 +2,9 @@
 
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
 
+- Round 21 audit (2026-09-17): made duplicate-output deletion, JSON atomic replacement, and all Range temporary-file cleanup retry short Windows sharing violations; rejected empty player-position paths before they can normalize to the process working directory.
+- Aligned Knigavuhe script-fallback narration variants with the normal parser, made PoleKnig alternative-author matching tolerate initials/surname forms conservatively, and let explicitly directory-shaped missing support-bundle destinations receive timestamped ZIPs. Added 8 focused Round 21 regressions; full suite: 378 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
+
 - Round 20 audit (2026-09-17): fixed Knigavuhe nested-parenthesis argument extraction, float ETA/non-finite playlist time handling, PoleKnig symbol-only-title grouping, external playlist discovery from variable-based PlayerJS configs, and UTF-8 search decoding for audioknigi.com.ua.
 - Preserved complete book sidecars after partial downloads, made ProbeMixin filename generation Mapping-safe, localized dynamic “Озвучка N” labels, accepted legacy comma/semicolon/space selected-index strings, exposed the player when History listening is invoked from Easy Mode, and stabilized multi-source parallel download progress so worker-local percentages cannot fight over the global progress bar. Added 10 focused Round 20 regressions; full suite: 370 passed. Historical regression remains 268/115 known source-shape incompatibilities; all release gates green.
 
