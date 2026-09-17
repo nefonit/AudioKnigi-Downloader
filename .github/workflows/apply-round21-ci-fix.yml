@@ -27,6 +27,7 @@ jobs:
       - name: Verify focused contracts
         shell: bash
         run: |
+          python -m pip install pytest
           python tools/undefined_global_audit.py
           python -m pytest -q tests/integration/test_report_followup_round21_20260917.py
       - name: Commit CI follow-up
