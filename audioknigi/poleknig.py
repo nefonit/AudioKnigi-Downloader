@@ -85,6 +85,14 @@ def _clean_text(value) -> str:
     return re.sub(r"\s+", " ", text).strip(" \t\r\n,;:–—-")
 
 
+def _clean_title_text(value) -> str:
+    """Normalize visible title text without stripping meaningful punctuation."""
+    text = html_lib.unescape(str(value or ""))
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = text.replace("\u200b", "").replace("\ufeff", "").replace("\u2060", "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _is_search_ui_label(value: str) -> bool:
     """Return True for short action labels that are not book titles."""
     text = _clean_text(value).casefold()
@@ -211,7 +219,7 @@ def _person_keys_compatible(left_key: str, right_key: str) -> bool:
 
 def _extract_tag_text(html_text: str, tag: str) -> str:
     match = re.search(fr"<{tag}\b[^>]*>(.*?)</{tag}>", html_text or "", re.I | re.S)
-    return _clean_text(match.group(1) if match else "")
+    return _clean_title_text(match.group(1) if match else "")
 
 
 def _extract_meta_content(html_text: str, key: str) -> str:
@@ -836,12 +844,16 @@ def _fetch_book_playwright(url: str, cancel_event=None) -> Book | None:
                     context_options["extra_http_headers"] = persisted_headers
                 context = browser.new_context(**context_options)
                 if persisted_cookies:
-                    context.add_cookies(persisted_cookies)
+                    for cookie in persisted_cookies:
+                        try:
+                            context.add_cookies([cookie])
+                        except Exception:
+                            app_logger.debug("Failed to restore PoleKnig cookie into Playwright context", exc_info=True)
                 page = context.new_page()
 
                 def on_request(request):
                     if cancel_event is not None and cancel_event.is_set():
-                        raise Cancelled("Операция отменена пользователем")
+                        return
                     value = str(request.url or "")
                     if re.search(r"\.(?:mp3|m4a|aac|ogg|wav)(?:\?|$)", value, re.I):
                         if value not in captured:

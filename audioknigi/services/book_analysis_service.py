@@ -624,7 +624,11 @@ class BookAnalysisService:
                     context_options["extra_http_headers"] = persisted_headers
                 context = browser.new_context(**context_options)
                 if persisted_cookies:
-                    context.add_cookies(persisted_cookies)
+                    for cookie in persisted_cookies:
+                        try:
+                            context.add_cookies([cookie])
+                        except Exception:
+                            app_logger.debug("Failed to restore audioknigi cookie into Playwright context", exc_info=True)
                 page = context.new_page()
                 captured: list[str] = []
                 browser_request_headers: dict[str, str] = {}
@@ -680,8 +684,6 @@ class BookAnalysisService:
         playlist_response = session.get(playlist_url, headers={"Referer": url}, timeout=(10, 30))
         playlist_response.raise_for_status()
         self._check_cancel()
-        if playlist_response is None:
-            raise SiteStructureChanged("Playwright не получил плейлист")
         return self._parse_playlist_data(
             url=url,
             html_text=html_text,

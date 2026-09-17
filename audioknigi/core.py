@@ -241,7 +241,7 @@ def resolve_executable(name: str):
     return result
 
 def safe_name(name: str) -> str:
-    name = re.sub(r'[<>:"/\\|?*]', "_", str(name))
+    name = re.sub(r'[\x00-\x1f<>:"/\\|?*]', "_", str(name))
     name = re.sub(r"\s+", " ", name).strip(". ")
     if not name:
         return "audiobook"
