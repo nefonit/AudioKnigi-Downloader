@@ -196,10 +196,10 @@ class SettingsUiMixin:
         worker = _AudiobookshelfWorker(url, key)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.finished.connect(self._audiobookshelf_finished, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._worker_ui_relay.audiobookshelf_finished, Qt.ConnectionType.QueuedConnection)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self._clear_abs_thread, Qt.ConnectionType.QueuedConnection)
+        thread.finished.connect(self._worker_ui_relay.audiobookshelf_thread_finished, Qt.ConnectionType.QueuedConnection)
         thread.finished.connect(thread.deleteLater)
         self._abs_thread = thread
         self._abs_worker = worker

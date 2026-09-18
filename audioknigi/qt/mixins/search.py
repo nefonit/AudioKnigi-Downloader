@@ -249,11 +249,11 @@ class SearchUiMixin:
         )
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.progress.connect(self._search_progress_changed, Qt.ConnectionType.QueuedConnection)
-        worker.finished.connect(self._search_finished, Qt.ConnectionType.QueuedConnection)
+        worker.progress.connect(self._worker_ui_relay.search_progress, Qt.ConnectionType.QueuedConnection)
+        worker.finished.connect(self._worker_ui_relay.search_finished, Qt.ConnectionType.QueuedConnection)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self._clear_search_thread, Qt.ConnectionType.QueuedConnection)
+        thread.finished.connect(self._worker_ui_relay.search_thread_finished, Qt.ConnectionType.QueuedConnection)
         thread.finished.connect(thread.deleteLater)
         self._search_cancel = cancel_event
         self._search_thread = thread

@@ -17,6 +17,7 @@ from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_acc
 from .event_sounds import QtEventSoundManager
 from .onboarding import QtFirstRunWizard
 from .operation_dialog import BlockingOperationDialog
+from .worker_ui_relay import WorkerUiRelay
 from .search_model import SearchResultsModel
 from .search_progress import CircularSearchProgress
 from .track_model import TrackTableModel
@@ -100,6 +101,7 @@ class AudioKnigiQtWindow(
         self._operation_dialog: BlockingOperationDialog | None = None
         self._operation_dialog_kind = ""
         self._operation_ui_blocked = False
+        self._worker_ui_relay = WorkerUiRelay(self)
         self._exit_requested = False
         self._exit_deadline: float | None = None
         self._exit_poll_scheduled = False
