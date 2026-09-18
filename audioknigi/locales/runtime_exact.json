@@ -493,5 +493,15 @@
     "de": "Gefundene Aufnahmen: {count}. Wählen Sie einen Sprecher aus.",
     "en": "Narration options found: {count}. Choose a narrator.",
     "uk": "Знайдено варіантів озвучення: {count}. Виберіть читця."
+  },
+  "Аннотация": {
+    "uk": "Анотація",
+    "de": "Beschreibung",
+    "en": "Description"
+  },
+  "Аннотация выбранной книги": {
+    "uk": "Анотація вибраної книги",
+    "de": "Beschreibung des ausgewählten Buches",
+    "en": "Selected book description"
   }
 }

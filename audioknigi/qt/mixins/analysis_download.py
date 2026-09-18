@@ -351,6 +351,11 @@ class AnalysisDownloadUiMixin:
                 self.book_cover_label.setPixmap(pix)
                 self.book_cover_label.setText("")
         self.easy_summary.setText(" • ".join(details))
+        easy_description = str(book.description or "").strip()
+        self.easy_description.setPlainText(easy_description)
+        self.easy_description_title.setVisible(bool(easy_description))
+        self.easy_description.setVisible(bool(easy_description))
+        self.easy_description.setAccessibleDescription(easy_description)
         self.easy_cover_label.setPixmap(QPixmap())
         self.easy_cover_label.setText(self._l("Нет обложки"))
         if cover:

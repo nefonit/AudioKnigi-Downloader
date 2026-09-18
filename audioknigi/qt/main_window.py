@@ -1,9 +1,9 @@
 from __future__ import annotations
 import threading
 import weakref
-from PySide6.QtCore import QThread, Qt, QTimer
+from PySide6.QtCore import QThread, Qt, QTimer, Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QPushButton, QStackedWidget, QStatusBar, QTabWidget, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QStatusBar, QTabWidget, QTableView, QVBoxLayout, QWidget
 from ..brand import BRAND_NAME, DISPLAY_NAME, PRODUCT_NAME
 from ..metadata import APP_VERSION
 from ..core import DEFAULT_OUTPUT, valid_site_url
@@ -245,6 +245,10 @@ class AudioKnigiQtWindow(
         configure_accessible(self.easy_input, name=self._l("Название, автор или ссылка"), identifier="easy_universal_input")
         self.easy_input.returnPressed.connect(self.easy_universal_action)
         self.easy_input.textChanged.connect(self._update_easy_action_text)
+        # textEdited is emitted only for direct user edits.  It lets Backspace/
+        # Delete reset the Easy screen without treating programmatic URL changes
+        # during search/analysis as user intent.
+        self.easy_input.textEdited.connect(self._easy_user_input_edited)
         row = QHBoxLayout()
         row.addWidget(self.easy_input, 1)
         self.easy_paste_button = QPushButton(self._l("Вставить"))
@@ -395,8 +399,29 @@ class AudioKnigiQtWindow(
         self.easy_summary.setWordWrap(True)
         self.easy_summary.setObjectName("bookMetadata")
         configure_accessible(self.easy_summary, name=self._l("Сведения о выбранной книге"), identifier="easy_book_summary")
+        self.easy_description_title = QLabel(self._l("Аннотация"))
+        self.easy_description_title.setObjectName("sectionTitle")
+        self.easy_description = QPlainTextEdit()
+        self.easy_description.setReadOnly(True)
+        self.easy_description.setMaximumHeight(120)
+        self.easy_description.setMinimumHeight(72)
+        self.easy_description.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        configure_accessible(
+            self.easy_description,
+            name=self._l("Аннотация выбранной книги"),
+            identifier="easy_book_description",
+        )
+        self.easy_description_title.setVisible(False)
+        self.easy_description.setVisible(False)
+        easy_book_text = QWidget(self.easy_book_card)
+        easy_book_text_layout = QVBoxLayout(easy_book_text)
+        easy_book_text_layout.setContentsMargins(0, 0, 0, 0)
+        easy_book_text_layout.setSpacing(8)
+        easy_book_text_layout.addWidget(self.easy_summary)
+        easy_book_text_layout.addWidget(self.easy_description_title)
+        easy_book_text_layout.addWidget(self.easy_description)
         easy_book_layout.addWidget(self.easy_cover_label)
-        easy_book_layout.addWidget(self.easy_summary, 1)
+        easy_book_layout.addWidget(easy_book_text, 1)
         self.easy_book_card.setVisible(False)
         layout.addWidget(self.easy_book_card)
 
@@ -432,6 +457,73 @@ class AudioKnigiQtWindow(
         outer.addLayout(center_row)
         outer.addStretch(1)
         return page
+
+    def _easy_operation_active(self) -> bool:
+        for name in ("_search_thread", "_analysis_thread", "_download_thread"):
+            thread = getattr(self, name, None)
+            if thread is None:
+                continue
+            try:
+                if thread.isRunning():
+                    return True
+            except RuntimeError:
+                continue
+        return False
+
+    def _easy_reset_to_initial_state(self, *, clear_input: bool = True, focus: bool = True) -> None:
+        self.current_book = None
+        self._pending_search_result = None
+        self._known_narration_variants = None
+        self._pending_narration_selected_indices = None
+        self._book_url_is_stale = False
+        self._easy_input_is_stale = False
+        self.track_model.set_book(Book(url="", title="", tracks=[]))
+
+        self.easy_summary.setText(self._l("Введите название, автора или ссылку."))
+        self.easy_description.clear()
+        self.easy_description_title.setVisible(False)
+        self.easy_description.setVisible(False)
+        self.easy_cover_label.setPixmap(QPixmap())
+        self.easy_cover_label.setText(self._l("Нет обложки"))
+        self.easy_book_card.setVisible(False)
+        self.easy_empty_hint.setVisible(True)
+
+        self.book_url_edit.clear()
+        self.search_edit.clear()
+        self.search_model.set_results([])
+        if hasattr(self, "search_results_stack"):
+            self.search_results_stack.setCurrentIndex(0)
+        self.easy_search_table.setVisible(False)
+        self.easy_narration_label.setVisible(False)
+        self.easy_narration_combo.setVisible(False)
+        self.easy_narration_combo.clear()
+        self.easy_use_result_button.setVisible(False)
+        self.easy_copy_url_button.setVisible(False)
+        self.easy_download_button.setEnabled(False)
+        if hasattr(self, "easy_open_listen_button"):
+            self.easy_open_listen_button.setEnabled(False)
+
+        # Keep the advanced presentation consistent with the shared Book state.
+        self.book_summary.setText(self._l("Книга ещё не проанализирована."))
+        self.book_description.clear()
+        self.book_cover_label.setPixmap(QPixmap())
+        self.book_cover_label.setText(self._l("Нет обложки"))
+        self.book_empty_state.setVisible(True)
+
+        if clear_input and self.easy_input.text():
+            self.easy_input.clear()
+        if focus:
+            self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    @Slot(str)
+    def _easy_user_input_edited(self, text: str) -> None:
+        if str(text or "").strip():
+            return
+        if self._easy_operation_active():
+            return
+        # Manually deleting the complete query/URL is the keyboard equivalent of
+        # the visible "Скачать следующую книгу" action.
+        self._easy_reset_to_initial_state(clear_input=False, focus=False)
 
     def _update_easy_action_text(self, text: str = "") -> None:
         if not hasattr(self, "easy_action_button"):
@@ -604,23 +696,10 @@ class AudioKnigiQtWindow(
         self.start_search()
 
     def easy_add_another_book(self):
-        self.current_book = None
-        self.track_model.set_book(Book(url="", title="", tracks=[]))
-        self.easy_summary.setText(self._l("Введите название, автора или ссылку."))
-        self.easy_cover_label.setPixmap(QPixmap())
-        self.easy_cover_label.setText(self._l("Нет обложки"))
-        self.easy_book_card.setVisible(False)
-        self.easy_empty_hint.setVisible(True)
-        self.easy_input.clear()
+        # Keep this explicit clear for the long-standing next-book contract; the
+        # shared reset below owns the rest of the state teardown.
         self.book_url_edit.clear()
-        self.easy_search_table.setVisible(False)
-        self.easy_narration_label.setVisible(False)
-        self.easy_narration_combo.setVisible(False)
-        self.easy_narration_combo.clear()
-        self.easy_use_result_button.setVisible(False)
-        self.easy_copy_url_button.setVisible(False)
-        self.easy_download_button.setEnabled(False)
-        self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
+        self._easy_reset_to_initial_state(clear_input=True, focus=True)
 
 
     def _play_event_sound(self, event: str, *, force: bool = False):
