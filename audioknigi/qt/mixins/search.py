@@ -189,6 +189,11 @@ class SearchUiMixin:
     @Slot(int, str)
     def _search_progress_changed(self, percent: int, message: str) -> None:
         self._set_search_progress(percent, message, visible=True)
+        self._update_blocking_operation(
+            "search",
+            progress=percent,
+            message=self._rt(str(message or "")) or self._l("Поиск выполняется…"),
+        )
 
     def _hide_search_progress_if_idle(self) -> None:
         thread = self._search_thread
@@ -227,6 +232,13 @@ class SearchUiMixin:
             self.easy_input.setReadOnly(True)
         self._set_search_progress(5, "Поиск запущен", visible=True)
         self.set_status(f"Ищу: {query}")
+        self._show_blocking_operation(
+            "search",
+            title=self._l("Поиск"),
+            message=self._l("Поиск выполняется…"),
+            cancel_callback=self.cancel_search,
+            progress=5,
+        )
 
         cancel_event = threading.Event()
         thread = QThread(self)
@@ -250,6 +262,10 @@ class SearchUiMixin:
     @Slot(object)
     def _search_finished(self, outcome: SearchOutcome):
         self._set_search_progress(100, "Поиск завершён", visible=True)
+        self._update_blocking_operation(
+            "search", progress=100, message=self._rt("Поиск завершён")
+        )
+        self._finish_blocking_operation("search")
         QTimer.singleShot(650, self._hide_search_progress_if_idle)
         self.search_model.set_results(outcome.results)
         self.search_button.setEnabled(True)
@@ -303,6 +319,7 @@ class SearchUiMixin:
         self._search_thread = None
         self._search_worker = None
         self._search_cancel = None
+        self._finish_blocking_operation("search")
         if self._exit_requested:
             return
         self.search_button.setEnabled(True)

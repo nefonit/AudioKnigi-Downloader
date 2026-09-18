@@ -388,7 +388,13 @@ def _relay_bidirectional(
                 if remaining <= 0:
                     return
                 timeout = min(timeout, remaining)
-            readable, _, exceptional = select.select(active, (), active, timeout)
+            try:
+                readable, _, exceptional = select.select(active, (), active, timeout)
+            except (OSError, ValueError):
+                # A peer can invalidate a socket between the previous recv/send
+                # and this select call, especially on Winsock. Treat that as a
+                # normal tunnel shutdown rather than leaking a proxy exception.
+                return
             if exceptional:
                 return
             if not readable:
@@ -430,7 +436,10 @@ def _relay_bidirectional(
                             stalled_since = time.monotonic()
                         elif time.monotonic() - stalled_since >= 20.0:
                             return
-                        select.select((), (target,), (), 1.0)
+                        try:
+                            select.select((), (target,), (), 1.0)
+                        except (OSError, ValueError):
+                            return
                     except (BrokenPipeError, ConnectionResetError, OSError):
                         return
     finally:
@@ -521,6 +530,11 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
                             path += "?" + reparsed.query
                     else:
                         path = "/" + path.lstrip("/")
+
+            # HTTP request-targets on the wire are ASCII. Chromium normally
+            # percent-encodes non-ASCII text, but defensive proxying must also
+            # handle a raw Unicode origin-form without UnicodeEncodeError.
+            path = quote(path, safe="/:?#[]@!$&'()*+,;=%")
 
             upstream = _connect_target(host, port)
             app_logger.debug("NETWORK DNS | client=Chromium-proxy | host=%s | port=%s | via=Cloudflare", host, port)

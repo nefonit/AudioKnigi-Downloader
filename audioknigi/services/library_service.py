@@ -237,10 +237,18 @@ def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDown
     manifests: list[UnfinishedDownload] = []
     try:
         walker = os.walk(base)
+        base_is_filesystem_root = base.resolve() == Path(base.anchor).resolve() if base.anchor else False
         for root, dirs, files in walker:
-            # Preserve arbitrarily deep user templates (Author/Series/Book/...) but
-            # avoid descending into common development/cache trees when a broad
-            # folder such as Documents was selected accidentally.
+            # Preserve arbitrarily deep user templates for a normal library
+            # folder. If a filesystem root was selected accidentally, cap the
+            # traversal depth so one refresh cannot walk an entire drive.
+            if base_is_filesystem_root:
+                try:
+                    depth = len(Path(root).resolve().relative_to(base.resolve()).parts)
+                except (OSError, ValueError):
+                    depth = 0
+                if depth >= 5:
+                    dirs[:] = []
             dirs[:] = [name for name in dirs if not name.startswith(".")]
             skipped = {"node_modules", "__pycache__", "venv", ".venv"}
             dirs[:] = [name for name in dirs if name.casefold() not in skipped]

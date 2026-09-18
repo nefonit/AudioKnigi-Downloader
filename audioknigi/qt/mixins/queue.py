@@ -553,7 +553,7 @@ class QueueUiMixin:
             else:
                 self.set_status("Очередь завершена.", assertive=True)
                 self._play_event_sound("queue_complete")
-                self._notify_tray_if_hidden("Очередь загрузок завершена.")
+                self._notify_tray_if_hidden(self._l("Очередь завершена."))
             return
         task = self.queue_tasks[idx]
         task.status = "Скачивается"

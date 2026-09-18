@@ -4,6 +4,7 @@ from collections.abc import MutableMapping
 
 import os
 import re
+import time
 from pathlib import Path
 
 from PySide6.QtCore import Slot, Qt
@@ -208,6 +209,19 @@ class PlayerUiMixin:
         if path_text:
             path = Path(path_text).expanduser()
             if path.is_file():
+                # QListWidget can emit itemClicked and itemActivated for one
+                # quick double-click/activation sequence. Preserve convenient
+                # single-click playback while suppressing an immediate duplicate
+                # load of the same chapter.
+                try:
+                    activation_key = str(path.resolve())
+                except OSError:
+                    activation_key = str(path)
+                now = time.monotonic()
+                previous = getattr(self, "_last_player_chapter_activation", None)
+                if previous and previous[0] == activation_key and now - previous[1] < 0.45:
+                    return
+                self._last_player_chapter_activation = (activation_key, now)
                 controller = getattr(self, "player_controller", None)
                 current = getattr(controller, "current_path", None) if controller is not None else None
                 if current is not None:

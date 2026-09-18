@@ -45,7 +45,7 @@ def _clean_text(value) -> str:
 def _canonical_title(value) -> str:
     title = _clean_text(value)
     title = re.sub(
-        r"^(?:слушать\s+(?:онлайн\s+)?)?аудиокниг(?:а|у|и)\s+",
+        r"^(?:слушать\s+)?(?:онлайн\s+)?аудиокниг(?:а|у|и)(?:\s+онлайн)?\s*[:\-–—]?\s*",
         "",
         title,
         flags=re.I,

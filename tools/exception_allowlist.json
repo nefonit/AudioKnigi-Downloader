@@ -74,6 +74,7 @@
   "audioknigi/qt/accessibility_trace.py:_identifier:Exception#1": "optional UI/accessibility enhancement; failure degrades gracefully",
   "audioknigi/qt/accessibility_trace.py:close:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/qt/application.py:_exception_hook:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
+  "audioknigi/qt/application.py:_thread_exception_hook:Exception#1": "best-effort crash reporting fallback: original thread excepthook failure must not mask the primary exception",
   "audioknigi/qt/application.py:run_qt:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/application.py:run_qt:Exception#2": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/application.py:run_qt:Exception#3": "reviewed compatibility boundary; intentionally non-fatal",

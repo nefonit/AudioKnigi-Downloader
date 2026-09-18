@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 
 from PySide6.QtGui import QFont, QFontInfo, QIcon
 from PySide6.QtWidgets import QApplication
@@ -85,6 +86,7 @@ def run_qt(argv=None) -> int:
     settings = load_app_settings().to_dict()
     app = create_application(clean_argv, settings=settings)
     original_excepthook = sys.excepthook
+    original_thread_excepthook = getattr(threading, "excepthook", None)
 
     def _exception_hook(exc_type, exc, tb):
         try:
@@ -97,6 +99,24 @@ def run_qt(argv=None) -> int:
                 except Exception:
                     pass
     sys.excepthook = _exception_hook
+
+    def _thread_exception_hook(args):
+        try:
+            thread_name = getattr(getattr(args, "thread", None), "name", "unknown")
+            build_report(
+                args.exc_type, args.exc_value, args.exc_traceback,
+                component=f"python-thread:{thread_name}",
+            )
+        finally:
+            hook = original_thread_excepthook
+            if callable(hook) and hook is not _thread_exception_hook:
+                try:
+                    hook(args)
+                except Exception:
+                    pass
+
+    if original_thread_excepthook is not None:
+        threading.excepthook = _thread_exception_hook
     focus_tracer = install_focus_trace(app, trace_path)
     app.aboutToQuit.connect(shutdown_cloudflare_playwright_proxy)
 
@@ -136,6 +156,8 @@ def run_qt(argv=None) -> int:
         return int(app.exec())
     finally:
         sys.excepthook = original_excepthook
+        if original_thread_excepthook is not None:
+            threading.excepthook = original_thread_excepthook
         if focus_tracer is not None:
             focus_tracer.close()
 

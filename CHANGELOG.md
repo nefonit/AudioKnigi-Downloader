@@ -2,6 +2,11 @@
 
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
 
+- Round 24 audit (2026-09-18): added application-modal Easy-mode progress for search/analysis/download with cancellation, hardened missing-media decisions, expanded crash/traceback capture for worker threads, and corrected audioknigi.com.ua machine playlist titles such as `king_Rat_1`.
+- Hardened Playwright playlist discovery, Knigavuhe JS-comment parsing, local proxy Unicode/select behavior, float-string chapter boundaries, support-bundle privacy/tails, localization, player activation/shutdown, dragged `.url` handling, root-library scans, and legacy normalization settings. Added 12 focused Round 24 regressions; full suite: 402 passed. All localization/static/historical gates green.
+
+- Round 23 audit (2026-09-18): removed the GUI `os._exit(0)` emergency path that could make a stalled close attempt look like a spontaneous crash, restored active-operation close confirmation, and added lifecycle diagnostics. A timed-out close now aborts and restores the live application instead of killing the interpreter.
+
 - Round 22 audit (2026-09-17): isolated Playwright cookie restoration per cookie on PoleKnig/audioknigi fallbacks, removed cancellation exceptions from the PoleKnig request event callback, and preserved full-duplex CONNECT traffic after an upstream half-close.
 - Hardened Windows filenames against ASCII control characters, made duplicate-output track selection Mapping-aware, preserved meaningful edge punctuation in PoleKnig book titles, corrected source-cleanup telemetry, and removed two unreachable/redundant HTTP checks. Added 8 focused Round 22 regressions; full suite: 387 passed. Historical regression: 267 passed / 116 known source-shape incompatibilities; all release gates green.
 

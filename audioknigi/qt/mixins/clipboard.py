@@ -23,6 +23,10 @@ class ClipboardUiMixin:
                 value = value.strip()
                 if not value:
                     continue
+                if value.lower().startswith(("http://", "https://")):
+                    if value not in out:
+                        out.append(value)
+                    continue
                 path = Path(value)
                 if path.suffix.lower() == ".url":
                     try:

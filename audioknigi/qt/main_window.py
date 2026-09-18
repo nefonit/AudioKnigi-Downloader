@@ -15,6 +15,7 @@ from ..services.queue_service import QueueStore, QueueTask
 from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_accessibility_tree
 from .event_sounds import QtEventSoundManager
 from .onboarding import QtFirstRunWizard
+from .operation_dialog import BlockingOperationDialog
 from .search_model import SearchResultsModel
 from .search_progress import CircularSearchProgress
 from .track_model import TrackTableModel
@@ -95,6 +96,8 @@ class AudioKnigiQtWindow(
         self._player_seek_active = False
         self._active_missing_prompt: _MissingMediaDecision | None = None
         self._active_missing_box: QMessageBox | None = None
+        self._operation_dialog: BlockingOperationDialog | None = None
+        self._operation_dialog_kind = ""
         self._exit_requested = False
         self._exit_deadline: float | None = None
         self._exit_poll_scheduled = False
@@ -419,6 +422,68 @@ class AudioKnigiQtWindow(
                 and not bool(getattr(self, "_book_url_is_stale", False))
             )
 
+
+    def _show_blocking_operation(
+        self,
+        kind: str,
+        *,
+        title: str,
+        message: str,
+        cancel_callback,
+        progress: int | float | None = None,
+        indeterminate: bool = False,
+    ) -> None:
+        """Show one application-modal progress dialog for Easy-mode work."""
+        if self.current_ui_mode() != "easy":
+            return
+        self._finish_blocking_operation()
+        dialog = BlockingOperationDialog(
+            self,
+            title=title,
+            message=message,
+            cancel_text=self._l("Отменить"),
+            cancelling_text=self._l("Отмена…"),
+            indeterminate=indeterminate,
+        )
+        dialog.cancelRequested.connect(cancel_callback)
+        self._operation_dialog = dialog
+        self._operation_dialog_kind = str(kind or "")
+        dialog.set_progress(progress, message=message, indeterminate=indeterminate)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _update_blocking_operation(
+        self,
+        kind: str,
+        *,
+        progress: int | float | None = None,
+        message: str | None = None,
+        indeterminate: bool = False,
+    ) -> None:
+        dialog = self._operation_dialog
+        if dialog is None or self._operation_dialog_kind != str(kind or ""):
+            return
+        try:
+            dialog.set_progress(progress, message=message, indeterminate=indeterminate)
+        except RuntimeError:
+            self._operation_dialog = None
+            self._operation_dialog_kind = ""
+
+    def _finish_blocking_operation(self, kind: str | None = None) -> None:
+        dialog = self._operation_dialog
+        if dialog is None:
+            self._operation_dialog_kind = ""
+            return
+        if kind is not None and self._operation_dialog_kind != str(kind):
+            return
+        self._operation_dialog = None
+        self._operation_dialog_kind = ""
+        try:
+            dialog.finish()
+            dialog.deleteLater()
+        except RuntimeError:
+            pass
 
     def _l(self, text: str, **kwargs) -> str:
         return ui_text(self.language, text, **kwargs)

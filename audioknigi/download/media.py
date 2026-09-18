@@ -591,9 +591,9 @@ class MediaProcessingMixin:
         # Keep FFmpeg argv stable/readable for integral timestamps ("10"
         # rather than "10.0") while retaining sub-second precision when needed.
         if start is not None and float(start).is_integer():
-            start = int(start)
+            start = int(float(start))
         if duration is not None and float(duration).is_integer():
-            duration = int(duration)
+            duration = int(float(duration))
 
         copy_mode, bitrate, channels = self._effective_mp3_profile(source_path)
 

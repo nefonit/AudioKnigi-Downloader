@@ -205,6 +205,13 @@ class AnalysisDownloadUiMixin:
         self.add_queue_button.setEnabled(False)
         self.analysis_progress.setRange(0, 0)
         self.set_status("Начинаю анализ книги…")
+        self._show_blocking_operation(
+            "analysis",
+            title=tr(self.language, "status_analyzing"),
+            message=self._rt("Начинаю анализ книги…"),
+            cancel_callback=self.cancel_analysis,
+            indeterminate=True,
+        )
 
         cancel_event = threading.Event()
         options = AnalysisOptions(
@@ -231,10 +238,14 @@ class AnalysisDownloadUiMixin:
     def _analysis_progress_message(self, message: str):
         if message:
             self.set_status(message)
+            self._update_blocking_operation(
+                "analysis", message=self._rt(message), indeterminate=True
+            )
 
     @Slot(object)
     def _analysis_finished(self, result):
         kind, payload = result
+        self._finish_blocking_operation("analysis")
         suppress_book_found_sound = bool(self._suppress_next_book_found_sound)
         self._suppress_next_book_found_sound = False
         self.analysis_progress.setRange(0, 1)
@@ -432,6 +443,7 @@ class AnalysisDownloadUiMixin:
 
     @Slot()
     def _clear_analysis_thread(self):
+        self._finish_blocking_operation("analysis")
         self._analysis_thread = None
         self._analysis_worker = None
         self._analysis_cancel = None
@@ -562,6 +574,13 @@ class AnalysisDownloadUiMixin:
                 self.set_status("Начинаю скачивание книги одним MP3.")
             else:
                 self.set_status(f"Начинаю скачивание выбранных частей: {len(request.resolved_selected_indices())}.")
+            self._show_blocking_operation(
+                "download",
+                title=tr(self.language, "status_downloading"),
+                message=self._l("Скачивание: подготовка"),
+                cancel_callback=self.cancel_download,
+                progress=0,
+            )
         self._refresh_queue()
         self._play_event_sound("download_start")
         thread.start()
@@ -721,6 +740,9 @@ class AnalysisDownloadUiMixin:
     def _download_status(self, message: str):
         if message:
             self.set_status(message)
+            self._update_blocking_operation(
+                "download", message=self._rt(message)
+            )
 
     @Slot(int, str)
     def _download_stage(self, number: int, text: str):
@@ -728,10 +750,13 @@ class AnalysisDownloadUiMixin:
         stage_text = self._rt(str(text or ""))
         label = f"{stage_prefix} {number}/5: {stage_text}" if number else f"{stage_prefix}: {stage_text}"
         self.download_stage_label.setText(label)
+        self._update_blocking_operation("download", message=label)
 
     @Slot(float)
     def _download_progress_changed(self, value: float):
-        self.download_progress.setValue(max(0, min(100, int(round(value)))))
+        percent = max(0, min(100, int(round(value))))
+        self.download_progress.setValue(percent)
+        self._update_blocking_operation("download", progress=percent)
 
     @Slot(float, int)
     def _download_transfer(self, bytes_per_second: float, active_segments: int):
@@ -765,7 +790,12 @@ class AnalysisDownloadUiMixin:
         text = parts_text + "\n\n" + self._l("Программа уже обновила плейлист, но файл всё равно отсутствует.")
         if prompt.detail:
             text += "\n\n" + prompt.detail
-        box = QMessageBox(self)
+        dialog_parent = (
+            self._operation_dialog
+            if getattr(self, "_operation_dialog_kind", "") == "download" and self._operation_dialog is not None
+            else self
+        )
+        box = QMessageBox(dialog_parent)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle(self._l("Недоступная часть аудиокниги"))
         box.setText(text)
@@ -781,6 +811,12 @@ class AnalysisDownloadUiMixin:
             configure_accessible(skip_button, name=skip_text, identifier="missing_media_skip")
         box.setDefaultButton(stop_button)
         box.setEscapeButton(stop_button)
+        box.finished.connect(
+            lambda _code: prompt.resolve("stop") if not prompt.event.is_set() else None
+        )
+        box.destroyed.connect(
+            lambda *_args: prompt.resolve("stop") if not prompt.event.is_set() else None
+        )
 
         # The worker waits for this modal decision. If cancellation is requested
         # from closing, queue pause/stop, or another controller path, close the
@@ -833,6 +869,7 @@ class AnalysisDownloadUiMixin:
     @Slot(object)
     def _download_finished(self, result):
         kind, payload = result
+        self._finish_blocking_operation("download")
         self.speed_graph.set_transfer_active(False)
         self.speed_graph.setVisible(False)
         self.cancel_download_button.setEnabled(False)
@@ -930,6 +967,7 @@ class AnalysisDownloadUiMixin:
 
     @Slot()
     def _clear_download_thread(self):
+        self._finish_blocking_operation("download")
         had_queue_task = self._active_queue_task_id is not None
         self._download_thread = None
         self._download_worker = None

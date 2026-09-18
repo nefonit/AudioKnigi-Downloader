@@ -207,10 +207,13 @@ class QtPlayerController(QObject):
             self._save_timer.start()
 
     def shutdown(self) -> None:
+        # Stop periodic writes first so no timer callback can race the final
+        # persistence step.  Save the current position while the backend still
+        # exposes it, then stop playback.
+        self._save_timer.stop()
         try:
             self.save_position(force=True)
         finally:
-            self._save_timer.stop()
             self.player.stop()
 
     @Slot(int)

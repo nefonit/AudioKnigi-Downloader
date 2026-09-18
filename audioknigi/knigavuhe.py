@@ -58,9 +58,59 @@ def _clean_text(value) -> str:
 
 
 def _extract_call_argument(text: str, marker: str = "BookController.enter") -> str:
-    """Extract the first JS function argument while respecting strings/nesting."""
+    """Extract the first JS call argument, ignoring strings and JS comments."""
     source = str(text or "")
-    pos = source.find(marker)
+
+    def find_marker() -> int:
+        in_string = False
+        quote = ""
+        escaped = False
+        line_comment = False
+        block_comment = False
+        idx = 0
+        while idx < len(source):
+            ch = source[idx]
+            nxt = source[idx + 1] if idx + 1 < len(source) else ""
+            if line_comment:
+                if ch in "\r\n":
+                    line_comment = False
+                idx += 1
+                continue
+            if block_comment:
+                if ch == "*" and nxt == "/":
+                    block_comment = False
+                    idx += 2
+                else:
+                    idx += 1
+                continue
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == quote:
+                    in_string = False
+                idx += 1
+                continue
+            if ch in ('"', "'", "`"):
+                in_string = True
+                quote = ch
+                idx += 1
+                continue
+            if ch == "/" and nxt == "/":
+                line_comment = True
+                idx += 2
+                continue
+            if ch == "/" and nxt == "*":
+                block_comment = True
+                idx += 2
+                continue
+            if source.startswith(marker, idx):
+                return idx
+            idx += 1
+        return -1
+
+    pos = find_marker()
     if pos < 0:
         return ""
     open_pos = source.find("(", pos + len(marker))
@@ -70,12 +120,28 @@ def _extract_call_argument(text: str, marker: str = "BookController.enter") -> s
     in_string = False
     quote = ""
     escaped = False
+    line_comment = False
+    block_comment = False
     brace_depth = 0
     bracket_depth = 0
     paren_depth = 0
     start = None
-    for idx in range(open_pos + 1, len(source)):
+    idx = open_pos + 1
+    while idx < len(source):
         ch = source[idx]
+        nxt = source[idx + 1] if idx + 1 < len(source) else ""
+        if line_comment:
+            if ch in "\r\n":
+                line_comment = False
+            idx += 1
+            continue
+        if block_comment:
+            if ch == "*" and nxt == "/":
+                block_comment = False
+                idx += 2
+            else:
+                idx += 1
+            continue
         if in_string:
             if escaped:
                 escaped = False
@@ -83,12 +149,22 @@ def _extract_call_argument(text: str, marker: str = "BookController.enter") -> s
                 escaped = True
             elif ch == quote:
                 in_string = False
+            idx += 1
+            continue
+        if ch == "/" and nxt == "/":
+            line_comment = True
+            idx += 2
+            continue
+        if ch == "/" and nxt == "*":
+            block_comment = True
+            idx += 2
             continue
         if ch in ('"', "'", "`"):
             in_string = True
             quote = ch
             if start is None:
                 start = idx
+            idx += 1
             continue
         if start is None and not ch.isspace():
             start = idx
@@ -113,8 +189,8 @@ def _extract_call_argument(text: str, marker: str = "BookController.enter") -> s
             if start is None:
                 return ""
             return source[start:idx].strip()
+        idx += 1
     return ""
-
 
 def _extract_names(value) -> list[str]:
     result: list[str] = []

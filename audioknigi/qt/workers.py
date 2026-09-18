@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import threading
+import time
 
 from PySide6.QtCore import QObject, Signal, Slot, Qt
 from PySide6.QtWidgets import QAbstractItemView, QTableWidget
@@ -47,6 +48,7 @@ class SearchWorker(QObject):
             if self.cancel_event.is_set():
                 self.finished.emit(SearchOutcome(self.query, [], []))
             else:
+                app_logger.exception("Qt search worker failed")
                 self.finished.emit(SearchOutcome(self.query, [], [str(exc)]))
 
 
@@ -64,6 +66,7 @@ class AudiobookshelfWorker(QObject):
             libraries = audiobookshelf_get_libraries(self.url, self.api_key)
             self.finished.emit(("ok", libraries))
         except Exception as exc:
+            app_logger.exception("Qt Audiobookshelf worker failed")
             self.finished.emit(("error", str(exc)))
 
 
@@ -89,6 +92,7 @@ class AnalysisWorker(QObject):
         except Cancelled:
             self.finished.emit(("cancelled", None))
         except Exception as exc:
+            app_logger.exception("Qt analysis worker failed")
             self.finished.emit(("error", str(exc)))
 
 
@@ -106,6 +110,7 @@ class MissingMediaDecision:
 
 
 class DownloadWorker(QObject):
+    MISSING_MEDIA_DECISION_TIMEOUT_SECONDS = 30 * 60
     status = Signal(str)
     log = Signal(str)
     stage = Signal(int, str)
@@ -145,8 +150,16 @@ class DownloadWorker(QObject):
     def _missing_media(self, indices: list[int], detail: str, allow_skip: bool) -> str:
         prompt = MissingMediaDecision(indices, detail, allow_skip)
         self.missing_media.emit(prompt)
+        deadline = time.monotonic() + self.MISSING_MEDIA_DECISION_TIMEOUT_SECONDS
         while not prompt.event.wait(0.1):
             if self.cancel_event.is_set():
+                prompt.resolve("stop")
+                return "stop"
+            if time.monotonic() >= deadline:
+                app_logger.error(
+                    "Missing-media decision timed out after %ss; stopping download safely",
+                    self.MISSING_MEDIA_DECISION_TIMEOUT_SECONDS,
+                )
                 prompt.resolve("stop")
                 return "stop"
         return prompt.value

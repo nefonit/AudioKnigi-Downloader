@@ -9,6 +9,16 @@
     "en": " System tray is unavailable.",
     "uk": " Системний трей недоступний."
   },
+  "Системный трей активен.": {
+    "de": "System-Tray ist aktiv.",
+    "en": "System tray is active.",
+    "uk": "Системний трей активний."
+  },
+  "Системный трей недоступен.": {
+    "de": "System-Tray ist nicht verfügbar.",
+    "en": "System tray is unavailable.",
+    "uk": "Системний трей недоступний."
+  },
   "Audiobookshelf: запущено сканирование библиотеки.": {
     "de": "Audiobookshelf: Bibliotheksscan gestartet.",
     "en": "Audiobookshelf: library scan started.",
@@ -60,9 +70,9 @@
     "uk": "Введіть мінімум 3 символи для пошуку."
   },
   "Введите название/автора для поиска или вставьте ссылку на поддерживаемый сайт": {
-    "de": "Titel/Autor für die Suche eingeben oder einen Link zu einer unterstützten Website einfügen.",
-    "en": "Enter a title/author to search, or paste a link from a supported website.",
-    "uk": "Введіть назву/автора для пошуку або вставте посилання на підтримуваний сайт."
+    "de": "Titel/Autor für die Suche eingeben oder einen Link zu einer unterstützten Website einfügen",
+    "en": "Enter a title/author to search, or paste a link from a supported website",
+    "uk": "Введіть назву/автора для пошуку або вставте посилання на підтримуваний сайт"
   },
   "Восстановление": {
     "de": "Wiederherstellung",

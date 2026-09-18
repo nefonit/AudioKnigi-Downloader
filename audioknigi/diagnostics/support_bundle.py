@@ -61,10 +61,15 @@ def _privacy_path(value: Any) -> Any:
     # Error/status strings can contain an absolute path in the middle rather
     # than being a path themselves. Mask those too so another Windows username,
     # drive, or UNC share cannot leak into a support archive. Avoid matching the
-    # ``s://`` portion of ordinary URLs.
-    embedded_drive = re.compile(r"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/])[^\s\"']+")
+    # ``s://`` portion of ordinary URLs. Paths can contain spaces, so stop only
+    # at strong log-field delimiters rather than at whitespace.
+    segment = r"[^\\/|;\r\n\"']+"
+    final = r"[^\\/\s|;\r\n\"']+"
+    embedded_drive = re.compile(
+        rf"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/])(?:{segment}[\\/])*{final}"
+    )
     embedded_unc = re.compile(
-        r"(?:\\\\[^\\/\s\"']+[\\/][^\\/\s\"']+|(?<!:)//[^/\s\"']+/[^/\s\"']+)[^\s\"']*"
+        rf"(?:\\\\{segment}[\\/](?:{segment}[\\/])*{final}|(?<!:)//{segment}/(?:{segment}/)*{final})"
     )
     text = embedded_drive.sub("<configured-path>", text)
     text = embedded_unc.sub("<configured-path>", text)
@@ -121,9 +126,14 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
             handle.seek(start)
             data = handle.read()
             if start > 0:
-                newline = data.find(b"\n")
-                if 0 <= newline < len(data) - 1:
-                    data = data[newline + 1:]
+                # If the byte window already starts immediately after a newline,
+                # it begins on a clean line boundary and must not be trimmed.
+                handle.seek(start - 1)
+                starts_after_newline = handle.read(1) == b"\n"
+                if not starts_after_newline:
+                    newline = data.find(b"\n")
+                    if newline >= 0:
+                        data = data[newline + 1:]
             # Diagnostics are text.  Trim any incomplete UTF-8 codepoint at
             # either edge of a byte-limited tail so every archived log remains
             # valid UTF-8 for standard editors and support tooling.

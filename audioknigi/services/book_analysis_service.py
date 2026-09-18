@@ -9,7 +9,7 @@ import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Callable
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 from ..cover_fetch import fetch_cover_bytes
 from ..download.common import close_subprocess_pipes
@@ -50,6 +50,35 @@ def _iter_completed_cancellable(futures, cancel_event):
         done, pending = wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)
         for future in done:
             yield future
+
+
+def _playlist_track_title(raw_title, file_url: str, index: int, book_title: str, total: int) -> str:
+    """Turn machine/file playlist labels into stable human-readable track titles."""
+    text = re.sub(r"\s+", " ", html_lib.unescape(str(raw_title or ""))).strip()
+    if text:
+        comma_parts = [part.strip() for part in text.split(",") if part.strip()]
+        if len(comma_parts) > 1 and all(part.casefold() == comma_parts[0].casefold() for part in comma_parts):
+            text = comma_parts[0]
+
+    path_name = unquote(urlsplit(str(file_url or "")).path.rsplit("/", 1)[-1])
+    stem = path_name.rsplit(".", 1)[0] if "." in path_name else path_name
+
+    def compact(value: str) -> str:
+        return re.sub(r"[^0-9a-zа-яё]+", "", str(value or "").casefold())
+
+    matches_file_stem = bool(text and stem and compact(text) == compact(stem))
+    slug_like = bool(
+        text
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", text)
+        and ("_" in text or "-" in text)
+        and re.search(r"(?:[_-]?\d+)$", text)
+    )
+    if not text or matches_file_stem or slug_like:
+        clean_book = re.sub(r"\s+", " ", str(book_title or "")).strip()
+        if clean_book:
+            return clean_book if total <= 1 else f"{clean_book} — {index:02d}"
+        return f"{index:02d}"
+    return text
 
 
 @dataclass(slots=True)
@@ -497,15 +526,14 @@ class BookAnalysisService:
         if not isinstance(data, list) or not data:
             raise RuntimeError("Плейлист пуст.")
 
+        playlist_items = [
+            item for item in data
+            if isinstance(item, dict) and str(item.get("file", "") or "").strip()
+        ]
         tracks: list[Track] = []
-        for item in data:
+        for item in playlist_items:
             self._check_cancel()
-            if not isinstance(item, dict):
-                continue
-            file_url = str(item.get("file", "")).strip()
-            if not file_url:
-                continue
-            file_url = urljoin(playlist_url, file_url)
+            file_url = urljoin(playlist_url, str(item.get("file", "")).strip())
             start = parse_time_seconds(item.get("start"))
             end = parse_time_seconds(item.get("end"))
             duration = None
@@ -521,10 +549,15 @@ class BookAnalysisService:
             raw_track_title = html_lib.unescape(
                 str(item.get("title") or "").strip()
             ).strip()
+            normalized_track_title = _playlist_track_title(
+                raw_track_title, file_url, track_index, title, len(playlist_items)
+            )
+            # Legacy fallback shape was: title=raw_track_title or f"{track_index:02d}".
+            # The normalized title now additionally filters machine/file labels.
             tracks.append(
                 Track(
                     index=track_index,
-                    title=raw_track_title or f"{track_index:02d}",
+                    title=normalized_track_title or f"{track_index:02d}",
                     file=file_url,
                     start=start,
                     end=end,
@@ -645,7 +678,15 @@ class BookAnalysisService:
 
                 page.on("request", on_request)
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(1500)
+                # Player initialization can happen after DOMContentLoaded,
+                # especially while Cloudflare/Turnstile finishes a managed
+                # challenge. Poll the captured requests for up to eight seconds
+                # instead of assuming a fixed 1.5-second delay is sufficient.
+                for _attempt in range(32):
+                    self._check_cancel()
+                    if captured:
+                        break
+                    page.wait_for_timeout(250)
                 self._check_cancel()
                 html_text = page.content()
                 playlist_url = captured[-1] if captured else self._extract_playlist_url(html_text)
