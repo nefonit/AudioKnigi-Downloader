@@ -389,7 +389,7 @@ def load_json(path, default):
         try:
             target = Path(path)
             if target.exists():
-                return json.loads(target.read_text(encoding="utf-8"))
+                return json.loads(target.read_text(encoding="utf-8-sig"))
         except Exception:
             pass
     return default

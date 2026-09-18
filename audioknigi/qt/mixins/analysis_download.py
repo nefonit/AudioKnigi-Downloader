@@ -324,7 +324,7 @@ class AnalysisDownloadUiMixin:
         self.current_book = book
         self.book_empty_state.setVisible(False)
         self.track_model.set_book(book)
-        self.play_selected_track_button.setEnabled(False)
+        self._update_selected_track_player_button()
         self.track_table.resizeColumnsToContents()
         parts = len(book.tracks)
         details = [book.title or self._l("Без названия")]
@@ -967,7 +967,7 @@ class AnalysisDownloadUiMixin:
             self._notify_tray_if_hidden("Скачивание аудиокниги завершено.")
             self._load_history()
         self.track_model.set_book(self.current_book)
-        self.play_selected_track_button.setEnabled(False)
+        self._update_selected_track_player_button()
         self._refresh_unfinished()
 
     @Slot()

@@ -275,14 +275,30 @@ class BookAnalysisService:
         normalized = str(value or "").casefold().replace("ё", "е")
         return {token for token in re.findall(r"[\wІіЇїЄє]+", normalized, re.UNICODE) if len(token) > 1}
 
+    @staticmethod
+    def _book_identity_hints(book: Book) -> tuple[str, str, str]:
+        raw_title = str(getattr(book, "title", "") or "").strip()
+        author = str(getattr(book, "author", "") or "").strip()
+        narrator = str(getattr(book, "narrator", "") or "").strip()
+        title = raw_title
+        parts = re.split(r"\s+[–—-]\s+", raw_title, maxsplit=1)
+        if len(parts) == 2:
+            prefix, suffix = (part.strip() for part in parts)
+            if suffix and len(prefix.split()) <= 5:
+                title = suffix
+                if not author:
+                    author = prefix
+        return title, author, narrator
+
     def _knigavuhe_fallback_candidate(self, book: Book) -> Book | None:
-        title_tokens = self._identity_tokens(getattr(book, "title", ""))
-        author_tokens = self._identity_tokens(getattr(book, "author", ""))
-        narrator_tokens = self._identity_tokens(getattr(book, "narrator", ""))
+        title_hint, author_hint, narrator_hint = self._book_identity_hints(book)
+        title_tokens = self._identity_tokens(title_hint)
+        author_tokens = self._identity_tokens(author_hint)
+        narrator_tokens = self._identity_tokens(narrator_hint)
         if not title_tokens:
             return None
         try:
-            results = list(search_knigavuhe_books(str(getattr(book, "title", "") or ""), cancel_event=self.cancel_event) or [])
+            results = list(search_knigavuhe_books(title_hint, cancel_event=self.cancel_event) or [])
         except Cancelled:
             raise
         except Exception:
@@ -614,7 +630,8 @@ class BookAnalysisService:
     def _analyze_audioknigi_requests(self, url: str) -> Book:
         session = get_http_session()
         response = session.get(url, timeout=(10, 30), allow_redirects=True)
-        html_text = response.text or ""
+        content = bytes(getattr(response, "content", b"") or b"")
+        html_text = content.decode("utf-8-sig", errors="replace") if content else (response.text or "")
         if self._looks_like_protection(html_text, response.status_code):
             raise RuntimeError(f"Сайт вернул защитную страницу HTTP {response.status_code}")
         response.raise_for_status()

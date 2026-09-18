@@ -170,6 +170,10 @@ def _parse_selected_indices_payload(payload) -> list[int] | None:
 
     result: list[int] = []
     for value in values:
+        # bool is an int subclass in Python; JSON true/false must never become
+        # selected track 1/0.
+        if isinstance(value, bool):
+            continue
         if value is None or not str(value).strip():
             continue
         try:

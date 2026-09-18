@@ -6,6 +6,7 @@ import re
 import subprocess
 import threading
 import time
+from collections.abc import Mapping
 from pathlib import Path
 try:
     from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB, TRCK
@@ -492,7 +493,8 @@ class MediaProcessingMixin:
             book_title = str(book.title or "audiobook")
             normalized_track_index = max(0, safe_int(track_index, 0))
             normalized_total_tracks = max(0, safe_int(total_tracks, 0))
-            chapter_title = str(getattr(track, "title", "") or "").strip()
+            title_value = track.get("title", "") if isinstance(track, Mapping) else getattr(track, "title", "")
+            chapter_title = str(title_value or "").strip()
             if chapter_title:
                 # Keep meaningful chapter names in players instead of replacing
                 # every TIT2 tag with a generic "part NN" label.  Avoid

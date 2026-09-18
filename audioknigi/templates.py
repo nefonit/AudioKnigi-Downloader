@@ -63,7 +63,9 @@ def template_values(book, track=None, output_dir=None, *, language: str = "ru") 
         width = track_number_width(book)
         track_number = f"{idx:0{width}d}"
         raw_title = _field(track, "title", "")
-        track_title = str(_field(book, "title", "") or "") if raw_title is None or str(raw_title) == "" else str(raw_title)
+        # A missing per-track title must remain unique. Falling back to the book
+        # title makes templates such as {Track_Title}.mp3 overwrite every part.
+        track_title = f"track-{track_number}" if raw_title is None or str(raw_title) == "" else str(raw_title)
     raw_year = _field(book, "year", "")
     return {
         "Output_Dir": str(output_dir or ""),

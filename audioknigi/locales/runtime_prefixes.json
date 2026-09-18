@@ -60,9 +60,9 @@
     "uk": "Завантажено "
   },
   "Скачивание завершено. Пропущены недоступные части: ": {
-    "de": "Download abgeschlossen. Nicht verfügbare Teile übersprungen: ",
-    "en": "Download completed. Unavailable parts skipped: ",
-    "uk": "Завантаження завершено. Недоступні частини пропущено: "
+    "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
+    "en": "Download completed. Unavailable parts were skipped: ",
+    "uk": "Завантаження завершено. Пропущено недоступні частини: "
   },
   "Скорость: ": {
     "de": "Geschwindigkeit: ",

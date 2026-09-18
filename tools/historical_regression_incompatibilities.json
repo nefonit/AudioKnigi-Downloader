@@ -6,6 +6,7 @@
   "test_audit5_followup_20260911.py::test_http_416_accepts_common_content_range_total_forms[/4]",
   "test_audit5_followup_20260911.py::test_http_416_accepts_common_content_range_total_forms[bytes */4]",
   "test_audit5_followup_20260911.py::test_http_416_accepts_common_content_range_total_forms[bytes 0-3/4]",
+  "test_audit6_followup_20260911.py::test_empty_track_title_uses_book_title_in_template",
   "test_audit6_followup_20260911.py::test_narration_variant_cache_is_keyed_to_book_identity",
   "test_audit6_followup_20260911.py::test_shortcuts_and_file_dialogs_are_localized",
   "test_audit6_followup_20260911.py::test_threadsafe_active_io_lazy_init_and_playwright_header_fallback_are_present",

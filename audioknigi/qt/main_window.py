@@ -96,6 +96,10 @@ class AudioKnigiQtWindow(
         self.search_model = SearchResultsModel(self)
         self.player_controller: QtPlayerController | None = None
         self._player_seek_active = False
+        self._last_player_chapter_activation = None
+        self._player_book_folder = None
+        self._player_book_files = []
+        self._player_local_metadata = {}
         self._active_missing_prompt: _MissingMediaDecision | None = None
         self._active_missing_box: QMessageBox | None = None
         self._operation_dialog: BlockingOperationDialog | None = None

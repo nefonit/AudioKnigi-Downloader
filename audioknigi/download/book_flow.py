@@ -577,7 +577,6 @@ class BookFlowMixin:
                 )
                 raise SharedSourceTimelineError(local_timeline_issue)
 
-        if want_mp3 and mp3_needs_creation:
             self._log_book_flow("ffmpeg_split_start", book, parts=len(mp3_needs_creation))
             split_text = i18n_tr(getattr(self, "runtime_language", "ru"), "status_splitting_progress", current=0, total=len(mp3_needs_creation))
             self.set_stage(3, split_text)

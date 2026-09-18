@@ -205,7 +205,7 @@
     "uk": "Очікує повтору"
   },
   "Озвучка {index}": {
-    "de": "Aufnahme {index}",
+    "de": "Sprecherfassung {index}",
     "en": "Recording {index}",
     "uk": "Озвучення {index}"
   },
@@ -470,38 +470,63 @@
     "uk": "обмежено"
   },
   "Выберите озвучку": {
-    "de": "Aufnahme auswählen",
+    "de": "Sprecherfassung auswählen",
     "en": "Choose narration",
     "uk": "Виберіть озвучення"
   },
   "Выберите чтеца перед анализом книги": {
-    "de": "Wählen Sie vor der Buchanalyse einen Sprecher aus.",
+    "de": "Wähle vor der Buchanalyse einen Sprecher aus.",
     "en": "Choose a narrator before analyzing the book.",
     "uk": "Виберіть читця перед аналізом книги."
   },
   "Выберите озвучку…": {
-    "de": "Aufnahme auswählen…",
+    "de": "Sprecherfassung auswählen…",
     "en": "Choose narration…",
     "uk": "Виберіть озвучення…"
   },
   "Выберите озвучку перед анализом книги.": {
-    "de": "Wählen Sie vor der Buchanalyse eine Aufnahme aus.",
+    "de": "Wähle vor der Buchanalyse eine Sprecherfassung aus.",
     "en": "Choose a narration before analyzing the book.",
     "uk": "Виберіть озвучення перед аналізом книги."
   },
   "Найдено вариантов озвучки: {count}. Выберите чтеца.": {
-    "de": "Gefundene Aufnahmen: {count}. Wählen Sie einen Sprecher aus.",
+    "de": "Gefundene Sprecherfassungen: {count}. Wähle einen Sprecher aus.",
     "en": "Narration options found: {count}. Choose a narrator.",
     "uk": "Знайдено варіантів озвучення: {count}. Виберіть читця."
   },
   "Аннотация": {
-    "uk": "Анотація",
     "de": "Beschreibung",
-    "en": "Description"
+    "en": "Description",
+    "uk": "Анотація"
   },
   "Аннотация выбранной книги": {
-    "uk": "Анотація вибраної книги",
     "de": "Beschreibung des ausgewählten Buches",
-    "en": "Selected book description"
+    "en": "Selected book description",
+    "uk": "Анотація вибраної книги"
+  },
+  "Завершаю поиск": {
+    "de": "Suche wird abgeschlossen",
+    "en": "Finishing search",
+    "uk": "Завершую пошук"
+  },
+  "Найден исправный резервный источник knigavuhe.org.": {
+    "de": "Eine funktionierende Ersatzquelle auf knigavuhe.org wurde gefunden.",
+    "en": "A working fallback source was found on knigavuhe.org.",
+    "uk": "Знайдено справне резервне джерело на knigavuhe.org."
+  },
+  "Анализ отменён.": {
+    "de": "Analyse abgebrochen.",
+    "en": "Analysis cancelled.",
+    "uk": "Аналіз скасовано."
+  },
+  "Не удалось проанализировать книгу.": {
+    "de": "Das Buch konnte nicht analysiert werden.",
+    "en": "The book could not be analyzed.",
+    "uk": "Не вдалося проаналізувати книгу."
+  },
+  "ID библиотеки Audiobookshelf": {
+    "de": "Audiobookshelf-Bibliotheks-ID",
+    "en": "Audiobookshelf library ID",
+    "uk": "ID бібліотеки Audiobookshelf"
   }
 }

@@ -740,7 +740,7 @@ TOPICS = {'ru': (('start',
         ('modes',
          'Einfacher und erweiterter Modus',
          'Der einfache Modus bündelt den normalen Ablauf: Buch suchen oder Link öffnen, Qualität und Ordner wählen, dann herunterladen. '
-         'Technische Optionen bleiben verborgen, der Download-Engine ist jedoch derselbe.\n'
+         'Technische Optionen bleiben verborgen, die Download-Engine ist jedoch dieselbe.\n'
          '\n'
          'Der erweiterte Modus zeigt sechs Arbeitsbereiche: Buch, Suche, Warteschlange, Verlauf, Einstellungen und Player. Hier lassen '
          'sich einzelne Teile auswählen, Aufnahmen wechseln, Aufgaben einreihen, ein vollständiges MP3 erstellen, Sitzungsprotokoll, '

@@ -266,7 +266,8 @@ def _audioknigi_page_metadata(
             allow_redirects=True,
         )
         response.raise_for_status()
-        html_text = response.text or ""
+        content = bytes(getattr(response, "content", b"") or b"")
+        html_text = content.decode("utf-8-sig", errors="replace") if content else (response.text or "")
 
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
         page_label = _clean_text(title_match.group(1) if title_match else "")

@@ -86,8 +86,8 @@ def sanitized_settings(settings: Mapping[str, Any] | None) -> dict[str, Any]:
             result[key] = "<window-geometry>" if value else value
         elif lowered in {"abs_url"}:
             result[key] = "<configured-url>" if value else value
-        elif isinstance(value, str):
-            result[key] = _privacy_path(value)
+        elif isinstance(value, (str, Path)):
+            result[key] = _privacy_path(str(value))
         else:
             result[key] = value
     return result

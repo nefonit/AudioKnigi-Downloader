@@ -82,11 +82,13 @@ def _delete_selection(widget: QWidget) -> None:
         # Inserting an empty string replaces the selected range without relying
         # on the binding-specific ``del_`` method name.
         widget.insert("")
+        widget.setFocus(Qt.FocusReason.OtherFocusReason)
         return
     if isinstance(widget, (QPlainTextEdit, QTextEdit)):
         cursor = widget.textCursor()
         cursor.insertText("")
         widget.setTextCursor(cursor)
+        widget.setFocus(Qt.FocusReason.OtherFocusReason)
 
 
 def _global_menu_position(widget: QWidget, pos: QPoint):

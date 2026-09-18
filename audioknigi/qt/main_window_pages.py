@@ -359,7 +359,12 @@ class MainWindowPagesMixin:
             self.quality_combo.addItem(text, value)
         current_audio = str(self.settings.get("audio_preset", "copy") or "copy")
         current_norm = str(self.settings.get("normalization_mode", "off") or "off")
-        current_quality = "phone" if current_audio == "64k_mono" else ("normalize" if current_norm == "two_pass" else "standard")
+        explicit_quality = str(self.settings.get("quality_preset", "") or "").strip()
+        current_quality = (
+            explicit_quality
+            if explicit_quality in {"standard", "phone", "normalize"}
+            else ("phone" if current_audio == "64k_mono" else ("normalize" if current_norm == "two_pass" else "standard"))
+        )
         self.quality_combo.setCurrentIndex(max(0, self.quality_combo.findData(current_quality)))
         configure_accessible(self.quality_combo, name="Качество звука", identifier="quality_preset")
         self.quality_combo.currentIndexChanged.connect(self._quality_preset_changed)
@@ -527,7 +532,7 @@ class MainWindowPagesMixin:
         configure_accessible(self.abs_api_key_edit, name="API key Audiobookshelf", description=self._l("Секретное поле"), identifier="abs_api_key")
         abs_form.addRow("API key:", self.abs_api_key_edit)
         self.abs_library_id_edit = QLineEdit(str(self.settings.get("abs_library_id", "") or ""))
-        configure_accessible(self.abs_library_id_edit, name="Library ID Audiobookshelf", identifier="abs_library_id")
+        configure_accessible(self.abs_library_id_edit, name=self._l("ID библиотеки Audiobookshelf"), identifier="abs_library_id")
         abs_form.addRow("Library ID:", self.abs_library_id_edit)
         self.abs_test_button = QPushButton(self._l("Проверить соединение"))
         configure_accessible(self.abs_test_button, name="Проверить соединение с Audiobookshelf", identifier="abs_test")

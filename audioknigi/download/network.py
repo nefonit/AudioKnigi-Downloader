@@ -813,15 +813,22 @@ class NetworkDownloadMixin:
         for thread in threads:
             thread.start()
         cancelled_peers_for_error = False
-        for thread in threads:
-            while thread.is_alive():
-                self._check_cancel()
-                with errors_lock:
-                    has_error = bool(errors)
-                if has_error and not cancelled_peers_for_error:
-                    self._cancel_active_network_io()
-                    cancelled_peers_for_error = True
-                thread.join(0.20)
+        try:
+            for thread in threads:
+                while thread.is_alive():
+                    self._check_cancel()
+                    with errors_lock:
+                        has_error = bool(errors)
+                    if has_error and not cancelled_peers_for_error:
+                        self._cancel_active_network_io()
+                        cancelled_peers_for_error = True
+                    thread.join(0.20)
+        finally:
+            # Cancellation can raise from _check_cancel() before the ordinary
+            # error path gets a chance to close registered response sockets.
+            # Always tear down active network I/O while segmented workers remain.
+            if any(thread.is_alive() for thread in threads):
+                self._cancel_active_network_io()
 
         if errors:
             err = errors[0]
