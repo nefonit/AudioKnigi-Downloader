@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 
 from PySide6.QtCore import QThread, Slot, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabe
 from ...logging_utils import app_logger
 from ...models import SearchResult
 from ...services.search_service import SearchOutcome
+from ...sources import normalize_supported_url
 from ..accessibility import configure_accessible, focus_table_row
 from ..search_model import SearchResultsModel
 from ..search_progress import CircularSearchProgress
@@ -309,6 +311,7 @@ class SearchUiMixin:
             self.easy_search_table.setVisible(self.current_ui_mode() == "easy")
             self.easy_use_result_button.setVisible(self.current_ui_mode() == "easy")
             self.easy_copy_url_button.setVisible(self.current_ui_mode() == "easy")
+            self._refresh_easy_narration_variants()
             app_logger.info("SEARCH UI | event=views_visible | scheduling_focus=1")
             QTimer.singleShot(0, self._focus_search_result_after_render)
             self._update_search_action_states()
@@ -342,6 +345,68 @@ class SearchUiMixin:
             focus_table_row(self.search_table, 0, column=1, focus=True)
         app_logger.info("SEARCH UI | event=focus_complete")
 
+    def _search_result_narration_variants(self, result: SearchResult | None):
+        variants = []
+        seen = set()
+        for item in list(getattr(result, "narration_variants", None) or []):
+            url = normalize_supported_url(str(getattr(item, "url", "") or ""))
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            variants.append(item)
+        return variants
+
+    @Slot()
+    def _easy_search_selection_changed(self, *_args) -> None:
+        self._refresh_easy_narration_variants()
+        self._update_search_action_states()
+
+    def _refresh_easy_narration_variants(self) -> None:
+        if not hasattr(self, "easy_narration_combo"):
+            return
+        result = self._selected_search_result(self.easy_search_table) if hasattr(self, "easy_search_table") else None
+        variants = self._search_result_narration_variants(result)
+        multiple = len(variants) > 1
+        self.easy_narration_combo.blockSignals(True)
+        self.easy_narration_combo.clear()
+        if multiple:
+            self.easy_narration_combo.addItem(self._l("Выберите озвучку…"), "")
+            for idx, item in enumerate(variants, start=1):
+                narrator = str(getattr(item, "narrator", "") or "").strip() or self._l("Озвучка {index}", index=idx)
+                available = getattr(item, "available", None)
+                suffix = (
+                    f" — {self._l('недоступно')}" if available is False
+                    else f" — {self._l('доступно')}" if available is True
+                    else ""
+                )
+                self.easy_narration_combo.addItem(
+                    narrator + suffix,
+                    normalize_supported_url(str(getattr(item, "url", "") or "")),
+                )
+            self.easy_narration_combo.setCurrentIndex(0)
+        self.easy_narration_combo.blockSignals(False)
+        self.easy_narration_label.setVisible(multiple and self.current_ui_mode() == "easy")
+        self.easy_narration_combo.setVisible(multiple and self.current_ui_mode() == "easy")
+        if multiple:
+            count = len(variants)
+            self.easy_narration_combo.setAccessibleDescription(
+                self._l("Найдено вариантов озвучки: {count}. Выберите чтеца.", count=count)
+            )
+
+    def _easy_selected_narration(self, result: SearchResult | None):
+        variants = self._search_result_narration_variants(result)
+        if len(variants) <= 1:
+            return variants[0] if variants else None
+        if not hasattr(self, "easy_narration_combo"):
+            return None
+        selected_url = normalize_supported_url(str(self.easy_narration_combo.currentData() or ""))
+        if not selected_url:
+            return None
+        for item in variants:
+            if normalize_supported_url(str(getattr(item, "url", "") or "")) == selected_url:
+                return item
+        return None
+
     @Slot()
     def _clear_search_thread(self):
         self._search_thread = None
@@ -365,7 +430,10 @@ class SearchUiMixin:
         if hasattr(self, "copy_result_button"):
             self.copy_result_button.setEnabled(search_selected)
         if hasattr(self, "easy_use_result_button"):
-            self.easy_use_result_button.setEnabled(easy_selected)
+            easy_result = self._selected_search_result(self.easy_search_table) if easy_selected else None
+            variants = self._search_result_narration_variants(easy_result)
+            narration_ready = len(variants) <= 1 or self._easy_selected_narration(easy_result) is not None
+            self.easy_use_result_button.setEnabled(bool(easy_selected and narration_ready))
         if hasattr(self, "easy_copy_url_button"):
             self.easy_copy_url_button.setEnabled(easy_selected)
 
@@ -410,11 +478,30 @@ class SearchUiMixin:
             self.set_status("Сначала выберите книгу в результатах поиска.")
             self.search_table.setFocus(Qt.FocusReason.OtherFocusReason)
             return
-        self._pending_search_result = result
-        self.book_url_edit.setText(result.url)
+        selected_result = result
         if self.current_ui_mode() == "easy":
-            self.easy_input.setText(result.url)
+            variants = self._search_result_narration_variants(result)
+            selected_variant = self._easy_selected_narration(result)
+            if len(variants) > 1 and selected_variant is None:
+                self.set_status(self._l("Выберите озвучку перед анализом книги."), assertive=True)
+                self.easy_narration_combo.setFocus(Qt.FocusReason.OtherFocusReason)
+                return
+            if selected_variant is not None:
+                selected_url = normalize_supported_url(str(getattr(selected_variant, "url", "") or ""))
+                selected_narrator = str(getattr(selected_variant, "narrator", "") or "").strip()
+                if selected_url:
+                    selected_result = replace(
+                        result,
+                        url=selected_url,
+                        narrator=selected_narrator or result.narrator,
+                    )
+        self._pending_search_result = selected_result
+        self.book_url_edit.setText(selected_result.url)
+        if self.current_ui_mode() == "easy":
+            self.easy_input.setText(selected_result.url)
             self.easy_search_table.setVisible(False)
+            self.easy_narration_label.setVisible(False)
+            self.easy_narration_combo.setVisible(False)
             self.easy_use_result_button.setVisible(False)
             self.easy_copy_url_button.setVisible(False)
             self.easy_summary.setText(self._l("Выбрана: {title}. Анализирую…", title=result.title))
@@ -433,7 +520,17 @@ class SearchUiMixin:
         if result is None:
             self.set_status("Сначала выберите книгу в результатах поиска.")
             return
-        self._set_clipboard_text(result.url)
+        copy_url = result.url
+        if self.current_ui_mode() == "easy":
+            selected_variant = self._easy_selected_narration(result)
+            selected_url = (
+                normalize_supported_url(str(getattr(selected_variant, "url", "") or ""))
+                if selected_variant is not None
+                else ""
+            )
+            if selected_url:
+                copy_url = selected_url
+        self._set_clipboard_text(copy_url)
         self.set_status("Ссылка скопирована в буфер обмена.")
 
 

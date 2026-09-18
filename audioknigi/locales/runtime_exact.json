@@ -468,5 +468,30 @@
     "de": "eingeschränkt",
     "en": "restricted",
     "uk": "обмежено"
+  },
+  "Выберите озвучку": {
+    "de": "Aufnahme auswählen",
+    "en": "Choose narration",
+    "uk": "Виберіть озвучення"
+  },
+  "Выберите чтеца перед анализом книги": {
+    "de": "Wählen Sie vor der Buchanalyse einen Sprecher aus.",
+    "en": "Choose a narrator before analyzing the book.",
+    "uk": "Виберіть читця перед аналізом книги."
+  },
+  "Выберите озвучку…": {
+    "de": "Aufnahme auswählen…",
+    "en": "Choose narration…",
+    "uk": "Виберіть озвучення…"
+  },
+  "Выберите озвучку перед анализом книги.": {
+    "de": "Wählen Sie vor der Buchanalyse eine Aufnahme aus.",
+    "en": "Choose a narration before analyzing the book.",
+    "uk": "Виберіть озвучення перед аналізом книги."
+  },
+  "Найдено вариантов озвучки: {count}. Выберите чтеца.": {
+    "de": "Gefundene Aufnahmen: {count}. Wählen Sie einen Sprecher aus.",
+    "en": "Narration options found: {count}. Choose a narrator.",
+    "uk": "Знайдено варіантів озвучення: {count}. Виберіть читця."
   }
 }

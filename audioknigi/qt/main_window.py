@@ -338,6 +338,23 @@ class AudioKnigiQtWindow(
         self.easy_search_table.setVisible(False)
         layout.addWidget(self.easy_search_table, 1)
 
+        easy_narration_row = QHBoxLayout()
+        self.easy_narration_label = QLabel(self._l("Озвучка:"))
+        self.easy_narration_combo = QComboBox()
+        configure_accessible(
+            self.easy_narration_combo,
+            name=self._l("Выберите озвучку"),
+            description=self._l("Выберите чтеца перед анализом книги"),
+            identifier="easy_narration_variant",
+        )
+        self.easy_narration_label.setBuddy(self.easy_narration_combo)
+        self.easy_narration_combo.currentIndexChanged.connect(lambda _index: self._update_search_action_states())
+        self.easy_narration_label.setVisible(False)
+        self.easy_narration_combo.setVisible(False)
+        easy_narration_row.addWidget(self.easy_narration_label)
+        easy_narration_row.addWidget(self.easy_narration_combo, 1)
+        layout.addLayout(easy_narration_row)
+
         easy_search_actions = QHBoxLayout()
         self.easy_use_result_button = QPushButton(self._l("Выбрать и проанализировать"))
         self.easy_copy_url_button = QPushButton(self._l("Копировать ссылку"))
@@ -349,7 +366,7 @@ class AudioKnigiQtWindow(
         self.easy_copy_url_button.setEnabled(False)
         easy_selection_model = self.easy_search_table.selectionModel()
         if easy_selection_model is not None:
-            easy_selection_model.selectionChanged.connect(lambda _selected, _deselected: self._update_search_action_states())
+            easy_selection_model.selectionChanged.connect(self._easy_search_selection_changed)
         self.easy_use_result_button.setVisible(False)
         self.easy_copy_url_button.setVisible(False)
         easy_search_actions.addWidget(self.easy_use_result_button)
@@ -574,6 +591,8 @@ class AudioKnigiQtWindow(
         if valid_site_url(text):
             self.book_url_edit.setText(text)
             self.easy_search_table.setVisible(False)
+            self.easy_narration_label.setVisible(False)
+            self.easy_narration_combo.setVisible(False)
             self.easy_use_result_button.setVisible(False)
             self.easy_copy_url_button.setVisible(False)
             self.start_analysis()
@@ -595,6 +614,9 @@ class AudioKnigiQtWindow(
         self.easy_input.clear()
         self.book_url_edit.clear()
         self.easy_search_table.setVisible(False)
+        self.easy_narration_label.setVisible(False)
+        self.easy_narration_combo.setVisible(False)
+        self.easy_narration_combo.clear()
         self.easy_use_result_button.setVisible(False)
         self.easy_copy_url_button.setVisible(False)
         self.easy_download_button.setEnabled(False)
