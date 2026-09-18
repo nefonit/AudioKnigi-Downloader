@@ -317,9 +317,20 @@ class AudioKnigiQtWindow(
         self.easy_search_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.easy_search_table.setAlternatingRowColors(True)
         self.easy_search_table.verticalHeader().setVisible(False)
-        self.easy_search_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.easy_search_table.horizontalHeader().setResizeContentsPrecision(60)
-        self.easy_search_table.horizontalHeader().setStretchLastSection(True)
+        # Easy mode must fit every search column without horizontal scrolling.
+        # Human-readable metadata shares the remaining width while compact
+        # service columns keep only the space their contents actually need.
+        easy_header = self.easy_search_table.horizontalHeader()
+        easy_header.setMinimumSectionSize(28)
+        easy_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        for column, (_label, key) in enumerate(SearchResultsModel.COLUMNS):
+            if key in {"index", "availability", "variants", "source"}:
+                easy_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        easy_header.setResizeContentsPrecision(20)
+        easy_header.setStretchLastSection(False)
+        self.easy_search_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.easy_search_table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.easy_search_table.setWordWrap(False)
         self.easy_search_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.easy_search_table.customContextMenuRequested.connect(lambda pos: self._show_search_context_menu(self.easy_search_table, pos))
         configure_accessible(self.easy_search_table, name=self._l("Результаты поиска в простом режиме"), identifier="easy_search_results")
