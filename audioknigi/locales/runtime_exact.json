@@ -434,6 +434,11 @@
     "en": "File not found",
     "uk": "Файл не знайдено"
   },
+  "Фоновая операция не успела остановиться. Закрытие отменено; программа продолжает работу.": {
+    "de": "Der Hintergrundvorgang konnte nicht rechtzeitig beendet werden. Das Schließen wurde abgebrochen; das Programm läuft weiter.",
+    "en": "The background operation did not stop in time. Closing was cancelled; the application will continue running.",
+    "uk": "Фонова операція не встигла зупинитися. Закриття скасовано; програма продовжує роботу."
+  },
   "Часть источников недоступна.": {
     "de": "Einige Quellen sind nicht verfügbar.",
     "en": "Some sources are unavailable.",

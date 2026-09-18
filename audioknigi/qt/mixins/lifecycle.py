@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import sys
 import time
 
 from PySide6.QtCore import QByteArray, QEvent, Slot, Qt, QTimer
@@ -107,8 +105,21 @@ class LifecycleUiMixin:
 
     @Slot()
     def request_exit(self):
-        self._exit_requested = True
-        self._cancel_all_workers_for_exit()
+        """Request a normal window close without bypassing closeEvent guards.
+
+        QAction/QSystemTrayIcon exit actions arrive here.  Do not pre-arm the
+        deferred-exit state: closeEvent must still ask the user before cancelling
+        an active search, analysis or download.  Pre-arming _exit_requested used
+        to skip that confirmation and could reach the five-second emergency-exit
+        path while analysis was still doing network I/O.
+        """
+        app_logger.info(
+            "UI LIFECYCLE | event=request_exit | visible=%s | analysis=%s | download=%s | search=%s",
+            bool(self.isVisible()),
+            self._thread_is_running(self._analysis_thread),
+            self._thread_is_running(self._download_thread),
+            self._thread_is_running(self._search_thread),
+        )
         if not self.isVisible():
             self.restore_from_tray()
         self.close()
@@ -163,12 +174,12 @@ class LifecycleUiMixin:
         )
 
     def _force_stop_workers_for_exit(self, threads) -> bool:
-        """Final cooperative wait before the process-level emergency exit.
+        """Final bounded cooperative wait before aborting a close request.
 
         QThread.terminate() can kill Python/PySide while the GIL or a native
-        mutex is held.  Request interruption once more and wait briefly; if a
-        blocked worker still cannot exit, closeEvent uses os._exit(0) rather
-        than corrupting the live interpreter heap.
+        mutex is held. Request interruption once more and wait briefly; if a
+        blocked worker still cannot exit, the close request is cancelled while
+        the live interpreter remains intact.
         """
         for thread in tuple(threads):
             try:
@@ -196,15 +207,29 @@ class LifecycleUiMixin:
     def _begin_deferred_exit(self):
         self._exit_requested = True
         self._exit_deadline = time.monotonic() + _EXIT_GRACE_SECONDS
+        app_logger.info(
+            "UI LIFECYCLE | event=deferred_exit_begin | grace_seconds=%.1f | analysis=%s | download=%s | search=%s",
+            _EXIT_GRACE_SECONDS,
+            self._thread_is_running(self._analysis_thread),
+            self._thread_is_running(self._download_thread),
+            self._thread_is_running(self._search_thread),
+        )
         self._cancel_all_workers_for_exit()
         self.hide()
-        try:
-            self.tray_controller.shutdown()
-        except Exception:
-            app_logger.debug("Could not shut down tray during deferred exit", exc_info=True)
+        # Keep the tray controller alive until closeEvent actually accepts the
+        # close. If cancellation stalls and the close is aborted, the current
+        # application session remains fully usable.
         self._schedule_exit_poll()
 
     def closeEvent(self, event: QCloseEvent):
+        if not self._exit_requested:
+            app_logger.info(
+                "UI LIFECYCLE | event=close_event | analysis=%s | download=%s | search=%s | abs=%s",
+                self._thread_is_running(self._analysis_thread),
+                self._thread_is_running(self._download_thread),
+                self._thread_is_running(self._search_thread),
+                self._thread_is_running(self._abs_thread),
+            )
         if self._exit_requested:
             # A previous close request already asked active workers to stop.
             # Poll only for a bounded grace period; a permanently blocked worker
@@ -222,18 +247,29 @@ class LifecycleUiMixin:
                     return
                 still_running = self._force_stop_workers_for_exit(running_threads)
                 if still_running:
-                    self._persist_exit_state_best_effort()
-                    # Last-resort hard exit: QThread termination itself can fail
-                    # when the OS blocks inside an uninterruptible I/O call.
-                    # The user already explicitly chose to cancel work and exit.
-                    try:
-                        sys.stderr.write(
-                            "AudioKnigi: background worker did not stop after exit timeout; forcing process exit.\n"
-                        )
-                        sys.stderr.flush()
-                    except Exception:
-                        pass
-                    os._exit(0)
+                    # Never hard-kill the interpreter from a GUI close path.
+                    # A blocked FFprobe/Playwright/native call can keep a worker
+                    # alive longer than the grace period; the former hard-exit
+                    # behavior made that indistinguishable from a spontaneous crash.
+                    # Abort the close instead, restore the UI, and leave enough
+                    # diagnostics for the next support bundle to show the cause.
+                    app_logger.error(
+                        "UI LIFECYCLE | event=deferred_exit_timeout | action=abort_close | running_workers=%d",
+                        len(self._running_exit_threads()),
+                    )
+                    self._exit_requested = False
+                    self._exit_deadline = None
+                    event.ignore()
+                    if not self.isVisible():
+                        try:
+                            self.restore_from_tray()
+                        except Exception:
+                            self.show()
+                    self.set_status(
+                        "Фоновая операция не успела остановиться. Закрытие отменено; программа продолжает работу.",
+                        assertive=True,
+                    )
+                    return
         if self._thread_is_running(self._download_thread):
             answer = self._ask_yes_no(
                 "Скачивание выполняется",

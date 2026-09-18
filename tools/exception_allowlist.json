@@ -93,7 +93,6 @@
   "audioknigi/qt/mixins/lifecycle.py:changeEvent:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/mixins/lifecycle.py:closeEvent:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/qt/mixins/lifecycle.py:closeEvent:Exception#2": "best-effort cleanup: failure must not mask the primary operation or shutdown",
-  "audioknigi/qt/mixins/lifecycle.py:closeEvent:Exception#3": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/qt/player_mixin.py:_refresh_player_context:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/player_mixin.py:_refresh_player_context:Exception#2": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/theme.py:apply_theme:Exception#1": "optional UI/accessibility enhancement; failure degrades gracefully",
