@@ -2,6 +2,8 @@
 
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
 
+- Round 25 hotfix (2026-09-18): fixed a Windows Easy-mode freeze after search reached 100% by reserving 100% for actual worker completion, closing the application-modal progress window before table work, deferring model/view/focus updates to later Qt event-loop turns, and removing redundant synchronous column-resize scans. Added detailed search completion diagnostics.
+
 - Round 24 audit (2026-09-18): added application-modal Easy-mode progress for search/analysis/download with cancellation, hardened missing-media decisions, expanded crash/traceback capture for worker threads, and corrected audioknigi.com.ua machine playlist titles such as `king_Rat_1`.
 - Hardened Playwright playlist discovery, Knigavuhe JS-comment parsing, local proxy Unicode/select behavior, float-string chapter boundaries, support-bundle privacy/tails, localization, player activation/shutdown, dragged `.url` handling, root-library scans, and legacy normalization settings. Added 12 focused Round 24 regressions; full suite: 402 passed. All localization/static/historical gates green.
 

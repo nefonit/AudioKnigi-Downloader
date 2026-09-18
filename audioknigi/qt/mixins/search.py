@@ -5,6 +5,7 @@ import threading
 from PySide6.QtCore import QThread, Slot, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QPushButton, QStackedWidget, QTableView, QToolButton, QVBoxLayout, QWidget
+from ...logging_utils import app_logger
 from ...models import SearchResult
 from ...services.search_service import SearchOutcome
 from ..accessibility import configure_accessible, focus_table_row
@@ -261,19 +262,37 @@ class SearchUiMixin:
 
     @Slot(object)
     def _search_finished(self, outcome: SearchOutcome):
+        # Keep this slot deliberately short. On Windows an application-modal
+        # progress dialog can still be unwinding its native modal state while
+        # this queued signal is delivered. Resetting two table views, forcing
+        # ResizeToContents and moving accessibility focus in the same call stack
+        # can stall the GUI thread even though the worker has already finished.
+        app_logger.info(
+            "SEARCH UI | event=finished_slot_enter | results=%d | errors=%d | mode=%s",
+            len(outcome.results), len(outcome.errors), self.current_ui_mode(),
+        )
         self._set_search_progress(100, "Поиск завершён", visible=True)
         self._update_blocking_operation(
             "search", progress=100, message=self._rt("Поиск завершён")
         )
         self._finish_blocking_operation("search")
-        QTimer.singleShot(650, self._hide_search_progress_if_idle)
-        self.search_model.set_results(outcome.results)
         self.search_button.setEnabled(True)
         self.search_edit.setReadOnly(False)
         if hasattr(self, "cancel_search_button"):
             self.cancel_search_button.setEnabled(False)
         if hasattr(self, "easy_cancel_search_button"):
             self.easy_cancel_search_button.setEnabled(False)
+        app_logger.info("SEARCH UI | event=modal_finished | deferring_result_render=1")
+        QTimer.singleShot(0, lambda outcome=outcome: self._apply_search_outcome(outcome))
+        QTimer.singleShot(650, self._hide_search_progress_if_idle)
+
+    def _apply_search_outcome(self, outcome: SearchOutcome) -> None:
+        app_logger.info(
+            "SEARCH UI | event=result_render_start | results=%d | errors=%d",
+            len(outcome.results), len(outcome.errors),
+        )
+        self.search_model.set_results(outcome.results)
+        app_logger.info("SEARCH UI | event=model_reset_complete")
         if outcome.results:
             if hasattr(self, "search_results_stack"):
                 self.search_results_stack.setCurrentIndex(1)
@@ -284,15 +303,15 @@ class SearchUiMixin:
             if outcome.errors:
                 message += " " + self._rt("Часть источников недоступна.")
             self.set_status(message)
-            self.search_table.resizeColumnsToContents()
-            self.easy_search_table.resizeColumnsToContents()
+            # Both headers already use ResizeToContents mode. Explicit synchronous
+            # column-resize scans duplicated a full model walk in both views
+            # exactly while the modal window was closing, so leave sizing to Qt's
+            # normal event-driven layout pass.
             self.easy_search_table.setVisible(self.current_ui_mode() == "easy")
             self.easy_use_result_button.setVisible(self.current_ui_mode() == "easy")
             self.easy_copy_url_button.setVisible(self.current_ui_mode() == "easy")
-            if self.current_ui_mode() == "easy":
-                focus_table_row(self.easy_search_table, 0, column=1, focus=True)
-            else:
-                focus_table_row(self.search_table, 0, column=1, focus=True)
+            app_logger.info("SEARCH UI | event=views_visible | scheduling_focus=1")
+            QTimer.singleShot(0, self._focus_search_result_after_render)
             self._update_search_action_states()
             self._play_event_sound("search_complete")
         elif outcome.errors:
@@ -313,6 +332,16 @@ class SearchUiMixin:
             else:
                 self.search_edit.setFocus(Qt.FocusReason.OtherFocusReason)
             self._play_event_sound("book_not_found")
+        app_logger.info("SEARCH UI | event=result_render_complete")
+
+    def _focus_search_result_after_render(self) -> None:
+        if self.search_model.rowCount() <= 0:
+            return
+        if self.current_ui_mode() == "easy":
+            focus_table_row(self.easy_search_table, 0, column=1, focus=True)
+        else:
+            focus_table_row(self.search_table, 0, column=1, focus=True)
+        app_logger.info("SEARCH UI | event=focus_complete")
 
     @Slot()
     def _clear_search_thread(self):

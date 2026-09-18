@@ -29,12 +29,17 @@ class SearchWorker(QObject):
 
     @Slot()
     def run(self):
+        app_logger.info("SEARCH WORKER | event=run_start | query=%r", self.query)
         try:
             outcome = search_all_sources(
                 self.query,
                 cancel_event=self.cancel_event,
                 progress=self.progress.emit,
                 sources=self.sources,
+            )
+            app_logger.info(
+                "SEARCH WORKER | event=service_return | query=%r | results=%d | errors=%d",
+                self.query, len(outcome.results), len(outcome.errors),
             )
             if self.only_available:
                 outcome.results = [
@@ -43,7 +48,9 @@ class SearchWorker(QObject):
                 ]
             if self.cancel_event.is_set():
                 outcome = SearchOutcome(self.query, [], [])
+            app_logger.info("SEARCH WORKER | event=finished_emit | query=%r", self.query)
             self.finished.emit(outcome)
+            app_logger.info("SEARCH WORKER | event=finished_emit_return | query=%r", self.query)
         except Exception as exc:
             if self.cancel_event.is_set():
                 self.finished.emit(SearchOutcome(self.query, [], []))

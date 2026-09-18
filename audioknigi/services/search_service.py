@@ -116,7 +116,10 @@ def search_all_sources(query: str, cancel_event=None, progress=None, sources=Non
             result = replace(result, url=canonical)
         deduped.append(result)
 
-    report(100, "Поиск завершён")
+    # 100% belongs to the GUI completion boundary, after SearchWorker has
+    # actually returned and the modal operation dialog can be dismissed.
+    # Reporting 100 here made a still-running worker look finished.
+    report(99, "Завершаю поиск")
     return SearchOutcome(cleaned, deduped, errors)
 
 
