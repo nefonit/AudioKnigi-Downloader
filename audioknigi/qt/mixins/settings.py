@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QThread, QTimer, Slot
+from PySide6.QtCore import QThread, QTimer, Slot, Qt
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 from ...brand import DISPLAY_NAME
 from ...metadata import APP_VERSION
@@ -196,10 +196,10 @@ class SettingsUiMixin:
         worker = _AudiobookshelfWorker(url, key)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
-        worker.finished.connect(self._audiobookshelf_finished)
+        worker.finished.connect(self._audiobookshelf_finished, Qt.ConnectionType.QueuedConnection)
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(self._clear_abs_thread)
+        thread.finished.connect(self._clear_abs_thread, Qt.ConnectionType.QueuedConnection)
         thread.finished.connect(thread.deleteLater)
         self._abs_thread = thread
         self._abs_worker = worker
