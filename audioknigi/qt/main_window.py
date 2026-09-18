@@ -11,6 +11,7 @@ from ..sources import normalize_supported_url
 from ..models import Book, SearchResult
 from ..config.settings import load_app_settings, save_app_settings
 from ..i18n import LANGUAGES, localize_runtime_text, tr, ui_text
+from ..logging_utils import app_logger
 from ..services.queue_service import QueueStore, QueueTask
 from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_accessibility_tree
 from .event_sounds import QtEventSoundManager
@@ -98,6 +99,7 @@ class AudioKnigiQtWindow(
         self._active_missing_box: QMessageBox | None = None
         self._operation_dialog: BlockingOperationDialog | None = None
         self._operation_dialog_kind = ""
+        self._operation_ui_blocked = False
         self._exit_requested = False
         self._exit_deadline: float | None = None
         self._exit_poll_scheduled = False
@@ -423,6 +425,18 @@ class AudioKnigiQtWindow(
             )
 
 
+    def _set_operation_ui_blocked(self, blocked: bool) -> None:
+        blocked = bool(blocked)
+        if self._operation_ui_blocked == blocked:
+            return
+        self._operation_ui_blocked = blocked
+        central = self.centralWidget()
+        if central is not None:
+            central.setEnabled(not blocked)
+        menu = self.menuBar()
+        if menu is not None:
+            menu.setEnabled(not blocked)
+
     def _show_blocking_operation(
         self,
         kind: str,
@@ -433,7 +447,7 @@ class AudioKnigiQtWindow(
         progress: int | float | None = None,
         indeterminate: bool = False,
     ) -> None:
-        """Show one application-modal progress dialog for Easy-mode work."""
+        """Show one modeless progress window while manually blocking Easy UI."""
         if self.current_ui_mode() != "easy":
             return
         self._finish_blocking_operation()
@@ -449,6 +463,8 @@ class AudioKnigiQtWindow(
         self._operation_dialog = dialog
         self._operation_dialog_kind = str(kind or "")
         dialog.set_progress(progress, message=message, indeterminate=indeterminate)
+        self._set_operation_ui_blocked(True)
+        app_logger.info("OPERATION UI | event=show | kind=%s | native_modal=0", self._operation_dialog_kind)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
@@ -474,16 +490,24 @@ class AudioKnigiQtWindow(
         dialog = self._operation_dialog
         if dialog is None:
             self._operation_dialog_kind = ""
+            self._set_operation_ui_blocked(False)
             return
         if kind is not None and self._operation_dialog_kind != str(kind):
             return
+        finished_kind = self._operation_dialog_kind
         self._operation_dialog = None
         self._operation_dialog_kind = ""
+        app_logger.info("OPERATION UI | event=finish_begin | kind=%s", finished_kind)
         try:
             dialog.finish()
+        except RuntimeError:
+            pass
+        self._set_operation_ui_blocked(False)
+        try:
             dialog.deleteLater()
         except RuntimeError:
             pass
+        app_logger.info("OPERATION UI | event=finish_end | kind=%s", finished_kind)
 
     def _l(self, text: str, **kwargs) -> str:
         return ui_text(self.language, text, **kwargs)

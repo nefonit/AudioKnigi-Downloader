@@ -52,13 +52,14 @@ def test_round24_runtime_localization_covers_tray_variants_and_placeholder_style
     assert all(not value.endswith(".") for value in placeholder.values())
 
 
-def test_easy_mode_has_application_modal_progress_for_search_analysis_and_download() -> None:
+def test_easy_mode_has_blocking_progress_for_search_analysis_and_download() -> None:
     main = (ROOT / "audioknigi/qt/main_window.py").read_text(encoding="utf-8")
     dialog = (ROOT / "audioknigi/qt/operation_dialog.py").read_text(encoding="utf-8")
     search = (ROOT / "audioknigi/qt/mixins/search.py").read_text(encoding="utf-8")
     analysis = (ROOT / "audioknigi/qt/mixins/analysis_download.py").read_text(encoding="utf-8")
     assert 'self.current_ui_mode() != "easy"' in main
-    assert "Qt.WindowModality.ApplicationModal" in dialog
+    assert "Qt.WindowModality.NonModal" in dialog
+    assert "central.setEnabled(not blocked)" in main
     assert '_show_blocking_operation(\n            "search"' in search
     assert '_show_blocking_operation(\n            "analysis"' in analysis
     assert '_show_blocking_operation(\n                "download"' in analysis

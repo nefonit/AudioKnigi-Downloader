@@ -271,11 +271,10 @@ class SearchUiMixin:
             "SEARCH UI | event=finished_slot_enter | results=%d | errors=%d | mode=%s",
             len(outcome.results), len(outcome.errors), self.current_ui_mode(),
         )
-        self._set_search_progress(100, "Поиск завершён", visible=True)
-        self._update_blocking_operation(
-            "search", progress=100, message=self._rt("Поиск завершён")
-        )
+        app_logger.info("SEARCH UI | event=before_operation_finish")
         self._finish_blocking_operation("search")
+        app_logger.info("SEARCH UI | event=after_operation_finish")
+        self._set_search_progress(100, "Поиск завершён", visible=True)
         self.search_button.setEnabled(True)
         self.search_edit.setReadOnly(False)
         if hasattr(self, "cancel_search_button"):

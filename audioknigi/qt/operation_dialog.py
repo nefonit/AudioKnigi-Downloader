@@ -8,12 +8,12 @@ from .accessibility import configure_accessible
 
 
 class BlockingOperationDialog(QDialog):
-    """Application-modal progress window used by the Easy UI.
+    """Non-modal progress window paired with manual main-window blocking.
 
-    The dialog is shown non-blockingly (``show()`` rather than ``exec()``), so
-    worker signals continue to be delivered by the main Qt event loop while the
-    main window remains unavailable.  Closing/Escape requests cancellation but
-    cannot dismiss the dialog until the owning operation really finishes.
+    Native ``ApplicationModal`` dialogs can deadlock or stall on some Windows/
+    accessibility combinations while a cross-thread completion signal tears the
+    dialog down.  The owner disables its main content explicitly instead, while
+    this lightweight dialog remains responsive for Cancel.
     """
 
     cancelRequested = Signal()
@@ -33,8 +33,8 @@ class BlockingOperationDialog(QDialog):
         self._cancel_requested = False
         self._cancelling_text = str(cancelling_text or cancel_text)
         self.setWindowTitle(str(title))
-        self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setModal(True)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.setModal(False)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         self.setMinimumWidth(440)
 
@@ -89,8 +89,12 @@ class BlockingOperationDialog(QDialog):
         self._request_cancel()
 
     def finish(self) -> None:
+        # Do not call accept()/done() here.  On Windows those APIs unwind native
+        # dialog/modal state synchronously and were the exact completion boundary
+        # where the Easy-mode search could freeze.  Hiding a modeless child is
+        # sufficient; deleteLater() is owned by the main window helper.
         self._allow_close = True
-        self.accept()
+        self.hide()
 
     def reject(self) -> None:
         if self._allow_close:
