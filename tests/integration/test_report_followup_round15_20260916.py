@@ -119,7 +119,7 @@ def test_duration_probe_cancel_kills_registered_children_before_pool_wait():
     assert "def _cancel_duration_probe_processes" in source
     block = source[source.index("def _populate_missing_track_durations"):source.index("@staticmethod", source.index("def _populate_missing_track_durations"))]
     assert "self._cancel_duration_probe_processes()" in block
-    assert block.index("self._cancel_duration_probe_processes()") < block.index("pool.shutdown(wait=True")
+    assert block.index("self._cancel_duration_probe_processes()") < block.index("pool.shutdown(wait=False")
 
 
 def test_duration_probe_registry_kills_live_processes():

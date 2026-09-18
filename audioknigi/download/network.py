@@ -926,8 +926,13 @@ class NetworkDownloadMixin:
                 last_error = exc
                 if pos >= len(urls):
                     raise
+                source_label = (
+                    "Основной аудиоисточник"
+                    if pos == 1
+                    else f"Резервный источник ({source_name(url)})"
+                )
                 self.log(
-                    f"Основной аудиоисточник недоступен: {exc}. "
+                    f"{source_label} недоступен: {exc}. "
                     f"Пробую резервный источник {source_name(urls[pos])}."
                 )
                 self._cleanup_partial_download(target)

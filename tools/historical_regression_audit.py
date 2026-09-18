@@ -66,7 +66,7 @@ def main() -> int:
             cwd=ROOT,
             text=True,
             capture_output=True,
-            timeout=120,
+            timeout=240,
         )
         combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
         actual = {

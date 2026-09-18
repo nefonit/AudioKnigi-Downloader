@@ -232,7 +232,8 @@ class QueueTableWidget(QTableWidget):
     def dropEvent(self, event):
         if event.source() is self:
             source_row = self.currentRow()
-            target_row = self.rowAt(int(event.position().y()))
+            viewport_pos = self.viewport().mapFrom(self, event.position().toPoint())
+            target_row = self.rowAt(viewport_pos.y())
             if target_row < 0:
                 target_row = max(0, self.rowCount() - 1)
             if source_row >= 0 and target_row >= 0 and source_row != target_row:

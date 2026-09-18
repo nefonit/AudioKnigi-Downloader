@@ -103,7 +103,7 @@ def test_player_queue_clipboard_and_root_scan_followup_contracts() -> None:
     assert shutdown.index("self._save_timer.stop()") < shutdown.index("self.save_position(force=True)") < shutdown.index("self.player.stop()")
     assert 'self._notify_tray_if_hidden(self._l("Очередь завершена."))' in queue
     assert 'value.lower().startswith(("http://", "https://"))' in clipboard
-    assert "base_is_filesystem_root" in library and "if depth >= 5:" in library
+    assert "base_is_filesystem_root" in library and "if depth >= 8:" in library
 
 
 def test_uncaught_worker_threads_are_captured_in_crash_reports() -> None:

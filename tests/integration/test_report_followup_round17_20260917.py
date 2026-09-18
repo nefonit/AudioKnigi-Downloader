@@ -62,7 +62,7 @@ def test_round17_formatting_hygiene_for_reported_pep8_rough_edges() -> None:
 
 def test_changelog_round8_is_inside_41242_and_release_date_is_current() -> None:
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)" in changelog
+    assert "## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)" in changelog
     assert "## 2026-09-16 — Round 8 Windows build hardening" not in changelog
     round9 = changelog.index("- Round 9 audit (2026-09-16):")
     round8 = changelog.index("- Round 8 Windows build hardening (2026-09-16):")

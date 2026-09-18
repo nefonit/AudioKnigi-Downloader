@@ -364,7 +364,7 @@ def fmt_size(size):
         size = int(size)
     except Exception:
         return "—"
-    if size <= 0:
+    if size < 0:
         return "—"
     value = float(size)
     for unit in ("B", "KB", "MB", "GB"):
@@ -839,13 +839,13 @@ def persist_browser_session(cookies, headers=None):
     if not safe_headers and isinstance(existing_profile.get("headers"), dict):
         safe_headers = dict(existing_profile.get("headers") or {})
 
-    if cookies_provided:
+    if cleaned:
         save_json(COOKIE_FILE, cleaned)
-    profile_should_refresh = bool(cookies_provided)
+    # An empty browser cookie list is not an explicit user request to erase a
+    # previously solved Cloudflare session. Preserve the cookie file/count while
+    # still allowing fresh browser headers to update the paired profile.
     if cleaned or safe_headers:
-        profile_should_refresh = True
-    if profile_should_refresh:
-        cookies_count = len(cleaned) if cookies_provided else safe_int(existing_profile.get("cookies_saved", 0), 0)
+        cookies_count = len(cleaned) if cleaned else safe_int(existing_profile.get("cookies_saved", 0), 0)
         save_json(
             SESSION_PROFILE_FILE,
             {"headers": safe_headers, "cookies_saved": cookies_count, "saved_at": int(time.time())},

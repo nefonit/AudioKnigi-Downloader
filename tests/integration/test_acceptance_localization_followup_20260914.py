@@ -60,5 +60,5 @@ def test_ukrainian_legacy_literals_cover_common_search_and_book_prompts():
 def test_release_baseline_comment_and_runtime_stage_are_current():
     release = (ROOT / "requirements-release.txt").read_text(encoding="utf-8")
     qt_init = (ROOT / "audioknigi" / "qt" / "__init__.py").read_text(encoding="utf-8")
-    assert "Verified published release baseline for 2026-09-15" in release
+    assert "Verified published release baseline for 2026-09-18" in release
     assert 'QT_RUNTIME_STAGE = "qt-only-4.12.42"' in qt_init

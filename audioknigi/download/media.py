@@ -415,7 +415,10 @@ class MediaProcessingMixin:
         # structural scan to a bounded tail and walk braces backwards; this
         # avoids repeatedly slicing a multi-megabyte diagnostic stream when
         # metadata or decoder messages contain many ``{`` characters.
-        loudnorm_tail = str(stderr or "")[-131_072:]
+        # Decoder warnings can be extremely noisy on damaged long inputs.
+        # Keep a larger bounded window so the final loudnorm JSON is not pushed
+        # out by >128 KiB of warnings emitted around filter teardown.
+        loudnorm_tail = str(stderr or "")[-524_288:]
         search_end = len(loudnorm_tail)
         for _attempt in range(64):
             brace = loudnorm_tail.rfind("{", 0, search_end)
@@ -589,6 +592,19 @@ class MediaProcessingMixin:
                         inferred = next_start - start if next_start is not None else 0.0
                         if inferred > 0:
                             duration = inferred
+                        elif duration is None:
+                            self.log(
+                                f"Предупреждение: для промежуточной части "
+                                f"{safe_int(getattr(track, 'index', None), current_pos + 1)} "
+                                "не удалось определить конец; FFmpeg будет читать "
+                                "общий источник до EOF."
+                            )
+                            app_logger.warning(
+                                "MEDIA | event=split_missing_middle_boundary | track=%s | start=%s | next_start=%s",
+                                safe_int(getattr(track, "index", None), current_pos + 1),
+                                start,
+                                next_start,
+                            )
 
         # Keep FFmpeg argv stable/readable for integral timestamps ("10"
         # rather than "10.0") while retaining sub-second precision when needed.
@@ -774,6 +790,13 @@ class MediaProcessingMixin:
                     ext = ".webp"
                 else:
                     ext = ".jpg"
+                for old_ext in (".jpg", ".jpeg", ".png", ".webp"):
+                    if old_ext == ext:
+                        continue
+                    try:
+                        (folder / ("cover" + old_ext)).unlink(missing_ok=True)
+                    except OSError:
+                        pass
                 (folder / ("cover" + ext)).write_bytes(data)
             self._log_book_flow(
                 "sidecars_saved", book, folder=folder, chapters=len(chapter_rows),

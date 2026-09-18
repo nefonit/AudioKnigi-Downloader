@@ -1,6 +1,8 @@
 # Changelog
 
-## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-17)
+## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)
+
+- Round 33 audit/UI follow-up (2026-09-18): widened the Easy-mode results card and enabled wrapped, auto-height search rows for long titles; aligned Knigavuhe narrator grouping, zero-byte formatting, case-insensitive templates, browser-cookie preservation, loudnorm diagnostics, fallback-source logs, cover replacement, Audioknigi query normalization/BOM handling, bounded fallback probes, root-library recovery depth, queue DnD coordinates, Ctrl+D selection semantics, batch error handling, duplicate-book state, historical-audit timeout, and release metadata. Reviewed several audit recommendations that would be unsafe or unverified and left them unchanged.
 
 - Round 32 audit hardening (2026-09-18): sanitized pathlib settings in support bundles, made JSON BOM-tolerant, hardened segmented cancellation, fixed UTF-8 page decoding and boolean queue indices, made empty Track_Title templates collision-safe, aligned fallback identity search, honored persisted quality presets, improved accessibility/focus/player-state handling, and completed several RU/UK/DE/EN localization gaps. Reviewed reported false positives for Cancelled-vs-RuntimeError, save_json raise_errors, queue dataclass serialization and runtime regex precedence without changing correct code.
 

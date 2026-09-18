@@ -406,25 +406,28 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
     return grouped
 
 def search_audioknigi(query: str, cancel_event=None) -> list[SearchResult]:
+    query_text = str(query or "").strip()
+    if not query_text:
+        return []
     if cancel_event is not None and cancel_event.is_set():
         raise Cancelled("Поиск отменён пользователем")
     session = get_http_session()
     response = session.get(
         SEARCH_URL,
-        params={"text": query},
+        params={"text": query_text},
         timeout=(10, 30),
         headers={"Referer": f"https://{AUDIOKNIGI_HOST}/"},
     )
     response.raise_for_status()
     if cancel_event is not None and cancel_event.is_set():
         raise Cancelled("Поиск отменён пользователем")
-    html_text = bytes(getattr(response, "content", b"") or b"").decode("utf-8", errors="replace")
+    html_text = bytes(getattr(response, "content", b"") or b"").decode("utf-8-sig", errors="replace")
     if not html_text:
         html_text = str(getattr(response, "text", "") or "")
     return _group_audioknigi_recordings(
-        parse_audioknigi_results(html_text, response.url, query=query),
+        parse_audioknigi_results(html_text, response.url, query=query_text),
         cancel_event=cancel_event,
-        query=query,
+        query=query_text,
     )
 
 __all__ = ["SEARCH_URL", "parse_audioknigi_results", "search_audioknigi"]

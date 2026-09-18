@@ -247,7 +247,7 @@ def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDown
                     depth = len(Path(root).resolve().relative_to(base.resolve()).parts)
                 except (OSError, ValueError):
                     depth = 0
-                if depth >= 5:
+                if depth >= 8:
                     dirs[:] = []
             dirs[:] = [name for name in dirs if not name.startswith(".")]
             skipped = {"node_modules", "__pycache__", "venv", ".venv"}

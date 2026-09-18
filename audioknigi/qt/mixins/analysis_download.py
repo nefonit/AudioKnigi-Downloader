@@ -275,9 +275,13 @@ class AnalysisDownloadUiMixin:
             self.book_summary.setText(self._rt("Не удалось проанализировать книгу."))
             self.book_empty_state.setVisible(True)
             self.set_status("Ошибка анализа: " + str(payload), assertive=True)
-            self._show_message(QMessageBox.Icon.Critical, "Ошибка анализа", str(payload))
+            batch_pending = bool(getattr(self, "_pending_queue_urls", None))
+            if batch_pending:
+                self._append_log("Ошибка анализа при пакетном добавлении: " + str(payload))
+            else:
+                self._show_message(QMessageBox.Icon.Critical, "Ошибка анализа", str(payload))
             self._play_event_sound("book_not_found")
-            if getattr(self, "_pending_queue_urls", None):
+            if batch_pending:
                 QTimer.singleShot(0, self._queue_next_dropped_url)
             return
 
@@ -638,6 +642,7 @@ class AnalysisDownloadUiMixin:
             if box.clickedButton() is open_button:
                 QDesktopServices.openUrl(QUrl.fromLocalFile(str(duplicate.folder)))
                 self.last_completed_folder = str(duplicate.folder)
+                self.last_completed_book = self.current_book
                 self.easy_open_folder_button.setEnabled(True)
                 self.easy_listen_button.setEnabled(True)
                 self._play_event_sound("files_already_downloaded")
@@ -705,6 +710,7 @@ class AnalysisDownloadUiMixin:
             if box.clickedButton() is open_button:
                 QDesktopServices.openUrl(QUrl.fromLocalFile(str(duplicate.folder)))
                 self.last_completed_folder = str(duplicate.folder)
+                self.last_completed_book = self.current_book
                 self.easy_open_folder_button.setEnabled(True)
                 self.easy_listen_button.setEnabled(True)
                 self._play_event_sound("files_already_downloaded")

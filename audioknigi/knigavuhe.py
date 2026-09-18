@@ -1399,11 +1399,16 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
             )
             for idx, item in enumerate(members)
         ]
+        narrators = []
+        for item in members:
+            narrator = _clean_text(getattr(item, "narrator", ""))
+            if narrator and narrator not in narrators:
+                narrators.append(narrator)
         unique.append(
             SearchResult(
                 title=representative.title,
                 author=next((_clean_text(item.author) for item in members if _clean_text(item.author)), ""),
-                narrator=next((_clean_text(item.narrator) for item in members if _clean_text(item.narrator)), ""),
+                narrator=", ".join(narrators),
                 url=representative.url,
                 source=representative.source,
                 variant_count=max(1, len(variants)),

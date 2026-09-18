@@ -85,10 +85,11 @@ def render_text_template(template: str, values: dict[str, str]) -> str:
     # a placeholder-removal regex after inserting user/book data: a real title
     # such as "Альбом {Remix}" must keep its braces intact.
     raw_template = str(template or "")
+    values_ci = {str(key).casefold(): value for key, value in values.items()}
 
     def replace_token(match: re.Match[str]) -> str:
-        key = match.group(1)
-        return str(values[key]) if key in values else match.group(0)
+        key = match.group(1).casefold()
+        return str(values_ci[key]) if key in values_ci else match.group(0)
 
     result = _TOKEN_RE.sub(replace_token, raw_template)
     result = re.sub(r"\s+", " ", result).strip()

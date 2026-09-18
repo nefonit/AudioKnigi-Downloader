@@ -359,7 +359,7 @@ class AccessibilityUiMixin:
     def _install_shortcuts(self):
         QShortcut(QKeySequence("Ctrl+L"), self, activated=self._focus_book_url)
         QShortcut(QKeySequence("Ctrl+F"), self, activated=self._focus_search)
-        QShortcut(QKeySequence("Ctrl+D"), self, activated=self.start_download_all)
+        QShortcut(QKeySequence("Ctrl+D"), self, activated=self._start_primary_download)
         QShortcut(QKeySequence("Ctrl+Q"), self, activated=lambda: self._activate_tab(self.TAB_QUEUE))
         QShortcut(QKeySequence("Ctrl+H"), self, activated=lambda: self._activate_tab(self.TAB_HISTORY))
         QShortcut(QKeySequence("Escape"), self, activated=self.cancel_current_operation)

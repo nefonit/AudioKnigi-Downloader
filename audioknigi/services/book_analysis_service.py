@@ -262,13 +262,11 @@ class BookAnalysisService:
         finally:
             for future in futures:
                 future.cancel()
-            if self.cancel_event.is_set():
-                # Kill the registered ffprobe children before waiting for their
-                # worker functions to unwind.  This preserves the no-leak
-                # contract without making cancellation wait for a remote probe
-                # timeout.
-                self._cancel_duration_probe_processes()
-            pool.shutdown(wait=True, cancel_futures=True)
+            # Always terminate any still-registered ffprobe child before
+            # releasing the executor. This also covers exceptions that are not
+            # signalled through cancel_event and avoids an 18-second wait.
+            self._cancel_duration_probe_processes()
+            pool.shutdown(wait=False, cancel_futures=True)
 
     @staticmethod
     def _identity_tokens(value: str) -> set[str]:
@@ -334,7 +332,7 @@ class BookAnalysisService:
         seen: set[str] = set()
         unknown_narrator_choice = None
         unknown_narrator_identity = None
-        for _score, candidate_url in sorted(candidates, reverse=True):
+        for _score, candidate_url in sorted(candidates, reverse=True)[:8]:
             if candidate_url in seen:
                 continue
             seen.add(candidate_url)

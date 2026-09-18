@@ -228,8 +228,8 @@ class AudioKnigiQtWindow(
         center_row.addStretch(1)
         card = QWidget(page)
         card.setObjectName("easyCard")
-        card.setMinimumWidth(660)
-        card.setMaximumWidth(900)
+        card.setMinimumWidth(760)
+        card.setMaximumWidth(1180)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(12)
@@ -338,7 +338,12 @@ class AudioKnigiQtWindow(
         easy_header.setStretchLastSection(False)
         self.easy_search_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.easy_search_table.setTextElideMode(Qt.TextElideMode.ElideRight)
-        self.easy_search_table.setWordWrap(False)
+        self.easy_search_table.setWordWrap(True)
+        # Long book titles should remain readable in Easy mode.  Let Qt grow
+        # the affected row (normally to two lines) instead of forcing the title
+        # into a one-line ellipsis.
+        self.easy_search_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.easy_search_table.verticalHeader().setMinimumSectionSize(28)
         self.easy_search_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.easy_search_table.customContextMenuRequested.connect(lambda pos: self._show_search_context_menu(self.easy_search_table, pos))
         configure_accessible(self.easy_search_table, name=self._l("Результаты поиска в простом режиме"), identifier="easy_search_results")

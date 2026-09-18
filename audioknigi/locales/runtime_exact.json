@@ -523,10 +523,5 @@
     "de": "Das Buch konnte nicht analysiert werden.",
     "en": "The book could not be analyzed.",
     "uk": "Не вдалося проаналізувати книгу."
-  },
-  "ID библиотеки Audiobookshelf": {
-    "de": "Audiobookshelf-Bibliotheks-ID",
-    "en": "Audiobookshelf library ID",
-    "uk": "ID бібліотеки Audiobookshelf"
   }
 }
