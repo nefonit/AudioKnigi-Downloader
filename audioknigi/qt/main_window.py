@@ -213,9 +213,30 @@ class AudioKnigiQtWindow(
         self._wire_live_accessibility_feedback()
         self._wire_output_dir_sync()
         self._build_menu()
+        self._configure_keyboard_tab_order()
         self.set_ui_mode(str(self.settings.get("ui_mode", "easy") or "easy"), persist=False)
         self._apply_large_mode()
         self._apply_source_visibility()
+
+    def _configure_keyboard_tab_order(self) -> None:
+        """Keep Tab/Shift+Tab deterministic in both UI modes.
+
+        Hidden/disabled controls are skipped by Qt automatically, so one chain
+        can safely include result-only controls that appear later. Advanced
+        mode continues from the mode switch to the tab widget, whose current
+        page keeps Qt's native child order.
+        """
+        chain = [
+            self.easy_mode_button, self.advanced_mode_button,
+            self.easy_input, self.easy_paste_button, self.easy_action_button,
+            self.easy_quality_combo, self.easy_output_edit, self.easy_folder_button,
+            self.easy_download_button, self.easy_search_table,
+            self.easy_narration_combo, self.easy_use_result_button,
+            self.easy_copy_url_button, self.easy_description,
+            self.easy_open_listen_button, self.easy_another_button, self.tabs,
+        ]
+        for current, following in zip(chain, chain[1:]):
+            QWidget.setTabOrder(current, following)
 
     def _build_easy_page(self) -> QWidget:
         page = QWidget()
@@ -305,15 +326,15 @@ class AudioKnigiQtWindow(
         configure_accessible(self.easy_quality_combo, name=self._l("Качество"), identifier="easy_quality")
         self.easy_output_edit = QLineEdit(str(self.settings.get("output_dir", DEFAULT_OUTPUT) or DEFAULT_OUTPUT))
         configure_accessible(self.easy_output_edit, name=self._l("Папка для аудиокниг"), identifier="easy_output_dir")
-        easy_folder = QPushButton(self._l("Папка…"))
-        configure_accessible(easy_folder, name=self._l("Выбрать папку для аудиокниг"), identifier="easy_choose_folder")
-        easy_folder.clicked.connect(lambda: self._choose_output_dir(target=self.easy_output_edit))
+        self.easy_folder_button = QPushButton(self._l("Папка…"))
+        configure_accessible(self.easy_folder_button, name=self._l("Выбрать папку для аудиокниг"), identifier="easy_choose_folder")
+        self.easy_folder_button.clicked.connect(lambda: self._choose_output_dir(target=self.easy_output_edit))
         settings_row.addWidget(QLabel(self._l("Качество:")))
         settings_row.addWidget(self.easy_quality_combo)
         settings_row.addSpacing(8)
         settings_row.addWidget(QLabel(self._l("Папка:")))
         settings_row.addWidget(self.easy_output_edit, 1)
-        settings_row.addWidget(easy_folder)
+        settings_row.addWidget(self.easy_folder_button)
         layout.addLayout(settings_row)
 
         self.easy_download_button = QPushButton(self._l("СКАЧАТЬ КНИГУ"))
@@ -417,6 +438,7 @@ class AudioKnigiQtWindow(
         self.easy_description_title.setObjectName("sectionTitle")
         self.easy_description = QPlainTextEdit()
         self.easy_description.setReadOnly(True)
+        self.easy_description.setTabChangesFocus(True)
         self.easy_description.setMaximumHeight(120)
         self.easy_description.setMinimumHeight(72)
         self.easy_description.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)

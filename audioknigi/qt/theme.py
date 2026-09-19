@@ -109,6 +109,10 @@ QPushButton {{
     border: 1px solid {border};
 }}
 QPushButton:hover {{ border-color: #0a6ed1; }}
+/* Keyboard focus must remain obvious even on blue primary buttons.
+   A thick amber border provides both color and shape contrast in light, dark
+   and native/system themes. */
+QPushButton:focus {{ border: 3px solid #ffb000; padding: 4px 10px; }}
 QPushButton:disabled {{ background: {disabled_bg}; color: {disabled_text}; border-color: {border}; }}
 QPushButton[role="primary"] {{
     background: #0066cc;
@@ -141,7 +145,13 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     background: {input_bg};
     color: {text};
 }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid #0a6ed1; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 3px solid #ffb000; }}
+QPlainTextEdit:focus, QTextEdit:focus, QTableView:focus, QTableWidget:focus,
+QListWidget:focus, QTreeView:focus {{ border: 3px solid #ffb000; }}
+QCheckBox:focus, QRadioButton:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
+QSlider:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
+QTabBar:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
+QTabBar::tab:selected {{ border: 2px solid #ffb000; font-weight: 600; }}
 QProgressBar {{ border: 1px solid {border}; border-radius: 6px; min-height: 12px; text-align: center; }}
 QProgressBar::chunk {{ background: #0a6ed1; border-radius: 5px; }}
 QGroupBox {{

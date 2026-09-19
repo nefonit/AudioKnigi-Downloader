@@ -32,6 +32,8 @@ from ..poleknig import fetch_book as fetch_poleknig_book
 from ..providers.audioknigi_search import (
     _audioknigi_description_from_html,
     _canonical_title as _canonical_audioknigi_title,
+    _merge_author_names as _merge_audioknigi_authors,
+    _split_multi_author_prefix as _split_audioknigi_multi_author_prefix,
     _strip_author_prefix_from_title as _strip_audioknigi_author_prefix,
 )
 from ..logging_utils import app_logger
@@ -532,11 +534,21 @@ class BookAnalysisService:
         else:
             title = page_title or self._extract_page_title(normalized_html)
         title = _canonical_audioknigi_title(title)
+        visible_title, visible_authors = _split_audioknigi_multi_author_prefix(title)
+        if visible_authors:
+            title = visible_title
 
-        title, author, cover_url = extract_metadata_from_html(normalized_html, title)
-        title = _canonical_audioknigi_title(title)
+        metadata_title, author, cover_url = extract_metadata_from_html(normalized_html, title)
+        metadata_title = _canonical_audioknigi_title(metadata_title)
+        metadata_book_title, metadata_prefix_authors = _split_audioknigi_multi_author_prefix(metadata_title)
+        author = _merge_audioknigi_authors(visible_authors, author, metadata_prefix_authors)
+        title = metadata_book_title if metadata_prefix_authors else metadata_title
         if author:
-            title = _strip_audioknigi_author_prefix(title, author)
+            for known_author in [part.strip() for part in author.split(",") if part.strip()]:
+                candidate = _strip_audioknigi_author_prefix(title, known_author)
+                if candidate != title:
+                    title = candidate
+                    break
         if cover_url:
             cover_url = urljoin(url, cover_url)
         _structured_description, narrator, genre, year = extract_extended_metadata_from_html(normalized_html)

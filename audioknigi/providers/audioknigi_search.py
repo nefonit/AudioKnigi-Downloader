@@ -83,8 +83,41 @@ def _looks_like_author_prefix(value: str) -> bool:
     return not residue.strip(" .'-’")
 
 
+def _split_multi_author_prefix(value: str) -> tuple[str, str]:
+    """Split AudioKnigi's ``Author 1, Author 2 - Title`` form safely.
+
+    Multi-author prefixes are substantially less ambiguous than a generic
+    two-word phrase before a dash, so require at least two comma/semicolon
+    separated person-like chunks. This fixes coauthor labels without turning
+    ordinary dashed book titles into author metadata.
+    """
+    label = _canonical_title(value)
+    parts = re.split(r"\s+[–—-]\s+", label, maxsplit=1)
+    if len(parts) != 2:
+        return label, ""
+    prefix = _clean_text(parts[0])
+    title = _clean_text(parts[1])
+    if not prefix or not title:
+        return label, ""
+    authors = [
+        _clean_text(item)
+        for item in re.split(r"\s*(?:,|;)\s*", prefix)
+        if _clean_text(item)
+    ]
+    if len(authors) < 2:
+        return label, ""
+    for author in authors:
+        words = re.findall(r"[^\W\d_]+", author, re.UNICODE)
+        if len(words) < 2 or not _looks_like_author_prefix(author):
+            return label, ""
+    return title, ", ".join(authors)
+
+
 def _split_audioknigi_title(value: str) -> tuple[str, str]:
     label = _canonical_title(value)
+    multi_title, multi_authors = _split_multi_author_prefix(label)
+    if multi_authors:
+        return multi_title, multi_authors
     parts = re.split(r"\s+[–—-]\s+", label, maxsplit=1)
     if len(parts) == 2:
         author = _clean_text(parts[0])
@@ -429,20 +462,25 @@ def _audioknigi_page_metadata(
 
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
         page_label = _canonical_title(title_match.group(1) if title_match else "")
-        # Preserve every author signal independently. Search-card labels often
-        # expose a coauthor that structured metadata omits (or vice versa).
-        title = page_label or result.title
+        page_book_title, page_authors = _split_multi_author_prefix(page_label)
+
+        # Preserve every author signal independently. AudioKnigi sometimes
+        # renders ``Author 1, Author 2 - Title`` in the visible/page title while
+        # JSON-LD exposes only one of those authors.
+        title = page_book_title if page_authors else (page_label or result.title)
         result_author = _clean_text(result.author)
         meta_title, meta_author, _cover = metadata_extractor(html_text, title)
-        author = _merge_author_names(result_author, _clean_text(meta_author))
-        if meta_title:
-            title = _canonical_title(meta_title) or title
+        meta_clean = _canonical_title(meta_title) if meta_title else ""
+        meta_book_title, meta_prefix_authors = _split_multi_author_prefix(meta_clean)
+        author = _merge_author_names(
+            result_author, page_authors, _clean_text(meta_author), meta_prefix_authors
+        )
+        if meta_clean:
+            title = meta_book_title if meta_prefix_authors else meta_clean
 
         # Strip only an author that was independently observed in the search
-        # card or structured metadata. This preserves legitimate dashed titles
-        # such as "Гарри Поттер — Философский камень" while still removing a
-        # coauthor prefix such as "Бурносова Татьяна - Тоннельная крыса" when
-        # the search card already identified Татьяна as an author.
+        # card, multi-author page prefix or structured metadata. This preserves
+        # legitimate dashed titles such as "Гарри Поттер — Философский камень".
         if author:
             stripped = title
             for known_author in [part.strip() for part in author.split(",") if part.strip()]:

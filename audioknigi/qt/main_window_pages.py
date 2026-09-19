@@ -275,6 +275,7 @@ class MainWindowPagesMixin:
         log_layout = QVBoxLayout(self.session_log_group)
         self.session_log = QPlainTextEdit()
         self.session_log.setReadOnly(True)
+        self.session_log.setTabChangesFocus(True)
         self.session_log.setMaximumBlockCount(1000)
         self.session_log.setMaximumHeight(180)
         configure_accessible(self.session_log, name="Технический журнал текущей сессии", identifier="session_log")
