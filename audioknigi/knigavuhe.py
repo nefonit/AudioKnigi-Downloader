@@ -256,7 +256,17 @@ class _BookDescriptionParser(HTMLParser):
 
     @property
     def description(self) -> str:
-        return _clean_text(" ".join(self._chunks)) or self.meta_description
+        visible = _clean_text(" ".join(self._chunks))
+        if visible:
+            return visible
+        meta = _clean_text(self.meta_description)
+        folded = meta.casefold().replace("ё", "е")
+        if any(marker in folded for marker in (
+            "слушать аудиокнигу бесплатно", "слушать аудиокнигу онлайн",
+            "скачать аудиокнигу", "knigavuhe.org",
+        )):
+            return ""
+        return meta
 
 
 def _description_from_html(html_text: str) -> str:

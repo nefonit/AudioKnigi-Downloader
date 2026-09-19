@@ -43,14 +43,27 @@ def _clean_text(value) -> str:
 
 
 def _canonical_title(value) -> str:
+    """Return the human book title without AudioKnigi SEO decorations."""
     title = _clean_text(value)
+    title = re.sub(r"https?://(?:www\.)?audioknigi\.com\.ua/?\S*", " ", title, flags=re.I)
+    title = re.sub(r"\b(?:www\.)?audioknigi\.com\.ua/?\b", " ", title, flags=re.I)
+    title = re.sub(r"\s+", " ", title).strip()
     title = re.sub(
         r"^(?:слушать\s+)?(?:онлайн\s+)?аудиокниг(?:а|у|и)(?:\s+онлайн)?\s*[:\-–—]?\s*",
         "",
         title,
         flags=re.I,
-    ).strip(" -–—")
-    return title
+    ).strip(" -–—|:")
+    seo_tail = re.compile(
+        r"\s*(?:[-–—|:]\s*)?(?:"
+        r"аудиокниг(?:а|у|и)\s+(?:слушать(?:\s+онлайн)?|онлайн)"
+        r"|слушать\s+(?:аудиокниг(?:а|у|и)\s+)?онлайн"
+        r"|слушать\s+онлайн"
+        r").*$",
+        re.I,
+    )
+    title = seo_tail.sub("", title).strip(" -–—|:")
+    return re.sub(r"\s+", " ", title).strip()
 
 
 def _looks_like_author_prefix(value: str) -> bool:
@@ -251,30 +264,122 @@ def parse_audioknigi_results(html_text: str, base_url: str, query: str = "") -> 
     return results[:100]
 
 def _strip_author_prefix_from_title(value: str, author: str) -> str:
-    title = _clean_text(value)
+    """Remove a proven author prefix, with or without a visual separator."""
+    title = _canonical_title(value)
     author_text = _clean_text(author)
     if not title or not author_text:
         return title
+
+    direct = re.match(rf"^\s*{re.escape(author_text)}\s*[-–—:]\s*(.+)$", title, re.I)
+    if direct and _clean_text(direct.group(1)):
+        return _clean_text(direct.group(1))
+
+    def words_with_spans(text: str):
+        return [
+            (m.group(0).casefold().replace("ё", "е"), m.start(), m.end())
+            for m in re.finditer(r"[^\W\d_]+", text, re.UNICODE)
+        ]
+
+    title_words = words_with_spans(title)
+    author_words = [word for word, _start, _end in words_with_spans(author_text)]
+    if len(title_words) < 2 or not author_words:
+        return title
+    author_set = set(author_words)
+    if len(author_words) >= 2:
+        direct_space = re.match(rf"^\s*{re.escape(author_text)}\s+(.+)$", title, re.I)
+        if direct_space and _clean_text(direct_space.group(1)):
+            return _canonical_title(direct_space.group(1))
+
+    max_prefix = min(len(author_words), len(title_words) - 1, 5)
+    for count in range(max_prefix, 1, -1):
+        prefix_tokens = [word for word, _start, _end in title_words[:count]]
+        if set(prefix_tokens) <= author_set and len(set(prefix_tokens)) >= 2:
+            remainder = title[title_words[count - 1][2]:].lstrip(" \t-–—:,|")
+            if remainder:
+                return _canonical_title(remainder)
+
     match = re.match(r"^(.{2,120}?)\s*[-–—:]\s*(.+)$", title)
     if not match:
         return title
     prefix, remainder = (_clean_text(part) for part in match.groups())
-
-    def person_tokens(text: str) -> set[str]:
-        return {
-            token
-            for token in re.findall(r"[\w]+", text.casefold().replace("ё", "е"), re.UNICODE)
-            if len(token) >= 2
-        }
-
-    prefix_tokens = person_tokens(prefix)
-    author_tokens = person_tokens(author_text)
-    if not prefix_tokens or not author_tokens:
-        return title
-    shared = prefix_tokens & author_tokens
-    if prefix_tokens <= author_tokens and shared:
-        return remainder or title
+    prefix_tokens = {word for word, _start, _end in words_with_spans(prefix)}
+    if prefix_tokens and prefix_tokens <= author_set:
+        return _canonical_title(remainder) or title
     return title
+
+
+def _looks_like_audioknigi_seo_description(value: str, *, title: str = "", author: str = "") -> bool:
+    text = _clean_text(value)
+    if not text:
+        return True
+    folded = text.casefold().replace("ё", "е")
+    markers = (
+        "скачать аудиокнигу", "слушать аудиокнигу", "аудиокнига слушать",
+        "слушать онлайн", "audioknigi.com.ua",
+    )
+    if any(marker in folded for marker in markers):
+        return True
+    compact = re.sub(r"[^\w]+", " ", folded, flags=re.UNICODE).strip()
+    title_key = re.sub(r"[^\w]+", " ", _canonical_title(title).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
+    author_key = re.sub(r"[^\w]+", " ", _clean_text(author).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
+    return bool(title_key and author_key and title_key in compact and author_key in compact and len(text) < 220)
+
+
+def _meta_content(html_text: str, key: str) -> str:
+    escaped = re.escape(str(key or ""))
+    patterns = (
+        rf'<meta\b[^>]*(?:name|property)=["\']{escaped}["\'][^>]*content=["\']([^"\']*)["\'][^>]*>',
+        rf'<meta\b[^>]*content=["\']([^"\']*)["\'][^>]*(?:name|property)=["\']{escaped}["\'][^>]*>',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html_text or "", re.I | re.S)
+        if match:
+            return _clean_text(match.group(1))
+    return ""
+
+
+def _audioknigi_description_from_html(html_text: str, *, title: str = "", author: str = "") -> str:
+    """Extract a real synopsis and reject search-engine description boilerplate."""
+    html = str(html_text or "")
+    visible: list[str] = []
+    block_pattern = re.compile(
+        r'<(?P<tag>div|section|article)\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</(?P=tag)>',
+        re.I,
+    )
+    semantic = (
+        "description", "annotation", "annot", "book-description", "book_description",
+        "book-text", "book_text", "shortstory", "short-story", "story-text",
+        "story_text", "full-text", "full_text",
+    )
+    for match in block_pattern.finditer(html):
+        attrs = match.group("attrs") or ""
+        marker = " ".join(re.findall(r'(?:class|id)=["\']([^"\']+)["\']', attrs, re.I)).casefold()
+        if any(token in marker for token in semantic):
+            text = _clean_text(match.group("body"))
+            if text:
+                visible.append(text)
+
+    plain_blocks = re.sub(
+        r"</?(?:p|div|section|article|br|h[1-6])\b[^>]*>", "\n", html, flags=re.I
+    )
+    plain_blocks = html_lib.unescape(re.sub(r"<[^>]+>", " ", plain_blocks))
+    plain_blocks = re.sub(r"[ \t]+", " ", plain_blocks)
+    label_match = re.search(
+        r"(?:Краткое\s+содержание|Описание|Аннотация)\s*:?\s*\n?\s*"
+        r"(.{30,5000}?)(?=\n\s*(?:Комментарии|Другие\s+озвучки|Рекомендации|"
+        r"Жанр|Читает|Исполнитель|Добавлено|Добавлена)\b|$)",
+        plain_blocks, re.I | re.S,
+    )
+    if label_match:
+        visible.append(_clean_text(label_match.group(1)))
+
+    structured, _narrator, _genre, _year = extract_extended_metadata_from_html(html)
+    candidates = [*visible, structured, _meta_content(html, "og:description"), _meta_content(html, "description")]
+    for candidate in candidates:
+        clean = _clean_text(candidate)
+        if clean and not _looks_like_audioknigi_seo_description(clean, title=title, author=author):
+            return clean
+    return ""
 
 
 def _audioknigi_page_metadata(
@@ -297,8 +402,7 @@ def _audioknigi_page_metadata(
         html_text = content.decode("utf-8-sig", errors="replace") if content else (response.text or "")
 
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
-        page_label = _clean_text(title_match.group(1) if title_match else "")
-        page_label = re.sub(r"\s+аудиокнига.*$", "", page_label, flags=re.I).strip()
+        page_label = _canonical_title(title_match.group(1) if title_match else "")
         # A dash inside a book title is inherently ambiguous (for example
         # "Метро 2033 — Тёмные туннели").  Do not invent an author from the
         # HTML <title>; wait for independent structured metadata.
@@ -311,13 +415,13 @@ def _audioknigi_page_metadata(
             # Structured metadata wins over the ambiguous visual "A - B" title.
             # Only apply the dash heuristic when no independent author was parsed.
             if author:
-                cleaned_meta = _clean_text(meta_title)
+                cleaned_meta = _canonical_title(meta_title)
                 title = _strip_author_prefix_from_title(cleaned_meta, author) or title
             else:
                 # Without a separately parsed author, preserve the complete
                 # metadata title instead of guessing that text before a dash is
                 # a person name.
-                title = _clean_text(meta_title) or title
+                title = _canonical_title(meta_title) or title
 
         _description, narrator, _genre, _year = extended_metadata_extractor(html_text)
         if not narrator:
@@ -362,12 +466,10 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
             _shutdown_pool_now(pool, futures)
 
     if query:
-        filtered: list[SearchResult] = []
-        for item in hydrated:
-            has_metadata = bool(str(getattr(item, "author", "") or "").strip() or str(getattr(item, "narrator", "") or "").strip())
-            if not has_metadata or _matches_query(item.title, query, item.author, item.narrator):
-                filtered.append(item)
-        hydrated = filtered
+        hydrated = [
+            item for item in hydrated
+            if _matches_query(item.title, query, item.author, item.narrator)
+        ]
 
     groups: dict[tuple[str, str], list[SearchResult]] = {}
     order: list[tuple[str, str]] = []

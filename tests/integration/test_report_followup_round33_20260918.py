@@ -18,7 +18,7 @@ def src(relative: str) -> str:
 
 def test_easy_search_card_is_wider_and_long_titles_wrap() -> None:
     source = src("audioknigi/qt/main_window.py")
-    assert "card.setMaximumWidth(1180)" in source
+    assert "card.setMaximumWidth(1500)" in source
     assert "self.easy_search_table.setWordWrap(True)" in source
     assert "self.easy_search_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)" in source
     assert "self.easy_search_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)" in source

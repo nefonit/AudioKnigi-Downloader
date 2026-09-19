@@ -3,7 +3,7 @@ import threading
 import weakref
 from PySide6.QtCore import QThread, Qt, QTimer, Slot
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QStackedWidget, QStatusBar, QTabWidget, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSizePolicy, QStackedWidget, QStatusBar, QTabWidget, QTableView, QVBoxLayout, QWidget
 from ..brand import BRAND_NAME, DISPLAY_NAME, PRODUCT_NAME
 from ..metadata import APP_VERSION
 from ..core import DEFAULT_OUTPUT, valid_site_url
@@ -228,8 +228,13 @@ class AudioKnigiQtWindow(
         center_row.addStretch(1)
         card = QWidget(page)
         card.setObjectName("easyCard")
-        card.setMinimumWidth(760)
-        card.setMaximumWidth(1180)
+        # Use substantially more of a desktop window in Easy mode.  The card
+        # still has a bounded maximum so it remains visually coherent on very
+        # wide monitors, but it now grows with the window instead of keeping a
+        # narrow fixed-looking search area.
+        card.setMinimumWidth(860)
+        card.setMaximumWidth(1500)
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(12)
@@ -461,7 +466,7 @@ class AudioKnigiQtWindow(
         easy_download_row.addStretch(1)
         layout.addLayout(easy_download_row)
 
-        center_row.addWidget(card)
+        center_row.addWidget(card, 8)
         center_row.addStretch(1)
         outer.addLayout(center_row)
         outer.addStretch(1)

@@ -29,6 +29,11 @@ from ..core import (
 )
 from ..knigavuhe import fetch_book as fetch_knigavuhe_book, search as search_knigavuhe_books
 from ..poleknig import fetch_book as fetch_poleknig_book
+from ..providers.audioknigi_search import (
+    _audioknigi_description_from_html,
+    _canonical_title as _canonical_audioknigi_title,
+    _strip_author_prefix_from_title as _strip_audioknigi_author_prefix,
+)
 from ..logging_utils import app_logger
 from ..models import Book, Track, normalize_cover_cache
 from ..network_dns import cloudflare_ffmpeg_input_args, launch_playwright_chromium
@@ -526,12 +531,18 @@ class BookAnalysisService:
             title = html_lib.unescape(title_match.group(1).strip())
         else:
             title = page_title or self._extract_page_title(normalized_html)
-            title = re.sub(r"\s+аудиокнига.*$", "", title, flags=re.I).strip()
+        title = _canonical_audioknigi_title(title)
 
         title, author, cover_url = extract_metadata_from_html(normalized_html, title)
+        title = _canonical_audioknigi_title(title)
+        if author:
+            title = _strip_audioknigi_author_prefix(title, author)
         if cover_url:
             cover_url = urljoin(url, cover_url)
-        description, narrator, genre, year = extract_extended_metadata_from_html(normalized_html)
+        _structured_description, narrator, genre, year = extract_extended_metadata_from_html(normalized_html)
+        description = _audioknigi_description_from_html(
+            normalized_html, title=title, author=author
+        )
         try:
             normalized_playlist_text = str(playlist_text or "").strip().lstrip("\ufeff").lstrip()
             data = json.loads(normalized_playlist_text)
