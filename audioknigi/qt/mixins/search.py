@@ -102,6 +102,8 @@ class SearchUiMixin:
         self.search_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.search_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.search_table.setAlternatingRowColors(True)
+        self.search_table.setShowGrid(False)
+        self.search_table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.search_table.setSortingEnabled(False)
         self.search_table.verticalHeader().setVisible(False)
         self.search_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)

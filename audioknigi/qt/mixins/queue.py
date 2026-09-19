@@ -158,6 +158,8 @@ class QueueUiMixin:
         self.queue_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.queue_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.queue_table.setAlternatingRowColors(True)
+        self.queue_table.setShowGrid(False)
+        self.queue_table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.queue_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.queue_table.horizontalHeader().setResizeContentsPrecision(60)
         self.queue_table.horizontalHeader().setStretchLastSection(True)

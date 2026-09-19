@@ -253,6 +253,8 @@ class MainWindowPagesMixin:
         self.track_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.track_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.track_table.setAlternatingRowColors(True)
+        self.track_table.setShowGrid(False)
+        self.track_table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.track_table.verticalHeader().setVisible(False)
         self.track_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.track_table.horizontalHeader().setResizeContentsPrecision(60)
