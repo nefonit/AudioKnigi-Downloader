@@ -6,7 +6,8 @@ The active test suites live in `tests/`. Historical phase/audit regression tests
 
 ## Current branch
 
-- `4.12/` — current 4.12.31 audit, migration, accessibility and hardening evidence.
+- `4.12/` — current 4.12 audit, migration, accessibility and hardening evidence.
+- `4.12/rounds/` — incremental Round 2+ audit/fix notes, with its own `INDEX.md`.
 - `4.12/STRUCTURAL_REFACTOR_2026-09-12.md` — current architecture/catalog refactor and disposition of the nine improvement goals.
 
 ## Archive

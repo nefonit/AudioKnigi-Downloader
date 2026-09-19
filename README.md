@@ -69,6 +69,7 @@ The current repository is organized by responsibility instead of migration phase
 - `archive/` — historical tests, source variants, retired audits, and one-off migration tooling; never imported by the runtime.
 - `audioknigi/qt_runtime_audit.py` — package-level runtime-boundary assertion used by source/frozen self-tests.
 - `tools/` — active release and quality gates only.
+- `audits/4.12/rounds/` — incremental current-branch review/fix evidence; historical material stays under `archive/`.
 
 See `docs/architecture/PROJECT_STRUCTURE.md` for placement rules and the complete structure.
 

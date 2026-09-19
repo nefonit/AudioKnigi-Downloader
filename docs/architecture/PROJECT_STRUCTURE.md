@@ -11,6 +11,7 @@ Only launchers, packaging/build metadata, release requirements, and project-wide
 - `build_qt_exe.bat`, `build_qt_ci.ps1` — Windows build entry points.
 - `pyproject.toml`, `requirements*.txt` — package and dependency metadata.
 - `README.md`, `CHANGELOG.md`, `THIRD_PARTY_NOTICES.md` — primary project documentation.
+- `.gitignore` — generated/cache/build/runtime-state exclusions.
 
 Do not add feature modules, audit reports, temporary scripts, or historical snapshots to the root.
 
@@ -57,6 +58,7 @@ Active tests live only under `tests/` and are grouped by behavior:
 - unused-import audit for the refactored downloader/Qt-mixin layers;
 - undefined-global audit for split-module imports/constants that `compileall` cannot detect;
 - historical-regression compatibility gate;
+- clean source-release ZIP packager;
 - frozen-module and Windows accessibility acceptance checks.
 
 One-off migration tools belong under `archive/tools/`.
@@ -69,6 +71,7 @@ One-off migration tools belong under `archive/tools/`.
 - `docs/accessibility/`, `network/`, `reliability/`, `sources/`, etc. — domain documentation.
 - `docs/migration/`, `docs/history/` — historical migration records, not current runtime instructions.
 - `audits/4.12/` — current branch audit/review evidence.
+- `audits/4.12/rounds/` — incremental Round 2+ audit/fix notes; these never live at repository root.
 - `archive/audits/` — audits from retired branches.
 - `archive/history/` — historical source/release snapshots.
 
@@ -78,4 +81,5 @@ One-off migration tools belong under `archive/tools/`.
 2. Active tests are named by behavior/domain, not by audit or phase number.
 3. Current audit evidence goes in `audits/<branch>/`; historical evidence is moved to `archive/audits/`.
 4. Historical source snapshots and migration-only tooling never live in the runtime package or repository root.
-5. Generated caches/build output (`__pycache__`, `.pytest_cache`, `build`, `dist`, `*.pyc`) are never part of source releases.
+5. Generated caches/build output (`__pycache__`, `.pytest_cache`, `.historical-regression-*`, `build`, `dist`, `*.pyc`) are never part of source releases.
+6. Root-level `AUDIT_NOTES_*.md` files are forbidden; current round notes belong in `audits/4.12/rounds/`.

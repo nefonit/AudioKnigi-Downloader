@@ -1,0 +1,37 @@
+# Python caches / test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build/release output
+build/
+dist/
+*.egg-info/
+
+# Historical-regression temporary worktrees
+.historical-regression-*/
+
+# Local runtime/user state
+settings.json
+history.json
+qt_queue.json
+cookies.json
+session_profile.json
+*.log
+*.tmp
+*.part
+
+# IDE / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

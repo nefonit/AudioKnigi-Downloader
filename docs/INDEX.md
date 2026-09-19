@@ -29,4 +29,4 @@ Current documentation is organized by purpose. Historical migration documents ar
 
 ## Audit evidence
 
-Current branch audit/review evidence is cataloged in [`../audits/INDEX.md`](../audits/INDEX.md). New audit reports belong in `audits/<current-branch>/`, not in the repository root.
+Current branch audit/review evidence is cataloged in [`../audits/INDEX.md`](../audits/INDEX.md). Incremental 4.12 round notes are indexed in [`../audits/4.12/rounds/INDEX.md`](../audits/4.12/rounds/INDEX.md). New audit reports belong under `audits/<current-branch>/`, never in the repository root.

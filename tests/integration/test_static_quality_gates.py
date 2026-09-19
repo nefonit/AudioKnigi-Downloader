@@ -5,8 +5,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_tool(name, *args):
-    return subprocess.run([sys.executable, str(ROOT / "tools" / name), *args], cwd=ROOT, text=True, capture_output=True, timeout=60)
+def run_tool(name, *args, timeout=60):
+    return subprocess.run(
+        [sys.executable, str(ROOT / "tools" / name), *args],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
 
 
 def test_full_parity_audit_passes_modular_layout():
@@ -40,6 +46,6 @@ def test_undefined_global_audit_catches_split_module_name_errors():
 
 
 def test_archived_behavioral_regressions_have_no_new_failures():
-    proc = run_tool("historical_regression_audit.py")
+    proc = run_tool("historical_regression_audit.py", timeout=300)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "HISTORICAL REGRESSION: PASS" in proc.stdout

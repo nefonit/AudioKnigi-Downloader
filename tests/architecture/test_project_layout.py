@@ -58,3 +58,16 @@ def test_active_tools_do_not_contain_one_off_phase13_source_builder():
 def test_windows_build_uses_exact_release_dependency_baseline():
     build_requirements = (ROOT / "requirements-qt-build.txt").read_text(encoding="utf-8")
     assert "-r requirements-release.txt" in build_requirements
+
+
+def test_repository_root_has_no_audit_notes_and_rounds_are_catalogued():
+    assert not list(ROOT.glob("AUDIT_NOTES_*.md"))
+    assert (ROOT / ".gitignore").is_file()
+    assert (ROOT / "audits/4.12/rounds/INDEX.md").is_file()
+    assert list((ROOT / "audits/4.12/rounds").glob("AUDIT_NOTES_*.md"))
+
+
+def test_source_release_packager_exists_and_knows_generated_exclusions():
+    source = (ROOT / "tools/package_source_release.py").read_text(encoding="utf-8")
+    for marker in ("__pycache__", ".pytest_cache", ".historical-regression-", "build", "dist"):
+        assert marker in source
