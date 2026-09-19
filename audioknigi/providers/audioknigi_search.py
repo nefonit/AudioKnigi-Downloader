@@ -382,6 +382,32 @@ def _audioknigi_description_from_html(html_text: str, *, title: str = "", author
     return ""
 
 
+def _author_identity_key(value: str) -> tuple[str, ...]:
+    words = [
+        token
+        for token in re.findall(r"[^\W\d_]+", _clean_text(value).casefold().replace("ё", "е"), re.UNICODE)
+        if len(token) > 1
+    ]
+    return tuple(sorted(set(words)))
+
+
+def _merge_author_names(*values: str) -> str:
+    authors: list[str] = []
+    seen: set[tuple[str, ...]] = set()
+    for value in values:
+        for raw in re.split(r"\s*(?:,|;|\s+и\s+)\s*", _clean_text(value), flags=re.I):
+            name = _clean_text(raw)
+            if not name:
+                continue
+            key = _author_identity_key(name)
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            authors.append(name)
+    return ", ".join(authors)
+
+
 def _audioknigi_page_metadata(
     result: SearchResult,
     *,
@@ -403,25 +429,28 @@ def _audioknigi_page_metadata(
 
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
         page_label = _canonical_title(title_match.group(1) if title_match else "")
-        # A dash inside a book title is inherently ambiguous (for example
-        # "Метро 2033 — Тёмные туннели").  Do not invent an author from the
-        # HTML <title>; wait for independent structured metadata.
+        # Preserve every author signal independently. Search-card labels often
+        # expose a coauthor that structured metadata omits (or vice versa).
         title = page_label or result.title
-        author = result.author
+        result_author = _clean_text(result.author)
         meta_title, meta_author, _cover = metadata_extractor(html_text, title)
-        if meta_author:
-            author = _clean_text(meta_author)
+        author = _merge_author_names(result_author, _clean_text(meta_author))
         if meta_title:
-            # Structured metadata wins over the ambiguous visual "A - B" title.
-            # Only apply the dash heuristic when no independent author was parsed.
-            if author:
-                cleaned_meta = _canonical_title(meta_title)
-                title = _strip_author_prefix_from_title(cleaned_meta, author) or title
-            else:
-                # Without a separately parsed author, preserve the complete
-                # metadata title instead of guessing that text before a dash is
-                # a person name.
-                title = _canonical_title(meta_title) or title
+            title = _canonical_title(meta_title) or title
+
+        # Strip only an author that was independently observed in the search
+        # card or structured metadata. This preserves legitimate dashed titles
+        # such as "Гарри Поттер — Философский камень" while still removing a
+        # coauthor prefix such as "Бурносова Татьяна - Тоннельная крыса" when
+        # the search card already identified Татьяна as an author.
+        if author:
+            stripped = title
+            for known_author in [part.strip() for part in author.split(",") if part.strip()]:
+                candidate = _strip_author_prefix_from_title(stripped, known_author)
+                if candidate != stripped:
+                    stripped = candidate
+                    break
+            title = stripped or title
 
         _description, narrator, _genre, _year = extended_metadata_extractor(html_text)
         if not narrator:

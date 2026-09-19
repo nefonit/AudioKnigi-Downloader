@@ -1148,6 +1148,53 @@ def _resolve_search_result_title(result: SearchResult) -> SearchResult:
     return result
 
 
+def _knigavuhe_query_tokens(value: str) -> list[str]:
+    normalized = _clean_text(value).casefold().replace("ё", "е")
+    noise = {"аудиокнига", "аудиокнигу", "аудиокниги", "слушать", "онлайн", "и", "в", "во", "на"}
+    return [
+        token
+        for token in re.findall(r"[^\W\d_]+", normalized, re.UNICODE)
+        if token and token not in noise
+    ]
+
+
+def _knigavuhe_token_matches(query_token: str, candidate_token: str) -> bool:
+    if query_token == candidate_token:
+        return True
+    if (
+        len(query_token) >= 5
+        and len(candidate_token) >= 5
+        and abs(len(query_token) - len(candidate_token)) <= 2
+        and query_token[:4] == candidate_token[:4]
+    ):
+        return True
+    return False
+
+
+def _knigavuhe_matches_query(result: SearchResult, query: str) -> bool:
+    query_tokens = _knigavuhe_query_tokens(query)
+    if not query_tokens:
+        return True
+    title = _clean_text(getattr(result, "title", ""))
+    author = _clean_text(getattr(result, "author", ""))
+    narrator = _clean_text(getattr(result, "narrator", ""))
+    haystack_tokens = _knigavuhe_query_tokens(" ".join(x for x in (title, author, narrator) if x))
+    if not haystack_tokens:
+        return False
+
+    fully_matched = 0
+    for query_token in query_tokens:
+        if any(_knigavuhe_token_matches(query_token, candidate) for candidate in haystack_tokens):
+            fully_matched += 1
+            continue
+        person_tokens = _knigavuhe_query_tokens(" ".join(x for x in (author, narrator) if x))
+        initials = {token for token in person_tokens if len(token) == 1}
+        if fully_matched and len(query_token) > 1 and query_token[:1] in initials:
+            continue
+        return False
+    return True
+
+
 def _hydrate_search_result_titles(results: list[SearchResult], query: str = "", cancel_event=None) -> list[SearchResult]:
     """Resolve Knigavuhe metadata concurrently and retain title/author/reader matches."""
     items = list(results or [])
@@ -1181,10 +1228,12 @@ def _hydrate_search_result_titles(results: list[SearchResult], query: str = "", 
         finally:
             _shutdown_pool_now(pool, futures)
 
-    # Knigavuhe's own search also matches reader, description, series and genre.
-    # Hydration enriches metadata only; do not second-guess the site's relevance
-    # ranking by dropping a result just because the query is absent from the
-    # title/author/reader fields we happen to expose.
+    # Knigavuhe's site search also matches descriptions/series/genres. Those
+    # are useful on the web site, but in AudioKnigi's result table they produce
+    # visibly unrelated books. After hydration, keep only results whose exposed
+    # title/author/narrator actually matches the user's query.
+    if query:
+        resolved = [item for item in resolved if _knigavuhe_matches_query(item, query)]
     return resolved
 
 
