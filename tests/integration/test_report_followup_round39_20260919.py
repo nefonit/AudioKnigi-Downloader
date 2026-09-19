@@ -17,7 +17,7 @@ def test_production_theme_has_cohesive_app_chrome() -> None:
     ):
         assert selector in theme
     assert 'accent = "#0a6ed1"' in theme
-    assert 'focus = "#ffb000"' in theme
+    assert 'focus = "#e5a93c"' in theme
 
 
 def test_production_theme_polishes_buttons_inputs_and_focus_without_weakening_focus_ring() -> None:
@@ -28,7 +28,7 @@ def test_production_theme_polishes_buttons_inputs_and_focus_without_weakening_fo
     assert "QComboBox::drop-down" in theme
     assert "QPushButton:focus" in theme
     assert "QLineEdit:focus, QComboBox:focus" in theme
-    assert "border: 3px solid #ffb000" in theme
+    assert "border: 2px solid {focus}" in theme
 
 
 def test_tables_lists_headers_tabs_and_scrollbars_have_production_styling() -> None:

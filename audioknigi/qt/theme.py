@@ -68,7 +68,7 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
     accent = "#0a6ed1"
     accent_hover = "#117ee8"
     accent_pressed = "#075aa9"
-    focus = "#ffb000"
+    focus = "#e5a93c"
     danger = "#c43d38"
 
     if mode == "dark":
@@ -79,7 +79,8 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         border = "#3b424d"
         text = "#f3f6fa"
         muted = "#a8b1bd"
-        onboarding_muted = "#a8b1bd"
+        secondary = "#9ba3af"
+        onboarding_muted = "#aeb6c2"
         input_bg = "#191d23"
         disabled_bg = "#242931"
         disabled_text = "#737d8a"
@@ -93,7 +94,8 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         border = "#d7dde7"
         text = "#17202a"
         muted = "#667085"
-        onboarding_muted = "#667085"
+        secondary = "#596579"
+        onboarding_muted = "#596579"
         input_bg = "#ffffff"
         disabled_bg = "#edf1f5"
         disabled_text = "#98a1ae"
@@ -112,7 +114,8 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         border = "palette(mid)"
         text = "palette(text)"
         muted = "palette(mid)"
-        onboarding_muted = "#a8b1bd" if system_dark else "#566273"
+        secondary = "#9ba3af" if system_dark else "#596579"
+        onboarding_muted = "#aeb6c2" if system_dark else "#596579"
         input_bg = "palette(base)"
         disabled_bg = "palette(button)"
         disabled_text = "palette(mid)"
@@ -140,7 +143,7 @@ QMenuBar {{
     background: transparent;
     color: {text};
     spacing: 3px;
-    padding: 2px 4px;
+    padding: 4px 6px 3px 6px;
 }}
 QMenuBar::item {{
     padding: 6px 10px;
@@ -175,7 +178,7 @@ QPushButton {{
 QPushButton:hover {{ background: {hover}; border-color: {accent}; }}
 QPushButton:pressed {{ background: {surface3}; }}
 /* Keyboard focus intentionally remains stronger than decorative chrome. */
-QPushButton:focus {{ border: 3px solid #ffb000; padding: 5px 12px; }}
+QPushButton:focus {{ border: 2px solid {focus}; padding: 6px 13px; }}
 QPushButton:disabled {{ background: {disabled_bg}; color: {disabled_text}; border-color: {border}; }}
 QPushButton[role="primary"] {{
     background: {accent};
@@ -194,13 +197,23 @@ QPushButton[role="primary"]:disabled {{
 QPushButton[role="danger"] {{ background: {danger}; color: white; border-color: {danger}; font-weight: 600; }}
 QPushButton[role="dangerGhost"] {{ color: {danger}; background: transparent; }}
 QPushButton[role="flat"] {{ background: transparent; border: none; text-align: left; padding-left: 4px; }}
+QWidget#modeSegmentHolder {{
+    background: {surface2};
+    border: 1px solid {border};
+    border-radius: 10px;
+}}
 QPushButton[role="segment"] {{
     min-height: 28px;
-    border-radius: 11px;
+    border: none;
+    border-radius: 8px;
     padding: 6px 16px;
-    background: {surface2};
+    background: transparent;
+    color: {muted};
+    font-weight: 500;
 }}
-QPushButton[role="segment"]:checked {{ background: {accent}; color: white; border-color: {accent}; font-weight: 600; }}
+QPushButton[role="segment"]:hover {{ background: {hover}; color: {text}; border: none; }}
+QPushButton[role="segment"]:focus {{ border: 2px solid {focus}; padding: 4px 14px; }}
+QPushButton[role="segment"]:checked {{ background: {accent}; color: white; border: none; font-weight: 600; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     min-height: 32px;
     padding: 5px 9px;
@@ -212,7 +225,7 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     selection-color: white;
 }}
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{ border-color: {accent}; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 3px solid #ffb000; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {focus}; border-radius: 8px; }}
 QLineEdit:read-only {{ background: {surface2}; }}
 QComboBox::drop-down {{ border: none; width: 24px; }}
 QPlainTextEdit, QTextEdit {{
@@ -225,11 +238,11 @@ QPlainTextEdit, QTextEdit {{
     selection-color: white;
 }}
 QPlainTextEdit:focus, QTextEdit:focus, QTableView:focus, QTableWidget:focus,
-QListWidget:focus, QTreeView:focus {{ border: 3px solid #ffb000; }}
+QListWidget:focus, QTreeView:focus {{ border: 2px solid {focus}; border-radius: 6px; }}
 QCheckBox {{ spacing: 7px; color: {text}; }}
-QCheckBox:focus, QRadioButton:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
-QSlider:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
-QTabBar:focus {{ border: 2px solid #ffb000; border-radius: 4px; }}
+QCheckBox:focus, QRadioButton:focus {{ border: 2px solid {focus}; border-radius: 5px; }}
+QSlider:focus {{ border: 2px solid {focus}; border-radius: 5px; }}
+QTabBar:focus {{ border: 2px solid {focus}; border-radius: 6px; }}
 QProgressBar {{
     border: 1px solid {border};
     border-radius: 6px;
@@ -266,10 +279,10 @@ QWidget#settingsFooter {{
 QLabel#pageTitle {{ color: {text}; font-size: 22px; font-weight: 700; }}
 QLabel#playerTitle {{ color: {text}; font-size: 24px; font-weight: 700; }}
 QLabel#sectionTitle {{ color: {text}; font-size: 14px; font-weight: 700; margin-top: 7px; }}
-QLabel#secondaryText {{ color: {muted}; }}
+QLabel#secondaryText {{ color: {secondary}; }}
 QLabel#onboardingSubtitle {{ color: {onboarding_muted}; }}
 QLabel#emptyState {{
-    color: {muted};
+    color: {secondary};
     padding: 20px;
     background: {surface2};
     border: 1px dashed {border};
@@ -334,7 +347,7 @@ QTabBar::tab {{
 QTabBar::tab:hover {{ background: {hover}; color: {text}; border-radius: 7px; }}
 QTabBar::tab:selected {{
     color: {text};
-    border: 2px solid #ffb000;
+    border: 1px solid {border};
     border-bottom: 3px solid {accent};
     background: {surface};
     font-weight: 600;

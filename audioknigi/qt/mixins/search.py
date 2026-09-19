@@ -106,9 +106,14 @@ class SearchUiMixin:
         self.search_table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.search_table.setSortingEnabled(False)
         self.search_table.verticalHeader().setVisible(False)
-        self.search_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.search_table.horizontalHeader().setResizeContentsPrecision(60)
-        self.search_table.horizontalHeader().setStretchLastSection(True)
+        search_header = self.search_table.horizontalHeader()
+        search_header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        search_header.setResizeContentsPrecision(60)
+        # Keep descriptive columns visually grouped on ultrawide monitors.
+        search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        search_header.setStretchLastSection(False)
         configure_accessible(
             self.search_table,
             name="Результаты поиска",

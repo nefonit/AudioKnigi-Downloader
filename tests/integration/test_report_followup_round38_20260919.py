@@ -82,8 +82,8 @@ def test_visual_keyboard_focus_ring_covers_both_easy_and_advanced_controls() -> 
     )
     for selector in required:
         assert selector in theme
-    assert "3px solid #ffb000" in theme
-    assert "2px solid #ffb000" in theme
+    assert 'focus = "#e5a93c"' in theme
+    assert "border: 2px solid {focus}" in theme
 
 
 def test_easy_mode_has_explicit_tab_chain_and_text_views_do_not_trap_tab() -> None:
