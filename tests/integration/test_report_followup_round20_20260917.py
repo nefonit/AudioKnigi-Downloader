@@ -73,7 +73,7 @@ def test_probe_filename_accepts_mapping_track() -> None:
 
 def test_dynamic_narration_label_is_runtime_localized() -> None:
     assert localize_runtime_text("en", "Озвучка 3") == "Recording 3"
-    assert localize_runtime_text("de", "Озвучка 3") == "Aufnahme 3"
+    assert localize_runtime_text("de", "Озвучка 3") == "Sprecherfassung 3"
     assert localize_runtime_text("uk", "Озвучка 3") == "Озвучення 3"
 
 

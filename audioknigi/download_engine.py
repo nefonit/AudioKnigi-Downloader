@@ -423,6 +423,22 @@ class _DownloadEngine(DownloaderMixin):
         return folder / f"{title_name}.mp3"
 
     @staticmethod
+    def _retained_source_suffix(source_url: str, probe_info) -> str:
+        suffix = Path(urlsplit(str(source_url or ""))).suffix.lower()
+        supported = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav"}
+        if suffix in supported:
+            return suffix
+        info = dict(probe_info or {})
+        codec = str(info.get("codec") or "").strip().lower()
+        fmt = str(info.get("format_name") or "").strip().lower()
+        if any(name in fmt.split(",") for name in ("mov", "mp4", "m4a", "3gp", "3g2", "mj2")):
+            return ".m4a"
+        return {
+            "mp3": ".mp3", "aac": ".aac", "flac": ".flac",
+            "opus": ".opus", "vorbis": ".ogg", "wav": ".wav",
+        }.get(codec, ".audio")
+
+    @staticmethod
     def _retained_full_source_path(
         folder: Path, title_name: str, source_suffix: str, target: Path
     ) -> Path:
@@ -606,9 +622,7 @@ class _DownloadEngine(DownloaderMixin):
                 replace_with_retry(source_target, target)
             else:
                 shutil.copy2(source_target, target)
-                source_suffix = Path(urlsplit(source_url).path).suffix.lower()
-                if source_suffix not in {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav"}:
-                    source_suffix = ".mp3" if codec == "mp3" else ".audio"
+                source_suffix = self._retained_source_suffix(source_url, info)
                 retained = self._retained_full_source_path(folder, title_name, source_suffix, target)
                 try:
                     unlink_with_retry(retained, missing_ok=True)
@@ -671,12 +685,7 @@ class _DownloadEngine(DownloaderMixin):
             else:
                 # A retained source must be visible and playable.  Do not leave
                 # a hidden extensionless ``.full-source`` file behind.
-                source_suffix = Path(urlsplit(source_url).path).suffix.lower()
-                if source_suffix not in {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav"}:
-                    source_suffix = {
-                        "mp3": ".mp3", "aac": ".aac", "flac": ".flac",
-                        "opus": ".opus", "vorbis": ".ogg", "wav": ".wav",
-                    }.get(codec, ".audio")
+                source_suffix = self._retained_source_suffix(source_url, info)
                 retained = self._retained_full_source_path(folder, title_name, source_suffix, target)
                 if retained != target:
                     try:

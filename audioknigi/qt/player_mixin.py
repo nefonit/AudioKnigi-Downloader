@@ -518,6 +518,8 @@ class PlayerUiMixin:
             self._player_error(str(exc))
             return
         if activate_ui:
+            if self.current_ui_mode() == "easy":
+                self.set_ui_mode("advanced")
             self.tabs.setCurrentIndex(self.TAB_PLAYER)
             self.player_play_button.setFocus(Qt.FocusReason.OtherFocusReason)
         if resume >= 3.0:

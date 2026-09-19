@@ -248,6 +248,79 @@ def _extract_link_text_by_path(html_text: str, path_prefix: str) -> str:
     return _clean_text(match.group(1) if match else "")
 
 
+def _looks_like_poleknig_seo_description(value: str, *, title: str = "", author: str = "") -> bool:
+    text = _clean_title_text(value)
+    if not text:
+        return True
+    folded = text.casefold().replace("ё", "е")
+    seo_markers = (
+        "скачать аудиокнигу", "слушать аудиокнигу онлайн",
+        "аудиокнига онлайн", "бесплатно скачать", "poleknig",
+    )
+    if any(marker in folded for marker in seo_markers):
+        return True
+    compact = re.sub(r"[^\w]+", " ", folded, flags=re.UNICODE).strip()
+    title_key = re.sub(r"[^\w]+", " ", _clean_title_text(title).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
+    author_key = re.sub(r"[^\w]+", " ", _clean_text(author).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
+    if title_key and title_key in compact and author_key and author_key in compact and len(text) < 260:
+        return True
+    return False
+
+
+def _poleknig_description_from_html(html_text: str, *, title: str = "", author: str = "") -> str:
+    """Extract the visible book annotation instead of the page SEO description."""
+    html = str(html_text or "")
+    candidates: list[str] = []
+
+    block_pattern = re.compile(
+        r'<(?P<tag>div|section|article)\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</(?P=tag)>',
+        re.I,
+    )
+    for match in block_pattern.finditer(html):
+        attrs = match.group("attrs") or ""
+        marker = " ".join(re.findall(r'(?:class|id)=["\']([^"\']+)["\']', attrs, re.I)).casefold()
+        if any(token in marker for token in ("description", "annotation", "annot", "book-text", "book_text", "book__text", "book-description", "book_description")):
+            text = _clean_title_text(match.group("body"))
+            if text:
+                candidates.append(text)
+
+    for body in re.findall(r'<p\b[^>]*>([\s\S]*?)</p>', html, re.I):
+        text = _clean_title_text(body)
+        if len(text) >= 80:
+            candidates.append(text)
+
+    for script in re.findall(r'<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>([\s\S]*?)</script>', html, re.I):
+        try:
+            payload = json.loads(html_lib.unescape(script).strip())
+        except Exception:
+            continue
+        stack = payload if isinstance(payload, list) else [payload]
+        for item in stack:
+            if isinstance(item, dict):
+                text = _clean_title_text(item.get("description", ""))
+                if text:
+                    candidates.append(text)
+
+    def score(text: str):
+        clean = _clean_title_text(text)
+        bad = _looks_like_poleknig_seo_description(clean, title=title, author=author)
+        footer = any(x in clean.casefold() for x in ("contact@poleknig", "правообладателям", "правила сайта"))
+        sentence_marks = sum(clean.count(mark) for mark in (".", "!", "?", "…"))
+        return (1 if bad or footer else 0, 1 if len(clean) < 80 else 0, -min(len(clean), 4000), -sentence_marks)
+
+    usable = [_clean_title_text(item) for item in candidates if _clean_title_text(item)]
+    if usable:
+        best = min(usable, key=score)
+        if not _looks_like_poleknig_seo_description(best, title=title, author=author):
+            return best
+
+    for key in ("og:description", "description"):
+        meta = _extract_meta_content(html, key)
+        if meta and not _looks_like_poleknig_seo_description(meta, title=title, author=author):
+            return meta
+    return ""
+
+
 def _book_page_metadata(html_text: str, page_url: str = "") -> dict[str, str]:
     """Extract stable PoleKnig title/author/reader metadata from a detail page."""
     title = _extract_tag_text(html_text, "h1")
@@ -295,7 +368,7 @@ def _book_page_metadata(html_text: str, page_url: str = "") -> dict[str, str]:
     if genre_values:
         genre = ", ".join(genre_values)
 
-    description = _extract_meta_content(html_text, "description") or _extract_meta_content(html_text, "og:description")
+    description = _poleknig_description_from_html(html_text, title=title, author=author)
     cover_url = _extract_meta_content(html_text, "og:image")
     if cover_url:
         cover_url = urljoin(page_url or BASE_URL, cover_url)

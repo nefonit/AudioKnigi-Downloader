@@ -17,7 +17,7 @@ from ..templates import track_number_width
 from ..integrations import audiobookshelf_scan
 from ..logging_utils import app_logger
 from ..core import Cancelled, fmt_time, safe_int, safe_normalization_mode, resolve_executable, effective_track_duration, parse_time_seconds, hidden_subprocess_kwargs, save_json
-from .common import atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes
+from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes
 
 _AUDIO_INFO_CACHE_INIT_LOCK = threading.Lock()
 _AUDIO_INFO_CACHE_MAX = 32
@@ -191,7 +191,7 @@ class MediaProcessingMixin:
             proc = subprocess.Popen(
                 [
                     ffprobe, "-v", "error", "-select_streams", "a:0",
-                    "-show_entries", "stream=codec_name,bit_rate,sample_rate,channels:format=bit_rate",
+                    "-show_entries", "stream=codec_name,bit_rate,sample_rate,channels:format=bit_rate,format_name",
                     "-of", "json", str(file_path),
                 ],
                 stdout=subprocess.PIPE,
@@ -237,6 +237,7 @@ class MediaProcessingMixin:
                 "bit_rate": as_int(stream.get("bit_rate")) or as_int(format_info.get("bit_rate")),
                 "sample_rate": as_int(stream.get("sample_rate")),
                 "channels": as_int(stream.get("channels")),
+                "format_name": str(format_info.get("format_name") or ""),
             }
         except Cancelled:
             if proc is not None and proc.poll() is None:
@@ -562,6 +563,12 @@ class MediaProcessingMixin:
         duration = None
         if start is not None and end is not None and end > start:
             duration = end - start
+        elif start is None and end is None:
+            # One-file-per-chapter providers often expose only an approximate
+            # metadata duration. Passing that rounded value as -t truncates the
+            # physical file (and can cut the final word/fade). With no slicing
+            # boundary, process the complete source to EOF.
+            duration = None
         else:
             try:
                 measured = effective_track_duration(track)
@@ -797,7 +804,7 @@ class MediaProcessingMixin:
                         (folder / ("cover" + old_ext)).unlink(missing_ok=True)
                     except OSError:
                         pass
-                (folder / ("cover" + ext)).write_bytes(data)
+                atomic_write_bytes(folder / ("cover" + ext), data)
             self._log_book_flow(
                 "sidecars_saved", book, folder=folder, chapters=len(chapter_rows),
                 cover_saved=bool(cover),

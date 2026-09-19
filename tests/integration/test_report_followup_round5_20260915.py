@@ -98,7 +98,7 @@ def test_probe_audio_info_uses_container_bitrate_when_stream_bitrate_is_na(monke
 
     info = Dummy()._probe_audio_info(tmp_path / "demo.mp3")
     assert info["bit_rate"] == 128000
-    assert "stream=codec_name,bit_rate,sample_rate,channels:format=bit_rate" in seen["cmd"]
+    assert "stream=codec_name,bit_rate,sample_rate,channels:format=bit_rate,format_name" in seen["cmd"]
 
 
 def test_book_analysis_accepts_utf8_bom_playlist():

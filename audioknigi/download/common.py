@@ -65,6 +65,20 @@ def atomic_write_text(path, text, *, encoding="utf-8"):
         except OSError:
             pass
 
+def atomic_write_bytes(path, data):
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        temp.write_bytes(bytes(data or b""))
+        replace_with_retry(temp, target, attempts=4)
+    finally:
+        try:
+            if temp.exists():
+                unlink_with_retry(temp, missing_ok=True, attempts=2)
+        except OSError:
+            pass
+
 __all__ = [
-    "close_subprocess_pipes", "atomic_write_text", "replace_with_retry", "unlink_with_retry",
+    "close_subprocess_pipes", "atomic_write_bytes", "atomic_write_text", "replace_with_retry", "unlink_with_retry",
 ]

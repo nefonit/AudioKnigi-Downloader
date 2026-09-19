@@ -10,6 +10,7 @@ from ...core import DEFAULT_OUTPUT, valid_site_url
 from ...models import TRACK_STATUS_MISSING
 from ...sources import normalize_supported_url
 from ...services.library_service import scan_unfinished
+from ..accessibility import focus_table_row
 from ..menu_utils import transient_menu
 
 class ClipboardUiMixin:
@@ -278,6 +279,8 @@ class ClipboardUiMixin:
         if pos is not None and (index := self.track_table.indexAt(pos)).isValid():
             self.track_table.setCurrentIndex(index)
             self.track_table.selectRow(index.row())
+        elif pos is None and not self.track_table.currentIndex().isValid() and self.track_model.rowCount() > 0:
+            focus_table_row(self.track_table, 0, focus=False)
         track = self._selected_track()
         if track is None:
             return

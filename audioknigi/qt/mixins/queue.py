@@ -473,7 +473,7 @@ class QueueUiMixin:
     def retry_all_failed(self):
         changed = 0
         for task in self.queue_tasks:
-            if task.status_code == "error":
+            if task.status_code == "error" and not task_requires_analysis(task):
                 task.status = "Ожидает повтор"
                 task.status_code = "retry"
                 task.last_error = ""

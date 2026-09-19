@@ -85,6 +85,7 @@ def search_all_sources(query: str, cancel_event=None, progress=None, sources=Non
             raise Cancelled("Поиск отменён пользователем")
         stage_start = 8 + int((provider_index / provider_count) * 82)
         report(stage_start, f"Ищу на {provider.display_name}")
+        provider_failed = False
         try:
             provider_results = list(provider.search(cleaned, cancel_event=cancel_event) or [])
             provider_results = list(
@@ -96,10 +97,15 @@ def search_all_sources(query: str, cancel_event=None, progress=None, sources=Non
         except Exception as exc:
             if cancel_event is not None and cancel_event.is_set():
                 raise Cancelled("Поиск отменён пользователем") from exc
+            provider_failed = True
             app_logger.exception("Ошибка поискового провайдера %s", provider.display_name)
             errors.append(f"{provider.display_name}: {exc}")
         stage_end = 8 + int(((provider_index + 1) / provider_count) * 82)
-        report(stage_end, f"Источник {provider.display_name} обработан")
+        report(
+            stage_end,
+            f"Ошибка источника {provider.display_name}"
+            if provider_failed else f"Источник {provider.display_name} обработан",
+        )
 
     report(94, "Объединяю результаты")
     seen: set[str] = set()

@@ -112,8 +112,9 @@ def test_root_library_recovery_depth_and_queue_drop_coordinate_are_hardened() ->
     library = src("audioknigi/services/library_service.py")
     workers = src("audioknigi/qt/workers.py")
     assert "if depth >= 8:" in library
-    assert "viewport_pos = self.viewport().mapFrom(self, event.position().toPoint())" in workers
-    assert "target_row = self.rowAt(viewport_pos.y())" in workers
+    assert "target_row = self.rowAt(int(event.position().y()))" in workers
+    drop_block = workers[workers.index("def dropEvent"):workers.index("super().dropEvent", workers.index("def dropEvent"))]
+    assert "mapFrom" not in drop_block
 
 
 def test_ctrl_d_respects_selected_tracks_and_batch_errors_do_not_stack_dialogs() -> None:

@@ -280,6 +280,11 @@ class BookFlowMixin:
                         "и выберите нужные части заново."
                     ) from exc
                 fallback_attempted = True
+                # The old audioknigi folder is no longer resumable after a
+                # timeline-validation fallback to a different source layout.
+                # Remove its manifest before switching request.book so recovery
+                # does not later offer an orphaned stale task.
+                self._remove_resume_manifest(book)
                 self._populate_missing_track_durations(fallback)
                 self.log(
                     "Найден исправный резервный источник knigavuhe.org. "

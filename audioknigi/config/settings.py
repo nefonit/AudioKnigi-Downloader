@@ -13,6 +13,18 @@ from ..core import (
 
 CURRENT_SETTINGS_VERSION = 2
 
+def _safe_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value or "").strip().casefold()
+    if text in {"1", "true", "yes", "on", "да", "так"}:
+        return True
+    if text in {"0", "false", "no", "off", "нет", "ні", ""}:
+        return False
+    return bool(default)
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "settings_version": CURRENT_SETTINGS_VERSION,
     "language": "ru",
@@ -87,7 +99,11 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
             raw[key] = default
 
     # Type/range normalization lives in one place rather than being duplicated
-    # across the GUI and download engine.
+    # across the GUI and download engine.  In particular, a JSON/string value
+    # such as "false" must not become True merely because bool("false") is True.
+    for key, default in DEFAULT_SETTINGS.items():
+        if isinstance(default, bool):
+            raw[key] = _safe_bool(raw.get(key), default)
     raw["scale"] = max(80, min(200, safe_int(raw.get("scale"), 100)))
     raw["event_sound_volume"] = max(0, min(100, safe_int(raw.get("event_sound_volume"), 100)))
     raw["player_volume"] = max(0, min(100, safe_int(raw.get("player_volume"), 80)))

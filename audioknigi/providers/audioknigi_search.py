@@ -250,6 +250,33 @@ def parse_audioknigi_results(html_text: str, base_url: str, query: str = "") -> 
     )
     return results[:100]
 
+def _strip_author_prefix_from_title(value: str, author: str) -> str:
+    title = _clean_text(value)
+    author_text = _clean_text(author)
+    if not title or not author_text:
+        return title
+    match = re.match(r"^(.{2,120}?)\s*[-–—:]\s*(.+)$", title)
+    if not match:
+        return title
+    prefix, remainder = (_clean_text(part) for part in match.groups())
+
+    def person_tokens(text: str) -> set[str]:
+        return {
+            token
+            for token in re.findall(r"[\w]+", text.casefold().replace("ё", "е"), re.UNICODE)
+            if len(token) >= 2
+        }
+
+    prefix_tokens = person_tokens(prefix)
+    author_tokens = person_tokens(author_text)
+    if not prefix_tokens or not author_tokens:
+        return title
+    shared = prefix_tokens & author_tokens
+    if prefix_tokens <= author_tokens and shared:
+        return remainder or title
+    return title
+
+
 def _audioknigi_page_metadata(
     result: SearchResult,
     *,
@@ -285,20 +312,7 @@ def _audioknigi_page_metadata(
             # Only apply the dash heuristic when no independent author was parsed.
             if author:
                 cleaned_meta = _clean_text(meta_title)
-                author_text = _clean_text(author)
-                if cleaned_meta and author_text and cleaned_meta.casefold().startswith(author_text.casefold()):
-                    suffix = cleaned_meta[len(author_text):]
-                    # Strip an author prefix only when structured metadata uses
-                    # an explicit title separator.  Whitespace alone is
-                    # ambiguous (e.g. a title such as "Александр I").
-                    separator = re.match(r"^\s*[-–—:]\s*", suffix)
-                    if separator and separator.end() > 0:
-                        stripped = suffix[separator.end():].strip()
-                        title = stripped or title
-                    else:
-                        title = cleaned_meta
-                else:
-                    title = cleaned_meta or title
+                title = _strip_author_prefix_from_title(cleaned_meta, author) or title
             else:
                 # Without a separately parsed author, preserve the complete
                 # metadata title instead of guessing that text before a dash is

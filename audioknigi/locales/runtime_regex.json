@@ -394,9 +394,49 @@
   [
     "^Озвучка (\\d+)$",
     {
-      "de": "Aufnahme {0}",
+      "de": "Sprecherfassung {0}",
       "en": "Recording {0}",
       "uk": "Озвучення {0}"
+    }
+  ],
+  [
+    "^Ошибка источника (.+)$",
+    {
+      "de": "Fehler bei Quelle {0}",
+      "en": "Source error: {0}",
+      "uk": "Помилка джерела {0}"
+    }
+  ],
+  [
+    "^Найден исправный резервный источник knigavuhe\\.org\\. Переключаю загрузку автоматически: (.+)\\.$",
+    {
+      "de": "Intakte Ersatzquelle auf knigavuhe.org gefunden. Download wird automatisch umgestellt: {0}.",
+      "en": "A working fallback source was found on knigavuhe.org. Switching download automatically: {0}.",
+      "uk": "Знайдено справне резервне джерело на knigavuhe.org. Автоматично перемикаю завантаження: {0}."
+    }
+  ],
+  [
+    "^Удалены временные файлы устаревшего источника: (.+)\\.$",
+    {
+      "de": "Temporäre Dateien der veralteten Quelle entfernt: {0}.",
+      "en": "Removed temporary files from the stale source: {0}.",
+      "uk": "Видалено тимчасові файли застарілого джерела: {0}."
+    }
+  ],
+  [
+    "^Плейлист обновлён: частей (.+), изменённых аудиоссылок (.+)\\. Повторяю загрузку один раз\\.$",
+    {
+      "de": "Wiedergabeliste aktualisiert: {0} Teile, {1} geänderte Audio-Links. Download wird einmal wiederholt.",
+      "en": "Playlist refreshed: {0} parts, {1} changed audio URLs. Retrying download once.",
+      "uk": "Плейлист оновлено: частин {0}, змінених аудіопосилань {1}. Повторюю завантаження один раз."
+    }
+  ],
+  [
+    "^Пользователь пропустил недоступные части: (.+)\\. Остальные выбранные части продолжаю скачивать\\.$",
+    {
+      "de": "Nicht verfügbare Teile übersprungen: {0}. Die übrigen ausgewählten Teile werden weiter heruntergeladen.",
+      "en": "Unavailable parts skipped: {0}. Continuing with the remaining selected parts.",
+      "uk": "Пропущено недоступні частини: {0}. Продовжую завантаження решти вибраних частин."
     }
   ]
 ]

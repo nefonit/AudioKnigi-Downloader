@@ -288,6 +288,9 @@ class SearchUiMixin:
         QTimer.singleShot(650, self._hide_search_progress_if_idle)
 
     def _apply_search_outcome(self, outcome: SearchOutcome) -> None:
+        if getattr(self, "_exit_requested", False):
+            app_logger.info("SEARCH UI | event=result_render_skipped | reason=exit_requested")
+            return
         app_logger.info(
             "SEARCH UI | event=result_render_start | results=%d | errors=%d",
             len(outcome.results), len(outcome.errors),

@@ -547,11 +547,16 @@ class AudioKnigiQtWindow(
         if current is not None and hasattr(self, "easy_download_button"):
             current_url = normalize_supported_url(str(getattr(current, "url", "") or ""))
             incoming_url = normalize_supported_url(value) if is_url and valid_site_url(value) else ""
-            easy_stale = bool(is_url and not (incoming_url and current_url and incoming_url == current_url))
+            matches_current = bool(incoming_url and current_url and incoming_url == current_url)
+            # Keep the historic stale-URL flag URL-specific, but the primary
+            # download action itself must only remain enabled while the input
+            # still identifies the currently analysed book. A free-text query
+            # must never download the previous book.
+            easy_stale = bool(is_url and not matches_current)
             self._easy_input_is_stale = easy_stale
             self.easy_download_button.setEnabled(
                 bool(getattr(current, "tracks", None))
-                and not easy_stale
+                and matches_current
                 and not bool(getattr(self, "_book_url_is_stale", False))
             )
 

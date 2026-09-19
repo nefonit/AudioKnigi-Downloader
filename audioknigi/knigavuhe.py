@@ -113,8 +113,11 @@ def _extract_call_argument(text: str, marker: str = "BookController.enter") -> s
     pos = find_marker()
     if pos < 0:
         return ""
-    open_pos = source.find("(", pos + len(marker))
-    if open_pos < 0:
+    marker_end = pos + len(marker)
+    open_pos = marker_end
+    while open_pos < len(source) and source[open_pos].isspace():
+        open_pos += 1
+    if open_pos >= len(source) or source[open_pos] != "(":
         return ""
 
     in_string = False
@@ -561,23 +564,18 @@ def parse_book_html(html_text: str, page_url: str) -> Book:
             title=restricted_title,
             current_narrator=restricted_narrator,
         )
-        # If the site exposes other recordings, return metadata-only Book so the
-        # GUI can offer an accessible reader selector instead of dead-ending on
-        # a rights-restricted recording.  We still never bypass the restriction.
-        if len(variants) > 1:
-            return Book(
-                url=page_url,
-                title=restricted_title,
-                author=meta.get("author", ""),
-                narrator=restricted_narrator,
-                description=_description_from_html(html_text),
-                tracks=[],
-                narration_variants=variants,
-                restricted=True,
-            )
-        raise RuntimeError(
-            "Доступ к этой аудиокниге ограничен по просьбе правообладателя. "
-            "AudioKnigi Downloader не обходит ограничения сайта."
+        # Return metadata even when this is the only recording.  The UI can then
+        # show cover/author/description and a clear restricted state, while
+        # DownloadRequest still refuses to download restricted books.
+        return Book(
+            url=page_url,
+            title=restricted_title,
+            author=meta.get("author", ""),
+            narrator=restricted_narrator,
+            description=_description_from_html(html_text),
+            tracks=[],
+            narration_variants=variants,
+            restricted=True,
         )
 
     payload_text = _extract_call_argument(html_text)

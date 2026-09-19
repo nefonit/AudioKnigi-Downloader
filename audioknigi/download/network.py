@@ -826,9 +826,20 @@ class NetworkDownloadMixin:
         finally:
             # Cancellation can raise from _check_cancel() before the ordinary
             # error path gets a chance to close registered response sockets.
-            # Always tear down active network I/O while segmented workers remain.
+            # Close sockets first, then give worker threads a bounded grace
+            # period to release .seg/.part file handles before cleanup runs on
+            # Windows (otherwise unlink can hit WinError 32).
             if any(thread.is_alive() for thread in threads):
                 self._cancel_active_network_io()
+            deadline = time.monotonic() + 2.0
+            for thread in threads:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                thread.join(timeout=min(1.0, remaining))
+            lingering = sum(1 for thread in threads if thread.is_alive())
+            if lingering:
+                app_logger.warning("NETWORK | event=segmented_cancel_workers_lingering | count=%d", lingering)
 
         if errors:
             err = errors[0]
