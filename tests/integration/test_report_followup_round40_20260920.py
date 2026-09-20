@@ -16,14 +16,15 @@ def test_secondary_text_has_stronger_dark_theme_contrast() -> None:
     assert 'QLabel#emptyState {{\n    color: {secondary};' in theme
 
 
-def test_focus_rings_are_refined_to_two_pixels_with_matched_radius() -> None:
+def test_focus_rings_are_refined_to_external_two_pixel_frame() -> None:
     theme = src("audioknigi/qt/theme.py")
+    accessibility = src("audioknigi/qt/accessibility.py")
     assert 'focus = "#e5a93c"' in theme
-    assert 'QPushButton:focus {{ border: 2px solid {focus};' in theme
-    assert 'QListWidget:focus, QTreeView:focus {{ border: 2px solid {focus}; border-radius: 6px; }}' in theme
-    assert 'QLineEdit:focus, QComboBox:focus' in theme
-    assert 'border: 2px solid {focus}; border-radius: 8px;' in theme
-
+    assert "QFocusFrame#keyboardFocusFrame" in theme
+    assert "border: 2px solid {focus};" in theme
+    assert "border-radius: 9px;" in theme
+    assert "QFocusFrame" in accessibility
+    assert "WA_TransparentForMouseEvents" in accessibility
 
 def test_mode_switch_is_a_real_segmented_control_holder() -> None:
     theme = src("audioknigi/qt/theme.py")
