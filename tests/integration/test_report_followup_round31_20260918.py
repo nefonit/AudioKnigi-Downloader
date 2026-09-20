@@ -46,7 +46,7 @@ def test_easy_mode_has_accessible_annotation_block() -> None:
     assert 'self.easy_description_title = QLabel(self._l("Аннотация"))' in source
     assert "self.easy_description = QPlainTextEdit()" in source
     assert "self.easy_description.setReadOnly(True)" in source
-    assert "self.easy_description.setMaximumHeight(120)" in source
+    assert "self.easy_description.setMaximumHeight(150)" in source
     assert 'identifier="easy_book_description"' in source
     assert "self.easy_description_title.setVisible(False)" in source
     assert "self.easy_description.setVisible(False)" in source
