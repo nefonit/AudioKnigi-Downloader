@@ -26,6 +26,7 @@ def test_focus_rings_are_refined_to_external_two_pixel_frame() -> None:
     assert "QFocusFrame" in accessibility
     assert "WA_TransparentForMouseEvents" in accessibility
 
+
 def test_mode_switch_is_a_real_segmented_control_holder() -> None:
     theme = src("audioknigi/qt/theme.py")
     window = src("audioknigi/qt/main_window.py")
