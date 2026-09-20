@@ -58,6 +58,7 @@ _MAX_CACHED_MEDIA_PLAYERS = 3
 
 class QtEventSoundManager(QObject):
     _queued_play = Signal(str, bool)
+    _queued_media_only_play = Signal(str, bool)
 
     def __init__(self, parent=None, *, enabled=True, volume=1.0, language="ru"):
         super().__init__(parent)
@@ -65,6 +66,7 @@ class QtEventSoundManager(QObject):
         self.volume = self._clamp(volume)
         self.language = self._lang(language)
         self._queued_play.connect(self._play_queued, Qt.ConnectionType.QueuedConnection)
+        self._queued_media_only_play.connect(self._play_media_only_queued, Qt.ConnectionType.QueuedConnection)
         # Keep one player per cue. QMediaPlayer.setSource() is asynchronous on
         # Windows; rapidly swapping a single player's source can poison the
         # multimedia pipeline when two UI events arrive close together.
@@ -164,6 +166,10 @@ class QtEventSoundManager(QObject):
     def _play_queued(self, event: str, force: bool) -> None:
         self.play(event, force=force)
 
+    @Slot(str, bool)
+    def _play_media_only_queued(self, event: str, force: bool) -> None:
+        self._play_event(event, force=force, allow_system_fallback=False)
+
     def _stop_media_players(self, *, except_key: str | None = None) -> None:
         """Keep event cues on one logical audio channel.
 
@@ -222,19 +228,36 @@ class QtEventSoundManager(QObject):
         self._player_order.append(key)
 
     def play(self, event: str, *, force=False) -> bool:
+        """Play an event cue, retaining the normal Windows system fallback."""
         event = str(event or "")
         if QThread.currentThread() != self.thread():
             self._queued_play.emit(event, bool(force))
             return True
+        return self._play_event(event, force=force, allow_system_fallback=True)
+
+    def play_media_only(self, event: str, *, force=False) -> bool:
+        """Play only a packaged media cue and never fall back to MessageBeep.
+
+        The Settings preview uses this path so its two test buttons have strict,
+        non-overlapping semantics: one tests bundled MP3 playback and the other
+        explicitly tests the native Windows system sound.
+        """
+        event = str(event or "")
+        if QThread.currentThread() != self.thread():
+            self._queued_media_only_play.emit(event, bool(force))
+            return True
+        return self._play_event(event, force=force, allow_system_fallback=False)
+
+    def _play_event(self, event: str, *, force: bool, allow_system_fallback: bool) -> bool:
         if event not in SUPPORTED_SOUND_EVENTS or (not self.enabled and not force):
             return False
         if event in SYSTEM_ONLY_EVENTS:
             self._stop_media_players()
-            return self.play_system(event)
+            return self.play_system(event) if allow_system_fallback else False
         path = self._path(event)
         if path is None:
             self._stop_media_players()
-            return self.play_system(event)
+            return self.play_system(event) if allow_system_fallback else False
         try:
             key = str(path.resolve())
             self._stop_media_players(except_key=key)
@@ -265,7 +288,11 @@ class QtEventSoundManager(QObject):
                 QMediaPlayer.MediaStatus.NoMedia,
                 QMediaPlayer.MediaStatus.LoadingMedia,
             }
-            if player.mediaStatus() not in loading_states:
+            media_status = player.mediaStatus()
+            if media_status == QMediaPlayer.MediaStatus.InvalidMedia:
+                self._retire_player(key)
+                return self.play_system(event) if allow_system_fallback else False
+            if media_status not in loading_states:
                 player.play()
                 return True
 
@@ -279,7 +306,10 @@ class QtEventSoundManager(QObject):
                 except (RuntimeError, TypeError):
                     pass
 
-            def play_when_loaded(status, *, media_player=player, media_key=key, cue=event):
+            def play_when_loaded(
+                status, *, media_player=player, media_key=key, cue=event,
+                use_system_fallback=allow_system_fallback,
+            ):
                 if status not in (
                     QMediaPlayer.MediaStatus.LoadedMedia,
                     QMediaPlayer.MediaStatus.BufferedMedia,
@@ -296,18 +326,20 @@ class QtEventSoundManager(QObject):
                     # Do not cache a permanently invalid QMediaPlayer. Retire it
                     # so the next occurrence can construct a fresh backend object.
                     self._retire_player(media_key)
-                    self.play_system(cue)
+                    if use_system_fallback:
+                        self.play_system(cue)
                     return
                 try:
                     media_player.play()
                 except RuntimeError:
-                    self.play_system(cue)
+                    if use_system_fallback:
+                        self.play_system(cue)
 
             self._pending_media_callbacks[key] = play_when_loaded
             player.mediaStatusChanged.connect(play_when_loaded)
             return True
         except Exception:
-            return self.play_system(event)
+            return self.play_system(event) if allow_system_fallback else False
 
     def _stop_players(self):
         for key, (player, output) in list(self._players.items()):
