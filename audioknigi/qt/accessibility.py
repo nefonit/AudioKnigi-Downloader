@@ -270,7 +270,6 @@ def install_keyboard_focus_frame(app: QApplication, parent=None) -> KeyboardFocu
     return KeyboardFocusFrameManager(app, parent)
 
 
-
 def ensure_accessibility_tree(root: QWidget) -> QWidget:
     """Fill missing screen-reader metadata on every app-level focusable control.
 
