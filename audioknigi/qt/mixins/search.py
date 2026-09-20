@@ -107,12 +107,17 @@ class SearchUiMixin:
         self.search_table.setSortingEnabled(False)
         self.search_table.verticalHeader().setVisible(False)
         search_header = self.search_table.horizontalHeader()
-        search_header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         search_header.setResizeContentsPrecision(60)
-        # Keep descriptive columns visually grouped on ultrawide monitors.
+        # Compact service columns stay as small as their content; the title gets
+        # the elastic remainder while author/narrator keep comfortable desktop
+        # widths so names do not collapse into ellipses on wide workspaces.
+        for column in (0, 4, 5, 6):
+            search_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
+        search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+        self.search_table.setColumnWidth(2, 260)
+        self.search_table.setColumnWidth(3, 280)
         search_header.setStretchLastSection(False)
         configure_accessible(
             self.search_table,

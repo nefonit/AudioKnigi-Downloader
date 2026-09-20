@@ -85,6 +85,9 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         disabled_bg = "#242931"
         disabled_text = "#737d8a"
         hover = "#303741"
+        table_bg = "#181a1f"
+        table_alt = "#20242c"
+        table_grid = "#2d333f"
         selection_text = "#ffffff"
     elif mode == "light":
         window = "#f3f5f8"
@@ -100,6 +103,9 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         disabled_bg = "#edf1f5"
         disabled_text = "#98a1ae"
         hover = "#edf4fb"
+        table_bg = "#ffffff"
+        table_alt = "#f3f6fa"
+        table_grid = "#e2e7ef"
         selection_text = "#ffffff"
     else:
         system_palette = palette or QPalette()
@@ -120,6 +126,9 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         disabled_bg = "palette(button)"
         disabled_text = "palette(mid)"
         hover = "palette(alternate-base)"
+        table_bg = "palette(base)"
+        table_alt = "palette(alternate-base)"
+        table_grid = "palette(mid)"
         selection_text = "palette(highlighted-text)"
 
     return f"""
@@ -142,8 +151,8 @@ QLabel#appSubtitle {{
 QMenuBar {{
     background: transparent;
     color: {text};
-    spacing: 3px;
-    padding: 4px 6px 3px 6px;
+    spacing: 6px;
+    padding: 3px 6px 3px 10px;
 }}
 QMenuBar::item {{
     padding: 6px 10px;
@@ -262,7 +271,7 @@ QGroupBox {{
     background: {surface};
 }}
 QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; }}
-QWidget#easyCard, QWidget#playerCard {{
+QWidget#easyCard, QWidget#playerCard, QWidget#settingsCard {{
     background: {surface};
     border: 1px solid {border};
     border-radius: 16px;
@@ -305,17 +314,26 @@ QListWidget#settingsNav {{
 QListWidget#settingsNav::item {{ padding: 10px 12px; margin: 2px; border-radius: 7px; }}
 QListWidget#settingsNav::item:hover {{ background: {hover}; }}
 QListWidget#settingsNav::item:selected {{ background: {accent}; color: white; }}
-QTableView, QTableWidget, QListWidget, QTreeView {{
+QTableView, QTableWidget {{
+    background: {table_bg};
+    alternate-background-color: {table_alt};
+    color: {text};
+    border: 1px solid {border};
+    border-radius: 10px;
+    gridline-color: {table_grid};
+    selection-background-color: {accent};
+    selection-color: {selection_text};
+}}
+QListWidget, QTreeView {{
     background: {surface};
     alternate-background-color: {surface2};
     color: {text};
     border: 1px solid {border};
     border-radius: 10px;
-    gridline-color: transparent;
     selection-background-color: {accent};
     selection-color: {selection_text};
 }}
-QTableView::item, QTableWidget::item {{ padding: 6px 8px; border: none; }}
+QTableView::item, QTableWidget::item {{ padding: 6px 10px; border: none; }}
 QListWidget::item {{ padding: 7px 9px; border-radius: 6px; }}
 QListWidget::item:hover {{ background: {hover}; }}
 QListWidget::item:selected {{ background: {accent}; color: white; }}

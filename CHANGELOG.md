@@ -2,6 +2,8 @@
 
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)
 
+- Round 41 wide-workspace refinement (2026-09-20): removed the global 1500 px cap from Advanced mode so Book/Search/Queue/History use the full desktop workspace; centered only Settings and Player as form cards; rebalanced Search columns for full author/narrator names, History for readable folder paths, and Book chapters for long chapter titles; strengthened dark-theme zebra striping; and shifted the menu bar farther from top-left overlays. No search/download business logic changed.
+
 - Round 40 visual refinement from Windows screenshots (2026-09-20): increased secondary/empty-state contrast; refined keyboard focus rings from heavy 3 px outlines to synchronized 2 px warm-amber rings; turned the Simple/Advanced buttons into a true shared segmented control; centered and capped the Advanced workspace at 1500 px on ultrawide monitors; rebalanced search/track table columns so descriptive fields stay visually grouped; upgraded Help Center topics to rich HTML with headings, lists and keyboard badges; and added a little more menu-bar breathing room. Search-progress dialog visuals were intentionally left unchanged.
 
 - Round 39 production UI polish (2026-09-19): unified system/light/dark visual tokens and polished app chrome, menus, buttons, inputs, cards, tables, headers, tabs, scrollbars, status bar and tooltips; removed heavy table grids, enabled smooth per-pixel scrolling, improved Easy-mode spacing/book presentation and widened the Player card. Runtime behavior and accessibility contracts are intentionally unchanged.

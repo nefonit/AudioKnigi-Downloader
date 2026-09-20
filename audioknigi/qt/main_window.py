@@ -156,8 +156,8 @@ class AudioKnigiQtWindow(
     def _build_ui(self):
         central = QWidget(self)
         layout = QVBoxLayout(central)
-        layout.setContentsMargins(18, 14, 18, 10)
-        layout.setSpacing(12)
+        layout.setContentsMargins(16, 10, 16, 12)
+        layout.setSpacing(8)
         header = QWidget(central)
         header.setObjectName("appHeader")
         header_layout = QHBoxLayout(header)
@@ -213,16 +213,12 @@ class AudioKnigiQtWindow(
         self.mode_stack = QStackedWidget(central)
         configure_accessible(self.mode_stack, name=ui_text(self.language, "Режим интерфейса"), identifier="ui_mode_stack")
         self.easy_page = self._build_easy_page()
-        self.advanced_page = QWidget(central)
-        advanced_layout = QHBoxLayout(self.advanced_page)
-        advanced_layout.setContentsMargins(0, 0, 0, 0)
-        advanced_layout.setSpacing(0)
-        advanced_layout.addStretch(1)
-        self.tabs.setMaximumWidth(1500)
-        advanced_layout.addWidget(self.tabs, 1)
-        advanced_layout.addStretch(1)
+        # Data-heavy Advanced tabs intentionally use the full workspace width.
+        # Settings and Player center their own cards internally instead of
+        # constraining the entire QTabWidget.
+        self.tabs.setMaximumWidth(16777215)
         self.mode_stack.addWidget(self.easy_page)
-        self.mode_stack.addWidget(self.advanced_page)
+        self.mode_stack.addWidget(self.tabs)
         layout.addWidget(self.mode_stack, 1)
 
         self.setCentralWidget(central)
