@@ -523,5 +523,45 @@
     "de": "Das Buch konnte nicht analysiert werden.",
     "en": "The book could not be analyzed.",
     "uk": "Не вдалося проаналізувати книгу."
+  },
+  "Проверить звук события": {
+    "uk": "Перевірити звук події",
+    "de": "Ereigniston testen",
+    "en": "Test event sound"
+  },
+  "Проверить системный звук": {
+    "uk": "Перевірити системний звук",
+    "de": "Systemton testen",
+    "en": "Test system sound"
+  },
+  "Проверить встроенный звук события": {
+    "uk": "Перевірити вбудований звук події",
+    "de": "Integrierten Ereigniston testen",
+    "en": "Test built-in event sound"
+  },
+  "Проверить системный звук Windows": {
+    "uk": "Перевірити системний звук Windows",
+    "de": "Windows-Systemton testen",
+    "en": "Test Windows system sound"
+  },
+  "Проверка встроенного звука события.": {
+    "uk": "Перевірка вбудованого звуку події.",
+    "de": "Integrierter Ereigniston wird getestet.",
+    "en": "Testing built-in event sound."
+  },
+  "Не удалось воспроизвести встроенный звук события.": {
+    "uk": "Не вдалося відтворити вбудований звук події.",
+    "de": "Der integrierte Ereigniston konnte nicht wiedergegeben werden.",
+    "en": "The built-in event sound could not be played."
+  },
+  "Проверка системного звука Windows.": {
+    "uk": "Перевірка системного звуку Windows.",
+    "de": "Windows-Systemton wird getestet.",
+    "en": "Testing Windows system sound."
+  },
+  "Системный звук Windows недоступен.": {
+    "uk": "Системний звук Windows недоступний.",
+    "de": "Der Windows-Systemton ist nicht verfügbar.",
+    "en": "Windows system sound is unavailable."
   }
 }

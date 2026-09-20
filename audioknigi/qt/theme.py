@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
@@ -8,6 +9,8 @@ THEMES = ("system", "light", "dark")
 _SYSTEM_STYLE_NAME: str | None = None
 _SYSTEM_PALETTE: QPalette | None = None
 _APPLIED_STYLE_KEY: str | None = None
+_CURRENT_THEME = "system"
+_SYSTEM_SCHEME_SIGNAL_CONNECTED = False
 
 
 def _capture_system_appearance(app: QApplication) -> None:
@@ -19,6 +22,55 @@ def _capture_system_appearance(app: QApplication) -> None:
             _SYSTEM_STYLE_NAME = ""
     if _SYSTEM_PALETTE is None:
         _SYSTEM_PALETTE = QPalette(app.palette())
+
+
+
+def _system_is_dark(app: QApplication, palette: QPalette | None = None) -> bool:
+    """Prefer Qt's platform color-scheme signal; fall back to palette luminance."""
+    try:
+        scheme = app.styleHints().colorScheme()
+        if scheme == Qt.ColorScheme.Dark:
+            return True
+        if scheme == Qt.ColorScheme.Light:
+            return False
+    except (AttributeError, RuntimeError):
+        pass
+    system_palette = palette or app.palette()
+    try:
+        return system_palette.color(QPalette.ColorRole.Window).lightness() < 128
+    except Exception:
+        return False
+
+
+def _refresh_system_theme(app: QApplication, scheme=None) -> None:
+    if _CURRENT_THEME != "system":
+        return
+    try:
+        if scheme == Qt.ColorScheme.Dark:
+            system_dark = True
+        elif scheme == Qt.ColorScheme.Light:
+            system_dark = False
+        else:
+            system_dark = _system_is_dark(app, app.palette())
+        # Do not combine a dark/light QSS with the native style's opposite
+        # palette.  On Windows this produced light QScrollArea viewports inside
+        # an otherwise dark System theme.  System mode follows the OS scheme,
+        # then applies one coherent palette for every styled and unstyled widget.
+        app.setPalette(_dark_palette() if system_dark else _light_palette())
+        app.setStyleSheet(_stylesheet("system", app.palette(), system_dark=system_dark))
+    except RuntimeError:
+        pass
+
+
+def _ensure_system_scheme_listener(app: QApplication) -> None:
+    global _SYSTEM_SCHEME_SIGNAL_CONNECTED
+    if _SYSTEM_SCHEME_SIGNAL_CONNECTED:
+        return
+    try:
+        app.styleHints().colorSchemeChanged.connect(lambda scheme: _refresh_system_theme(app, scheme))
+        _SYSTEM_SCHEME_SIGNAL_CONNECTED = True
+    except (AttributeError, RuntimeError, TypeError):
+        pass
 
 
 def _dark_palette() -> QPalette:
@@ -58,7 +110,7 @@ def _light_palette() -> QPalette:
     return palette
 
 
-def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
+def _stylesheet(mode: str, palette: QPalette | None = None, *, system_dark: bool | None = None) -> str:
     """Return one restrained production stylesheet for all supported themes.
 
     The stylesheet deliberately keeps focus treatment stronger than decorative
@@ -70,6 +122,9 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
     accent_pressed = "#075aa9"
     focus = "#e5a93c"
     danger = "#c43d38"
+    card_border = None
+    table_selection = accent
+    table_hover = None
 
     if mode == "dark":
         window = "#171a1f"
@@ -89,6 +144,9 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         table_alt = "#20242c"
         table_grid = "#2d333f"
         selection_text = "#ffffff"
+        card_border = border
+        table_selection = accent
+        table_hover = "#252b34"
     elif mode == "light":
         window = "#f3f5f8"
         surface = "#ffffff"
@@ -107,29 +165,66 @@ def _stylesheet(mode: str, palette: QPalette | None = None) -> str:
         table_alt = "#f3f6fa"
         table_grid = "#e2e7ef"
         selection_text = "#ffffff"
+        focus = "#0066cc"
+        card_border = "#d1d9e2"
+        table_selection = "#0d74de"
+        table_hover = "#edf4fc"
     else:
         system_palette = palette or QPalette()
-        try:
-            system_dark = system_palette.color(QPalette.ColorRole.Window).lightness() < 128
-        except Exception:
-            system_dark = False
-        window = "palette(window)"
-        surface = "palette(base)"
-        surface2 = "palette(alternate-base)"
-        surface3 = "palette(button)"
-        border = "palette(mid)"
-        text = "palette(text)"
-        muted = "palette(mid)"
-        secondary = "#9ba3af" if system_dark else "#596579"
-        onboarding_muted = "#aeb6c2" if system_dark else "#596579"
-        input_bg = "palette(base)"
-        disabled_bg = "palette(button)"
-        disabled_text = "palette(mid)"
-        hover = "palette(alternate-base)"
-        table_bg = "palette(base)"
-        table_alt = "palette(alternate-base)"
-        table_grid = "palette(mid)"
-        selection_text = "palette(highlighted-text)"
+        if system_dark is None:
+            try:
+                system_dark = system_palette.color(QPalette.ColorRole.Window).lightness() < 128
+            except Exception:
+                system_dark = False
+        # Follow Windows light/dark automatically, but use stable application
+        # tokens instead of mixing custom QSS with unpredictable native
+        # Base/Mid/Button roles (notably inconsistent on Windows 10).
+        if system_dark:
+            window = "#171a1f"
+            surface = "#22262d"
+            surface2 = "#292e36"
+            surface3 = "#303640"
+            border = "#3b424d"
+            text = "#f3f6fa"
+            muted = "#a8b1bd"
+            secondary = "#9ba3af"
+            onboarding_muted = "#aeb6c2"
+            input_bg = "#191d23"
+            disabled_bg = "#242931"
+            disabled_text = "#737d8a"
+            hover = "#303741"
+            table_bg = "#181a1f"
+            table_alt = "#20242c"
+            table_grid = "#2d333f"
+            selection_text = "#ffffff"
+            card_border = border
+            table_selection = accent
+            table_hover = "#252b34"
+        else:
+            window = "#f3f5f8"
+            surface = "#ffffff"
+            surface2 = "#f7f9fc"
+            surface3 = "#eef2f7"
+            border = "#d7dde7"
+            text = "#17202a"
+            muted = "#667085"
+            secondary = "#596579"
+            onboarding_muted = "#596579"
+            input_bg = "#ffffff"
+            disabled_bg = "#edf1f5"
+            disabled_text = "#98a1ae"
+            hover = "#edf4fb"
+            table_bg = "#ffffff"
+            table_alt = "#f3f6fa"
+            table_grid = "#e2e7ef"
+            selection_text = "#ffffff"
+            focus = "#0066cc"
+            card_border = "#d1d9e2"
+            table_selection = "#0d74de"
+            table_hover = "#edf4fc"
+
+    card_border = card_border or border
+    table_hover = table_hover or hover
 
     return f"""
 QMainWindow {{
@@ -186,8 +281,12 @@ QPushButton {{
 }}
 QPushButton:hover {{ background: {hover}; border-color: {accent}; }}
 QPushButton:pressed {{ background: {surface3}; }}
-/* Keyboard focus intentionally remains stronger than decorative chrome. */
-QPushButton:focus {{ border: 2px solid {focus}; padding: 6px 13px; }}
+/* Keyboard focus is painted externally by QFocusFrame. */
+QFocusFrame#keyboardFocusFrame {{
+    background: transparent;
+    border: 2px solid {focus};
+    border-radius: 9px;
+}}
 QPushButton:disabled {{ background: {disabled_bg}; color: {disabled_text}; border-color: {border}; }}
 QPushButton[role="primary"] {{
     background: {accent};
@@ -221,7 +320,6 @@ QPushButton[role="segment"] {{
     font-weight: 500;
 }}
 QPushButton[role="segment"]:hover {{ background: {hover}; color: {text}; border: none; }}
-QPushButton[role="segment"]:focus {{ border: 2px solid {focus}; padding: 4px 14px; }}
 QPushButton[role="segment"]:checked {{ background: {accent}; color: white; border: none; font-weight: 600; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     min-height: 32px;
@@ -234,7 +332,6 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     selection-color: white;
 }}
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover {{ border-color: {accent}; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {focus}; border-radius: 8px; }}
 QLineEdit:read-only {{ background: {surface2}; }}
 QComboBox::drop-down {{ border: none; width: 24px; }}
 QPlainTextEdit, QTextEdit {{
@@ -246,12 +343,7 @@ QPlainTextEdit, QTextEdit {{
     selection-background-color: {accent};
     selection-color: white;
 }}
-QPlainTextEdit:focus, QTextEdit:focus, QTableView:focus, QTableWidget:focus,
-QListWidget:focus, QTreeView:focus {{ border: 2px solid {focus}; border-radius: 6px; }}
 QCheckBox {{ spacing: 7px; color: {text}; }}
-QCheckBox:focus, QRadioButton:focus {{ border: 2px solid {focus}; border-radius: 5px; }}
-QSlider:focus {{ border: 2px solid {focus}; border-radius: 5px; }}
-QTabBar:focus {{ border: 2px solid {focus}; border-radius: 6px; }}
 QProgressBar {{
     border: 1px solid {border};
     border-radius: 6px;
@@ -273,12 +365,12 @@ QGroupBox {{
 QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 6px; }}
 QWidget#easyCard, QWidget#playerCard, QWidget#settingsCard {{
     background: {surface};
-    border: 1px solid {border};
+    border: 1px solid {card_border};
     border-radius: 16px;
 }}
 QWidget#bookCard, QWidget#noticeCard {{
     background: {surface2};
-    border: 1px solid {border};
+    border: 1px solid {card_border};
     border-radius: 12px;
 }}
 QWidget#settingsFooter {{
@@ -304,7 +396,7 @@ QLabel#coverPlaceholder {{
     border-radius: 10px;
     padding: 8px;
 }}
-QLabel#bookMetadata {{ color: {text}; font-size: 14px; }}
+QLabel#bookMetadata {{ color: {text}; font-size: 14px; line-height: 1.35; }}
 QListWidget#settingsNav {{
     background: {surface};
     border: 1px solid {border};
@@ -321,8 +413,11 @@ QTableView, QTableWidget {{
     border: 1px solid {border};
     border-radius: 10px;
     gridline-color: {table_grid};
-    selection-background-color: {accent};
+    selection-background-color: {table_selection};
     selection-color: {selection_text};
+}}
+QTableView::item:hover, QTableWidget::item:hover {{
+    background: {table_hover};
 }}
 QListWidget, QTreeView {{
     background: {surface};
@@ -347,6 +442,7 @@ QHeaderView::section {{
     border-bottom: 1px solid {border};
     font-weight: 600;
 }}
+QHeaderView::section:last {{ border-right: none; }}
 QListWidget#playerChapters {{ background: {surface2}; }}
 QTabWidget::pane {{
     background: {surface};
@@ -404,11 +500,13 @@ QToolTip {{
 
 def apply_theme(app: QApplication, theme: str) -> str:
     """Apply an explicit high-contrast theme or restore the native system one."""
-    global _APPLIED_STYLE_KEY
+    global _APPLIED_STYLE_KEY, _CURRENT_THEME
     _capture_system_appearance(app)
+    _ensure_system_scheme_listener(app)
     mode = str(theme or "system").strip().lower()
     if mode not in THEMES:
         mode = "system"
+    _CURRENT_THEME = mode
 
     preserved_font = app.font()
     if mode in {"dark", "light"}:
@@ -437,11 +535,18 @@ def apply_theme(app: QApplication, theme: str) -> str:
                 QApplication.setStyle(restored)
     _APPLIED_STYLE_KEY = "system"
     app.setFont(preserved_font)
-    if _SYSTEM_PALETTE is not None:
-        app.setPalette(QPalette(_SYSTEM_PALETTE))
-    else:
-        app.setPalette(app.style().standardPalette())
-    app.setStyleSheet(_stylesheet("system", app.palette()))
+    try:
+        native_palette = app.style().standardPalette()
+    except RuntimeError:
+        native_palette = QPalette(_SYSTEM_PALETTE) if _SYSTEM_PALETTE is not None else app.palette()
+    system_dark = _system_is_dark(app, native_palette)
+    # Keep native controls/style, but make the application palette agree with
+    # the system-selected light/dark stylesheet.  This is essential for
+    # QScrollArea viewports and other widgets that paint from QPalette roles.
+    app.setPalette(_dark_palette() if system_dark else _light_palette())
+    app.setStyleSheet(
+        _stylesheet("system", app.palette(), system_dark=system_dark)
+    )
     return "system"
 
 

@@ -144,7 +144,6 @@ REQUIRED_ACCESSIBLE_IDS = (
     "preview_event_sound",
     "preview_system_sound",
     "language",
-    "ui_mode",
     "large_mode",
     "hide_source",
 )
@@ -263,7 +262,6 @@ FOCUSABLE_ACCESSIBLE_IDS = (
     "preview_event_sound",
     "preview_system_sound",
     "language",
-    "ui_mode",
     "large_mode",
     "hide_source",
     "player_open_book",

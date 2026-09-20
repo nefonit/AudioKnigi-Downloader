@@ -32,8 +32,6 @@ class SettingsSyncMixin:
             self.event_sound_volume_slider.setValue(max(0, min(100, safe_int(data.get("event_sound_volume", 100), 100))))
         if hasattr(self, "language_combo"):
             self._set_combo_data(self.language_combo, data.get("language", "ru"))
-        if hasattr(self, "ui_mode_combo"):
-            self._set_combo_data(self.ui_mode_combo, data.get("ui_mode", "easy"))
         if hasattr(self, "bandwidth_spin"):
             try:
                 self.bandwidth_spin.setValue(max(0.0, float(data.get("bandwidth_limit", 0.0) or 0.0)))

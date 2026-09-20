@@ -69,21 +69,14 @@ def test_direct_audioknigi_analysis_imports_multi_author_normalizer() -> None:
 
 def test_visual_keyboard_focus_ring_covers_both_easy_and_advanced_controls() -> None:
     theme = src("audioknigi/qt/theme.py")
-    required = (
-        "QPushButton:focus",
-        "QLineEdit:focus",
-        "QComboBox:focus",
-        "QPlainTextEdit:focus",
-        "QTableView:focus",
-        "QListWidget:focus",
-        "QCheckBox:focus",
-        "QSlider:focus",
-        "QTabBar:focus",
-    )
-    for selector in required:
-        assert selector in theme
+    accessibility = src("audioknigi/qt/accessibility.py")
+    window = src("audioknigi/qt/main_window.py")
     assert 'focus = "#e5a93c"' in theme
+    assert "QFocusFrame#keyboardFocusFrame" in theme
     assert "border: 2px solid {focus}" in theme
+    assert "class KeyboardFocusFrameManager" in accessibility
+    assert "self._frame.setWidget(target)" in accessibility
+    assert "install_keyboard_focus_frame(app, self)" in window
 
 
 def test_easy_mode_has_explicit_tab_chain_and_text_views_do_not_trap_tab() -> None:

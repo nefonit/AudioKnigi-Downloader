@@ -150,13 +150,31 @@ class SettingsUiMixin:
             "abs_library_id": self.abs_library_id_edit.text().strip(),
             "quality_preset": quality_preset,
             "language": self.language_combo.currentData() or self.language,
-            "ui_mode": self.ui_mode_combo.currentData() or self.current_ui_mode(),
+            "ui_mode": self.current_ui_mode(),
             "event_sounds_enabled": bool(self.event_sounds_check.isChecked()),
             "event_sound_volume": int(self.event_sound_volume_slider.value()),
             "large_mode": bool(self.large_mode_check.isChecked()),
             "hide_source": bool(self.hide_source_check.isChecked()),
         })
         return updated
+
+    @Slot()
+    def preview_event_sound(self):
+        """Play a real packaged event cue, not the Windows MessageBeep fallback."""
+        played = self.event_sound_manager.play_media_only("search_complete", force=True)
+        if played:
+            self.set_status(self._l("Проверка встроенного звука события."))
+        else:
+            self.set_status(self._l("Не удалось воспроизвести встроенный звук события."), assertive=True)
+
+    @Slot()
+    def preview_system_sound(self):
+        """Play the native Windows system notification cue."""
+        played = self.event_sound_manager.play_system("app_ready")
+        if played:
+            self.set_status(self._l("Проверка системного звука Windows."))
+        else:
+            self.set_status(self._l("Системный звук Windows недоступен."), assertive=True)
 
     def _save_settings(self, _checked: bool = False, *, silent: bool = False):
         updated = self._settings_from_ui()

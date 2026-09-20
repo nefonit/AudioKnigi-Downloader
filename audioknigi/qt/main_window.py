@@ -13,7 +13,7 @@ from ..config.settings import load_app_settings, save_app_settings
 from ..i18n import LANGUAGES, localize_runtime_text, tr, ui_text
 from ..logging_utils import app_logger
 from ..services.queue_service import QueueStore, QueueTask
-from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_accessibility_tree
+from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_accessibility_tree, install_keyboard_focus_frame
 from .event_sounds import QtEventSoundManager
 from .onboarding import QtFirstRunWizard
 from .operation_dialog import BlockingOperationDialog
@@ -136,6 +136,7 @@ class AudioKnigiQtWindow(
         if app is not None:
             app.installNativeEventFilter(self._media_key_filter)
         ensure_accessibility_tree(self)
+        self._keyboard_focus_frame_manager = install_keyboard_focus_frame(app, self) if app is not None else None
         self._install_shortcuts()
         self._load_queue()
         self._load_history()
@@ -238,7 +239,7 @@ class AudioKnigiQtWindow(
         """Keep Tab/Shift+Tab deterministic in both UI modes.
 
         Hidden/disabled controls are skipped by Qt automatically, so one chain
-        can safely include result-only controls that appear later. Advanced
+        can safely include result-only controls that appear later.  Advanced
         mode continues from the mode switch to the tab widget, whose current
         page keeps Qt's native child order.
         """

@@ -14,7 +14,7 @@ from ..i18n import localize_runtime_text, ui_text
 
 from PySide6.QtWidgets import (
     QAbstractButton, QAbstractItemView, QAbstractSpinBox, QApplication, QCheckBox, QComboBox,
-    QLineEdit, QListWidget, QPlainTextEdit, QPushButton, QSlider, QTableView, QTextEdit, QWidget,
+    QFocusFrame, QLineEdit, QListWidget, QPlainTextEdit, QPushButton, QSlider, QTableView, QTextEdit, QWidget,
 )
 
 
@@ -173,6 +173,101 @@ def configure_accessible(
     return widget
 
 
+
+
+class KeyboardFocusFrameManager(QObject):
+    """Show one external Qt focus frame around the currently focused control.
+
+    Unlike changing the widget's own border, QFocusFrame is an overlay managed
+    by Qt around the target geometry.  This keeps text/input padding stable and
+    makes keyboard focus especially clear on Windows 10 system themes.
+    """
+
+    def __init__(self, app: QApplication, parent=None):
+        super().__init__(parent)
+        self._app = app
+        self._frame: QFocusFrame | None = None
+        self._frame_window = None
+        app.focusChanged.connect(self._focus_changed)
+        self._focus_changed(None, app.focusWidget())
+
+    @staticmethod
+    def _outer_control(widget: QWidget | None) -> QWidget | None:
+        current = widget
+        while current is not None:
+            parent = current.parentWidget()
+            if isinstance(parent, (QComboBox, QAbstractSpinBox)):
+                current = parent
+                continue
+            break
+        return current
+
+    def _hide_frame(self) -> None:
+        frame = self._frame
+        if frame is None:
+            return
+        try:
+            frame.hide()
+        except RuntimeError:
+            # The parent top-level window may already have destroyed the C++
+            # QFocusFrame. Never touch the stale wrapper a second time.
+            self._frame = None
+            self._frame_window = None
+
+    def _discard_frame(self) -> None:
+        frame = self._frame
+        self._frame = None
+        self._frame_window = None
+        if frame is None:
+            return
+        try:
+            frame.hide()
+        except RuntimeError:
+            return
+        try:
+            frame.setWidget(None)
+        except RuntimeError:
+            return
+        try:
+            frame.deleteLater()
+        except RuntimeError:
+            pass
+
+    @Slot(object, object)
+    def _focus_changed(self, _old, now) -> None:
+        target = self._outer_control(now if isinstance(now, QWidget) else None)
+        if target is None:
+            self._hide_frame()
+            return
+        try:
+            if target.focusPolicy() == Qt.FocusPolicy.NoFocus or not target.isVisible():
+                self._hide_frame()
+                return
+            window = target.window()
+            if window is None:
+                self._hide_frame()
+                return
+            if self._frame is None or self._frame_window is not window:
+                self._discard_frame()
+                frame = QFocusFrame(window)
+                frame.setObjectName("keyboardFocusFrame")
+                frame.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+                self._frame = frame
+                self._frame_window = window
+            if self._frame is None:
+                return
+            self._frame.setWidget(target)
+            self._frame.show()
+            self._frame.raise_()
+        except RuntimeError:
+            # Focus changes can race with deferred dialog/menu destruction.
+            # Clear the wrapper without invoking methods on a deleted C++ object.
+            self._frame = None
+            self._frame_window = None
+
+
+def install_keyboard_focus_frame(app: QApplication, parent=None) -> KeyboardFocusFrameManager:
+    return KeyboardFocusFrameManager(app, parent)
 
 
 def ensure_accessibility_tree(root: QWidget) -> QWidget:
