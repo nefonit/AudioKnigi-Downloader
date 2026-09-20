@@ -239,7 +239,7 @@ class AudioKnigiQtWindow(
         """Keep Tab/Shift+Tab deterministic in both UI modes.
 
         Hidden/disabled controls are skipped by Qt automatically, so one chain
-        can safely include result-only controls that appear later. Advanced
+        can safely include result-only controls that appear later.  Advanced
         mode continues from the mode switch to the tab widget, whose current
         page keeps Qt's native child order.
         """
