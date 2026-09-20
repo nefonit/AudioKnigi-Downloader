@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMenu,
-    QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSlider, QSpinBox,
+    QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSlider, QSizePolicy, QSpinBox,
     QStackedWidget, QTableView, QVBoxLayout, QWidget,
 )
 
