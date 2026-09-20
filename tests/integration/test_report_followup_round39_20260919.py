@@ -26,8 +26,7 @@ def test_production_theme_polishes_buttons_inputs_and_focus_without_weakening_fo
     assert 'QPushButton[role="segment"]' in theme
     assert "QLineEdit:hover" in theme
     assert "QComboBox::drop-down" in theme
-    assert "QPushButton:focus" in theme
-    assert "QLineEdit:focus, QComboBox:focus" in theme
+    assert "QFocusFrame#keyboardFocusFrame" in theme
     assert "border: 2px solid {focus}" in theme
 
 
