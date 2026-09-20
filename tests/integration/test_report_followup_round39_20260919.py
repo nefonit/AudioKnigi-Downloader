@@ -33,7 +33,8 @@ def test_production_theme_polishes_buttons_inputs_and_focus_without_weakening_fo
 def test_tables_lists_headers_tabs_and_scrollbars_have_production_styling() -> None:
     theme = src("audioknigi/qt/theme.py")
     for selector in (
-        "QTableView, QTableWidget, QListWidget, QTreeView",
+        "QTableView, QTableWidget",
+        "QListWidget, QTreeView",
         "QHeaderView::section",
         "QTabWidget::pane",
         "QTabBar::tab",
@@ -41,7 +42,7 @@ def test_tables_lists_headers_tabs_and_scrollbars_have_production_styling() -> N
         "QScrollBar:horizontal",
     ):
         assert selector in theme
-    assert "gridline-color: transparent" in theme
+    assert "gridline-color: {table_grid}" in theme
     assert "selection-background-color" in theme
 
 
