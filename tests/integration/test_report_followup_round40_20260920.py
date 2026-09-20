@@ -69,5 +69,6 @@ def test_help_center_uses_rich_text_headings_lists_and_keyboard_badges() -> None
 def test_menu_bar_has_more_vertical_air_without_touching_search_progress_dialog() -> None:
     theme = src("audioknigi/qt/theme.py")
     assert 'padding: 3px 6px 3px 10px;' in theme
+    # Search progress dialog is intentionally outside this refinement round.
     search_progress = src("audioknigi/qt/operation_dialog.py")
     assert 'BlockingOperationDialog' in search_progress
