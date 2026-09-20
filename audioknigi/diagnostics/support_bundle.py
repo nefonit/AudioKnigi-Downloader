@@ -133,7 +133,14 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
                 if not starts_after_newline:
                     newline = data.find(b"\n")
                     if newline >= 0:
-                        data = data[newline + 1:]
+                        trimmed = data[newline + 1:]
+                        # With CRLF and a very small byte window the only LF can
+                        # be the final byte.  Dropping through that delimiter
+                        # would turn a useful tail into b"".  Keep the bounded
+                        # suffix in that edge case; UTF-8 cleanup below still
+                        # removes any split codepoint safely.
+                        if trimmed:
+                            data = trimmed
             # Diagnostics are text.  Trim any incomplete UTF-8 codepoint at
             # either edge of a byte-limited tail so every archived log remains
             # valid UTF-8 for standard editors and support tooling.
