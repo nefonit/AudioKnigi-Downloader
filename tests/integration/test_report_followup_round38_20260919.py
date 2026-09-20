@@ -78,6 +78,7 @@ def test_visual_keyboard_focus_ring_covers_both_easy_and_advanced_controls() -> 
     assert "self._frame.setWidget(target)" in accessibility
     assert "install_keyboard_focus_frame(app, self)" in window
 
+
 def test_easy_mode_has_explicit_tab_chain_and_text_views_do_not_trap_tab() -> None:
     main = src("audioknigi/qt/main_window.py")
     pages = src("audioknigi/qt/main_window_pages.py")
