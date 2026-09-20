@@ -424,7 +424,7 @@ class _DownloadEngine(DownloaderMixin):
 
     @staticmethod
     def _retained_source_suffix(source_url: str, probe_info) -> str:
-        suffix = Path(urlsplit(str(source_url or ""))).suffix.lower()
+        suffix = Path(urlsplit(str(source_url or "")).path).suffix.lower()
         supported = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav"}
         if suffix in supported:
             return suffix
