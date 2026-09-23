@@ -1,0 +1,142 @@
+name: Round 47 publisher
+
+on:
+  push:
+    branches:
+      - round47-publish
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout publish payload
+        uses: actions/checkout@v4
+        with:
+          ref: round47-publish
+          path: publisher
+          fetch-depth: 1
+
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: repo
+          fetch-depth: 0
+
+      - name: Reconstruct and verify Round 47
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import base64, hashlib, io, lzma, tarfile
+
+          publish = Path("publisher/.round47_payload")
+          repo = Path("repo").resolve()
+          parts = [publish / f"part_{i:02d}.b64" for i in range(10)]
+          missing = [str(p) for p in parts if not p.is_file()]
+          if missing:
+              raise SystemExit("Missing payload parts: " + ", ".join(missing))
+
+          encoded = "".join(p.read_text(encoding="utf-8").strip() for p in parts).encode("ascii")
+          if len(encoded) != 283720:
+              raise SystemExit(f"Unexpected payload length: {len(encoded)}")
+          if hashlib.sha256(encoded).hexdigest() != "df69ba9ab509f034936ab3f4164823182a1401db295301bbdc67e1179b9a48f3":
+              raise SystemExit("Round 47 Base64 payload checksum mismatch")
+
+          packed = base64.b64decode(encoded, validate=True)
+          if hashlib.sha256(packed).hexdigest() != "bf9591b1c848c58816e050acf261cb7a563dcfea3da2ae9f3cb614d5cb58da16":
+              raise SystemExit("Round 47 XZ payload checksum mismatch")
+          tar_bytes = lzma.decompress(packed)
+
+          expected = {
+              "CHANGELOG.md",
+              "audioknigi/config/settings.py",
+              "audioknigi/core.py",
+              "audioknigi/diagnostics/support_bundle.py",
+              "audioknigi/download/book_flow.py",
+              "audioknigi/download/common.py",
+              "audioknigi/download/media.py",
+              "audioknigi/download/network.py",
+              "audioknigi/download/probe.py",
+              "audioknigi/download_engine.py",
+              "audioknigi/knigavuhe.py",
+              "audioknigi/locales/runtime_exact.json",
+              "audioknigi/models.py",
+              "audioknigi/poleknig.py",
+              "audioknigi/providers/audioknigi_search.py",
+              "audioknigi/qt/accessibility_trace.py",
+              "audioknigi/qt/event_sounds.py",
+              "audioknigi/qt/localized_context_menu.py",
+              "audioknigi/qt/media_keys.py",
+              "audioknigi/qt/mixins/analysis_download.py",
+              "audioknigi/qt/mixins/clipboard.py",
+              "audioknigi/qt/mixins/queue.py",
+              "audioknigi/qt/mixins/search.py",
+              "audioknigi/qt/mixins/settings.py",
+              "audioknigi/qt/player_controller.py",
+              "audioknigi/qt/player_mixin.py",
+              "audioknigi/qt/workers.py",
+              "audioknigi/services/book_analysis_service.py",
+              "audioknigi/services/library_service.py",
+              "audioknigi/services/player_position_store.py",
+              "audioknigi/services/queue_service.py",
+              "audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND43.md",
+              "audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND44.md",
+              "audits/4.12/rounds/AUDIT_NOTES_20260921_ROUND45.md",
+              "audits/4.12/rounds/AUDIT_NOTES_20260922_ROUND46.md",
+              "audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND47.md",
+              "audits/4.12/rounds/INDEX.md",
+              "tests/integration/test_report_followup_round13_20260916.py",
+              "tests/integration/test_report_followup_round33_20260918.py",
+              "tests/integration/test_report_followup_round43_20260920.py",
+              "tests/integration/test_report_followup_round44_20260920.py",
+              "tests/integration/test_report_followup_round45_20260921.py",
+              "tests/integration/test_report_followup_round46_20260922.py",
+              "tests/integration/test_report_followup_round47_20260923.py",
+              "tools/historical_regression_incompatibilities.json",
+          }
+
+          seen = set()
+          with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as tf:
+              for member in tf.getmembers():
+                  if member.isdir():
+                      continue
+                  rel = PurePosixPath(member.name)
+                  if rel.is_absolute() or ".." in rel.parts:
+                      raise SystemExit(f"Unsafe payload path: {member.name}")
+                  name = rel.as_posix()
+                  if name not in expected:
+                      raise SystemExit(f"Unexpected payload path: {name}")
+                  src = tf.extractfile(member)
+                  if src is None:
+                      raise SystemExit(f"Unreadable payload member: {name}")
+                  dst = repo.joinpath(*rel.parts)
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  dst.write_bytes(src.read())
+                  seen.add(name)
+
+          if seen != expected:
+              raise SystemExit("Payload path set mismatch: " + repr(sorted(expected - seen)))
+          print(f"Verified Round 47 payload: {len(seen)} files")
+          PY
+
+      - name: Commit Round 47 to main
+        shell: bash
+        working-directory: repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --             CHANGELOG.md             audioknigi/config/settings.py             audioknigi/core.py             audioknigi/diagnostics/support_bundle.py             audioknigi/download/book_flow.py             audioknigi/download/common.py             audioknigi/download/media.py             audioknigi/download/network.py             audioknigi/download/probe.py             audioknigi/download_engine.py             audioknigi/knigavuhe.py             audioknigi/locales/runtime_exact.json             audioknigi/models.py             audioknigi/poleknig.py             audioknigi/providers/audioknigi_search.py             audioknigi/qt/accessibility_trace.py             audioknigi/qt/event_sounds.py             audioknigi/qt/localized_context_menu.py             audioknigi/qt/media_keys.py             audioknigi/qt/mixins/analysis_download.py             audioknigi/qt/mixins/clipboard.py             audioknigi/qt/mixins/queue.py             audioknigi/qt/mixins/search.py             audioknigi/qt/mixins/settings.py             audioknigi/qt/player_controller.py             audioknigi/qt/player_mixin.py             audioknigi/qt/workers.py             audioknigi/services/book_analysis_service.py             audioknigi/services/library_service.py             audioknigi/services/player_position_store.py             audioknigi/services/queue_service.py             audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND43.md             audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND44.md             audits/4.12/rounds/AUDIT_NOTES_20260921_ROUND45.md             audits/4.12/rounds/AUDIT_NOTES_20260922_ROUND46.md             audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND47.md             audits/4.12/rounds/INDEX.md             tests/integration/test_report_followup_round13_20260916.py             tests/integration/test_report_followup_round33_20260918.py             tests/integration/test_report_followup_round43_20260920.py             tests/integration/test_report_followup_round44_20260920.py             tests/integration/test_report_followup_round45_20260921.py             tests/integration/test_report_followup_round46_20260922.py             tests/integration/test_report_followup_round47_20260923.py             tools/historical_regression_incompatibilities.json
+
+          git diff --cached --stat
+          if git diff --cached --quiet; then
+            echo "No Round 47 changes to publish."
+            exit 0
+          fi
+
+          git commit             -m "AudioKnigi Downloader 4.12.42 Round 47"             -m "Cumulative audit hardening from Rounds 43-47: provider parsing and metadata fixes, settings/privacy hardening, download/network/player/queue reliability fixes, Windows/Qt lifecycle safeguards, recovery normalization, and regression coverage. Local verification: 598 pytest passed; full parity 61/61; historical regression 255 passed / 128 known incompatibilities; release gates green."
+
+          git push origin HEAD:main
