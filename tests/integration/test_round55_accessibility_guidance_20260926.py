@@ -125,7 +125,8 @@ def test_help_center_uses_splitter_and_non_overlapping_topic_rows():
     assert "QSplitter" in source
     assert "self.topics.setWordWrap(True)" in source
     assert "self.topics.setSpacing(4)" in source
-    assert "item.setSizeHint(QSize(0, 42))" in source
+    assert "topic_row_height = max(42, self.topics.fontMetrics().height() * 2 + 12)" in source
+    assert "item.setSizeHint(QSize(0, topic_row_height))" in source
     assert "splitter.setChildrenCollapsible(False)" in source
     tree = ast.parse(source)
     values = {}
