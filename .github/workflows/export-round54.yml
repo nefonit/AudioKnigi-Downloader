@@ -1,0 +1,34 @@
+name: Export Round54 Source
+
+on:
+  push:
+    branches:
+      - round54-hardening
+    paths:
+      - .github/workflows/export-round54.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Create Round 54 source archive
+        run: |
+          git archive --format=zip \
+            --prefix=AudioKnigi-Downloader-4.12.42-Round54/ \
+            -o AudioKnigi-Downloader-4.12.42-Round54.zip HEAD
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: round54-source
+          path: AudioKnigi-Downloader-4.12.42-Round54.zip
+          if-no-files-found: error
+          retention-days: 1
