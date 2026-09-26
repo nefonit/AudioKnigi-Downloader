@@ -150,7 +150,7 @@ class AudioKnigiQtWindow(
             app.applicationStateChanged.connect(self._application_state_changed)
             clipboard = QApplication.clipboard()
             clipboard.dataChanged.connect(self._clipboard_data_changed)
-            QTimer.singleShot(300, self._schedule_clipboard_prompt_check)
+            self._single_shot_if_alive(300, "_schedule_clipboard_prompt_check")
         tray_started = self.tray_controller.start()
         self.tray_controller.set_window_visible(True)
         ready_text = self._rt("Приложение готово.")
@@ -159,7 +159,7 @@ class AudioKnigiQtWindow(
         self._refresh_context_guidance(announce_now=True)
         # Source availability is checked after the window is usable. The
         # background daemon cannot block startup or application shutdown.
-        QTimer.singleShot(900, self._start_source_health_check)
+        self._single_shot_if_alive(900, "_start_source_health_check")
         self._play_event_sound("app_ready", force=True)
     def _build_ui(self):
         central = QWidget(self)
@@ -723,6 +723,26 @@ class AudioKnigiQtWindow(
     def _rt(self, text: str) -> str:
         return localize_runtime_text(self.language, text)
 
+    def _single_shot_if_alive(self, delay_ms: int, method_name: str, *args, **kwargs) -> None:
+        """Run a window method later without touching a deleted Qt wrapper."""
+        owner_ref = weakref.ref(self)
+        method_name = str(method_name)
+
+        def invoke_if_alive() -> None:
+            owner = owner_ref()
+            if owner is None:
+                return
+            try:
+                method = getattr(owner, method_name)
+                method(*args, **kwargs)
+            except RuntimeError as exc:
+                message = str(exc)
+                if "Internal C++ object" in message and "already deleted" in message:
+                    return
+                raise
+
+        QTimer.singleShot(max(0, int(delay_ms)), invoke_if_alive)
+
     def set_ui_mode(self, mode: str, *, persist: bool = True) -> None:
         mode = "easy" if str(mode).lower() == "easy" else "advanced"
         self.mode_stack.setCurrentIndex(0 if mode == "easy" else 1)
@@ -757,7 +777,7 @@ class AudioKnigiQtWindow(
                 return
 
         QTimer.singleShot(0, focus_target_if_alive)
-        QTimer.singleShot(0, lambda: self._refresh_context_guidance(announce_now=True))
+        self._single_shot_if_alive(0, "_refresh_context_guidance", announce_now=True)
 
     def current_ui_mode(self) -> str:
         return "easy" if self.mode_stack.currentIndex() == 0 else "advanced"
