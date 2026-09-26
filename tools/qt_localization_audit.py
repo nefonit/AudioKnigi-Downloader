@@ -282,7 +282,7 @@ def audit() -> list[str]:
     ]
     for path in runtime_paths:
         if not path.is_file():
-            issues.append(f"missing runtime localization source: {path.relative_to(ROOT)}")
+            issues.append(f"missing runtime localization source: {path.relative_to(ROOT).as_posix()}")
             continue
         runtime_literals |= _runtime_visible_literals(path, include_log=True)
     for literal in sorted(runtime_literals):
