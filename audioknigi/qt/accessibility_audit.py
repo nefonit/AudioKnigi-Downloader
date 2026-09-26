@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QAbstractButton, QWidget
 
 
 REQUIRED_ACCESSIBLE_IDS = (
@@ -93,7 +93,9 @@ REQUIRED_ACCESSIBLE_IDS = (
     "player_file",
     "player_open_book",
     "player_open_file",
+    "player_back_30",
     "player_play_pause",
+    "player_forward_30",
     "player_stop",
     "player_restart",
     "player_seek",
@@ -121,6 +123,7 @@ REQUIRED_ACCESSIBLE_IDS = (
     "easy_copy_url",
     "easy_book_summary",
     "easy_empty_state",
+    "current_guidance",
     "easy_download",
     "easy_open_listen",
     "easy_another_book",
@@ -324,6 +327,19 @@ def audit_accessibility_window(window: QWidget) -> AccessibilityAuditResult:
             result.issues.append(f"not keyboard focusable: {identifier}")
         if not str(widget.accessibleDescription() or "").strip():
             result.issues.append(f"empty accessible description: {identifier}")
+
+    # Every user-facing button must expose a spoken name and an instruction.
+    # This catches newly added controls even when their stable identifier has
+    # not yet been added to the explicit contract above.
+    for button in window.findChildren(QAbstractButton):
+        if not button.isVisible() or button.focusPolicy() == Qt.FocusPolicy.NoFocus:
+            continue
+        result.checked += 1
+        label = str(button.objectName() or button.text() or "button").strip()
+        if not str(button.accessibleName() or "").strip():
+            result.issues.append(f"empty accessible button name: {label}")
+        if not str(button.accessibleDescription() or "").strip():
+            result.issues.append(f"empty accessible button description: {label}")
 
     return result
 
