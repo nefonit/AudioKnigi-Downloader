@@ -1053,10 +1053,11 @@ class QtHelpCenter(QDialog):
         self.text.setStyleSheet("QTextBrowser { padding: 12px; }")
         configure_accessible(self.text, name=tr(self.language, "help_text_accessible"), identifier="help_text")
         self._topic_data = list(TOPICS[self.language])
+        topic_row_height = max(42, self.topics.fontMetrics().height() * 2 + 12)
         for key, title, _body in self._topic_data:
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, key)
-            item.setSizeHint(QSize(0, 42))
+            item.setSizeHint(QSize(0, topic_row_height))
             self.topics.addItem(item)
         self.topics.currentRowChanged.connect(self._show_row)
         splitter.addWidget(self.topics)
