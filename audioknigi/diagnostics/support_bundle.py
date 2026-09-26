@@ -215,11 +215,20 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
                     newline = data.find(b"\n")
                     if newline >= 0:
                         trimmed = data[newline + 1:]
-                        # A short CRLF tail may contain only the final newline.
-                        # Retain the bounded suffix rather than dropping all
-                        # diagnostics; UTF-8 cleanup below trims split bytes.
                         if trimmed:
                             data = trimmed
+                        else:
+                            # The entire bounded window is only the tail of one
+                            # truncated line. Do not archive that fragment: it
+                            # may begin in the middle of a private Windows/UNC
+                            # path where the sanitizer can no longer recognize
+                            # the drive/share prefix.
+                            data = b"[truncated log line]\n"
+                    else:
+                        # No complete line exists in the bounded suffix. Keeping
+                        # the raw partial line can expose a path fragment after
+                        # its identifying prefix was cut off.
+                        data = b"[truncated log line]\n"
             # Diagnostics are text. Trim any incomplete UTF-8 codepoint at a
             # byte-window boundary while keeping the archived tail valid UTF-8.
             return data.decode("utf-8", errors="ignore").encode("utf-8")
