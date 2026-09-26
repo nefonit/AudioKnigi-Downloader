@@ -198,7 +198,7 @@ def _dependency_versions() -> dict[str, str]:
     return versions
 
 
-def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
+def _tail(path: Path, *, max_bytes: int = 512_000, privacy_safe: bool = False) -> bytes:
     try:
         with path.open("rb") as handle:
             handle.seek(0, os.SEEK_END)
@@ -217,18 +217,15 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
                         trimmed = data[newline + 1:]
                         if trimmed:
                             data = trimmed
-                        else:
-                            # The entire bounded window is only the tail of one
-                            # truncated line. Do not archive that fragment: it
-                            # may begin in the middle of a private Windows/UNC
-                            # path where the sanitizer can no longer recognize
-                            # the drive/share prefix.
-                            data = b"[truncated log line]\n"
-                    else:
-                        # No complete line exists in the bounded suffix. Keeping
-                        # the raw partial line can expose a path fragment after
-                        # its identifying prefix was cut off.
-                        data = b"[truncated log line]\n"
+                        elif privacy_safe:
+                            # The bounded suffix contains only an arbitrary tail
+                            # of one line plus its final newline. That fragment
+                            # may have lost a Windows drive/UNC prefix and cannot
+                            # be safely path-redacted.
+                            data = b"[truncated]\n"[:max_bytes]
+                    elif privacy_safe:
+                        # No complete line exists in the bounded suffix.
+                        data = b"[truncated]\n"[:max_bytes]
             # Diagnostics are text. Trim any incomplete UTF-8 codepoint at a
             # byte-window boundary while keeping the archived tail valid UTF-8.
             return data.decode("utf-8", errors="ignore").encode("utf-8")
@@ -282,7 +279,7 @@ def create_support_bundle(destination: str | Path, *, settings: Mapping[str, Any
             if target_path.is_file():
                 archive.writestr(
                     f"diagnostics/{name}",
-                    _sanitize_log_bytes(_tail(target_path)),
+                    _sanitize_log_bytes(_tail(target_path, privacy_safe=True)),
                 )
         queue_payload = load_json(QT_QUEUE_FILE, [])
         queue = queue_payload
