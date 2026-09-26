@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import weakref
 
 from pathlib import Path
@@ -10,14 +11,146 @@ from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit, QMessageBox, QP
 from ...metadata import APP_VERSION
 from ...core import CRASH_REPORT_FILE, DEFAULT_OUTPUT, resolve_executable
 from ...i18n import tr
-from ...logging_utils import ERROR_LOG_FILE, tail_error_log
+from ...logging_utils import ERROR_LOG_FILE, app_logger, tail_error_log
 from ...diagnostics import create_support_bundle
+from ...services.source_health_service import check_source_health
 from ..accessibility import announce, configure_accessible, focus_table_row
 from ..help_center import QtHelpCenter
 from ..localized_context_menu import install_localized_text_context_menu
 
 class AccessibilityUiMixin:
     """Accessibility Ui behavior for :class:`AudioKnigiQtWindow`."""
+
+    def _set_guidance(self, text: str, *, announce_now: bool = False, assertive: bool = False) -> None:
+        """Show the same concise next-step instruction visually and to assistive tech."""
+        message = self._rt(str(text or "").strip())
+        if not message:
+            return
+        label = getattr(self, "guidance_label", None)
+        if label is not None:
+            label.setText(message)
+            label.setAccessibleDescription(message)
+            label.setToolTip(message)
+            if announce_now:
+                announce(label, message, assertive=assertive)
+        elif announce_now:
+            self.set_status(message, assertive=assertive)
+
+    def _guidance_for_tab(self, index: int) -> str:
+        messages = {
+            self.TAB_BOOK: self._l("Книга: вставьте ссылку или введите название. После анализа выберите озвучку и части, затем нажмите «Скачать книгу»."),
+            self.TAB_SEARCH: self._l("Поиск: введите минимум 3 символа. Стрелками выберите результат и нажмите Enter. Если есть несколько озвучек, выберите чтеца."),
+            self.TAB_QUEUE: self._l("Очередь: добавьте книги, затем нажмите «Запустить очередь». Shift+F10 открывает действия для выбранной задачи."),
+            self.TAB_HISTORY: self._l("История: выберите книгу стрелками. Можно открыть папку, слушать книгу, скачать заново или экспортировать библиотеку."),
+            self.TAB_SETTINGS: self._l("Настройки: переходите Tab и Shift+Tab. Измените нужные параметры и в конце нажмите «Сохранить настройки»."),
+            self.TAB_PLAYER: self._l("Плеер: откройте папку книги или аудиофайл. Кнопки активируются Enter или пробелом; стрелки управляют громкостью и позицией."),
+        }
+        return messages.get(int(index), self._l("Используйте Tab и Shift+Tab для перехода между элементами."))
+
+    @Slot(int)
+    def _advanced_tab_guidance_changed(self, index: int) -> None:
+        if self.current_ui_mode() != "advanced":
+            return
+        self._set_guidance(self._guidance_for_tab(index), announce_now=True)
+
+    def _refresh_context_guidance(self, *, announce_now: bool = False) -> None:
+        if self.current_ui_mode() == "easy":
+            text = self._l("Введите название, автора или ссылку. Затем нажмите «Искать» или «Открыть». После анализа фокус перейдёт к скачиванию.")
+        else:
+            text = self._guidance_for_tab(self.tabs.currentIndex())
+        self._set_guidance(text, announce_now=announce_now)
+
+    def _start_source_health_check(self) -> None:
+        # Offscreen/self-test windows are never shown. Do not start network I/O
+        # or a modal warning for them. Real startup schedules this after show.
+        if not self.isVisible() or bool(getattr(self, "_source_health_running", False)):
+            return
+        self._source_health_running = True
+        owner_ref = weakref.ref(self)
+        relay_ref = weakref.ref(self._worker_ui_relay)
+
+        def run_check() -> None:
+            try:
+                outcome = check_source_health(timeout=3.0)
+                relay = relay_ref()
+                if relay is not None:
+                    try:
+                        relay.source_health_result.emit(outcome)
+                    except RuntimeError:
+                        pass
+            except Exception:
+                app_logger.exception("Background source health check failed")
+                owner = owner_ref()
+                if owner is not None:
+                    owner._source_health_running = False
+
+        threading.Thread(
+            target=run_check, name="source-health-startup", daemon=True
+        ).start()
+
+    @Slot(object)
+    def _source_health_finished(self, outcome) -> None:
+        self._source_health_running = False
+        items = list(getattr(outcome, "items", None) or [])
+        if not items:
+            return
+        reachable = int(getattr(outcome, "reachable_count", 0) or 0)
+        unavailable = int(getattr(outcome, "unavailable_count", 0) or 0)
+        if reachable and unavailable:
+            message = self._l(
+                "Часть источников сейчас недоступна: {unavailable}. Доступно: {reachable}. Поиск продолжит работать по доступным сайтам.",
+                unavailable=unavailable,
+                reachable=reachable,
+            )
+            self.set_status(message, assertive=True)
+            self._set_guidance(message, announce_now=True)
+            return
+        if reachable:
+            return
+
+        details = []
+        for item in items:
+            status = getattr(item, "status_code", None)
+            if status:
+                details.append(f"{getattr(item, 'source', '')}: HTTP {status}")
+            else:
+                details.append(f"{getattr(item, 'source', '')}: {getattr(item, 'error', '') or self._l('нет соединения')}")
+        message = self._l(
+            "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.\n\nИсточники: {details}",
+            details="; ".join(details),
+        )
+        self.set_status(self._l("Источники недоступны. Проверьте интернет или VPN."), assertive=True)
+        self._set_guidance(
+            self._l("Источники недоступны. Проверьте интернет; при блокировке включите VPN и повторите поиск."),
+            announce_now=True,
+            assertive=True,
+        )
+        self._show_message(QMessageBox.Icon.Warning, self._l("Нет доступа к источникам"), message)
+
+    def _add_window_shortcut(self, sequence: str, callback) -> QShortcut:
+        shortcut = QShortcut(QKeySequence(sequence), self, activated=callback)
+        shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        if not hasattr(self, "_window_shortcuts"):
+            self._window_shortcuts = []
+        self._window_shortcuts.append(shortcut)
+        return shortcut
+
+    def _install_player_activation_shortcuts(self) -> None:
+        """Guarantee Enter/Return activation; Space remains the native QPushButton action."""
+        self._player_activation_shortcuts = []
+        for button in (
+            self.player_open_button,
+            self.player_open_file_button,
+            self.player_back_button,
+            self.player_play_button,
+            self.player_forward_button,
+            self.player_stop_button,
+            self.player_restart_button,
+        ):
+            for sequence in ("Return", "Enter"):
+                shortcut = QShortcut(QKeySequence(sequence), button, activated=button.click)
+                shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+                self._player_activation_shortcuts.append(shortcut)
 
     def _install_localized_text_context_menus(self) -> None:
         window_ref = weakref.ref(self)
@@ -357,17 +490,18 @@ class AccessibilityUiMixin:
         help_menu.addAction(about)
 
     def _install_shortcuts(self):
-        QShortcut(QKeySequence("Ctrl+L"), self, activated=self._focus_book_url)
-        QShortcut(QKeySequence("Ctrl+F"), self, activated=self._focus_search)
-        QShortcut(QKeySequence("Ctrl+D"), self, activated=self._start_primary_download)
-        QShortcut(QKeySequence("Ctrl+Q"), self, activated=lambda: self._activate_tab(self.TAB_QUEUE))
-        QShortcut(QKeySequence("Ctrl+H"), self, activated=lambda: self._activate_tab(self.TAB_HISTORY))
-        QShortcut(QKeySequence("Escape"), self, activated=self.cancel_current_operation)
+        self._window_shortcuts = []
+        self._add_window_shortcut("Ctrl+L", self._focus_book_url)
+        self._add_window_shortcut("Ctrl+F", self._focus_search)
+        self._add_window_shortcut("Ctrl+D", self._start_primary_download)
+        self._add_window_shortcut("Ctrl+Q", lambda: self._activate_tab(self.TAB_QUEUE))
+        self._add_window_shortcut("Ctrl+H", lambda: self._activate_tab(self.TAB_HISTORY))
+        self._add_window_shortcut("Escape", self.cancel_current_operation)
         # QTabWidget already implements Ctrl+Tab / Ctrl+Shift+Tab for its pages.
         # Registering the same sequences on the window can double-dispatch them.
-        QShortcut(QKeySequence("Ctrl+Alt+1"), self, activated=lambda: self._set_quality_shortcut("standard"))
-        QShortcut(QKeySequence("Ctrl+Alt+2"), self, activated=lambda: self._set_quality_shortcut("phone"))
-        QShortcut(QKeySequence("Ctrl+Alt+3"), self, activated=lambda: self._set_quality_shortcut("normalize"))
+        self._add_window_shortcut("Ctrl+Alt+1", lambda: self._set_quality_shortcut("standard"))
+        self._add_window_shortcut("Ctrl+Alt+2", lambda: self._set_quality_shortcut("phone"))
+        self._add_window_shortcut("Ctrl+Alt+3", lambda: self._set_quality_shortcut("normalize"))
         track_space = QShortcut(QKeySequence("Space"), self.track_table, activated=self._toggle_current_track_from_keyboard)
         track_space.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         search_return = QShortcut(QKeySequence("Return"), self.search_table, activated=self.use_selected_result)
@@ -388,14 +522,16 @@ class AccessibilityUiMixin:
         queue_menu = QShortcut(QKeySequence("Shift+F10"), self.queue_table, activated=lambda: self._show_queue_context_menu(None))
         queue_menu.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         for number, tab_index in enumerate([self.TAB_BOOK, self.TAB_SEARCH, self.TAB_QUEUE, self.TAB_HISTORY, self.TAB_SETTINGS, self.TAB_PLAYER], start=1):
-            QShortcut(QKeySequence(f"Alt+{number}"), self, activated=lambda i=tab_index: self._activate_tab(i))
+            self._add_window_shortcut(f"Alt+{number}", lambda i=tab_index: self._activate_tab(i))
         for number, tab_index in enumerate([self.TAB_BOOK, self.TAB_SEARCH, self.TAB_QUEUE, self.TAB_HISTORY, self.TAB_SETTINGS, self.TAB_PLAYER], start=1):
-            QShortcut(QKeySequence(f"Ctrl+{number}"), self, activated=lambda i=tab_index: self._activate_tab(i))
+            self._add_window_shortcut(f"Ctrl+{number}", lambda i=tab_index: self._activate_tab(i))
+        self._install_player_activation_shortcuts()
 
     def _activate_tab(self, index: int):
         self.set_ui_mode("advanced", persist=False)
         self.tabs.setCurrentIndex(index)
         self.tabs.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self._set_guidance(self._guidance_for_tab(index), announce_now=True)
 
     def _cycle_tab(self, delta: int):
         self._activate_tab((self.tabs.currentIndex() + int(delta)) % self.tabs.count())

@@ -149,7 +149,12 @@ class AnalysisDownloadUiMixin:
         self._pending_narration_switch = True
         self.book_url_edit.setText(url)
         self._pending_narration_switch = False
+        self._focus_download_after_analysis = True
         self.set_status(f"Выбрана другая озвучка: {self.narration_combo.itemText(index)}")
+        self._set_guidance(
+            self._l("Озвучка выбрана. Программа автоматически анализирует её. После анализа фокус перейдёт на кнопку «Скачать книгу»."),
+            announce_now=True,
+        )
         # Changing narration is one user action and must produce one success cue.
         # The automatic re-analysis that follows should not immediately add a
         # second book_found cue on top of narration_changed.
@@ -193,6 +198,10 @@ class AnalysisDownloadUiMixin:
             self.set_status("Сначала завершите или отмените текущее скачивание.", assertive=True)
             return
 
+        self._set_guidance(
+            self._l("Анализирую книгу и проверяю доступные части. Ничего нажимать не нужно; после завершения программа подскажет следующий шаг."),
+            announce_now=True,
+        )
         self._book_url_is_stale = False
         self.current_book = None
         self.track_model.set_book(None)
@@ -260,6 +269,7 @@ class AnalysisDownloadUiMixin:
         self.cancel_analysis_button.setEnabled(False)
         self._set_analysis_button_state(False)
         if kind == "cancelled":
+            self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
@@ -277,6 +287,7 @@ class AnalysisDownloadUiMixin:
             self._pending_queue_urls = []
             return
         if kind == "error":
+            self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
@@ -300,6 +311,7 @@ class AnalysisDownloadUiMixin:
 
         book = payload
         if not isinstance(book, Book):
+            self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
@@ -403,6 +415,7 @@ class AnalysisDownloadUiMixin:
         self.track_table.setVisible(enabled)
         self._update_download_primary_button()
         if not enabled:
+            self._focus_download_after_analysis = False
             # A failed/empty analysis must never arm a later unrelated book for
             # automatic queueing/downloading. This also lets multi-URL queue
             # imports continue to the next candidate.
@@ -415,10 +428,27 @@ class AnalysisDownloadUiMixin:
         if not suppress_book_found_sound:
             self._play_event_sound("book_found")
         if enabled:
-            if self.current_ui_mode() == "easy":
+            focus_download = bool(getattr(self, "_focus_download_after_analysis", False))
+            self._focus_download_after_analysis = False
+            if focus_download:
+                target = self.easy_download_button if self.current_ui_mode() == "easy" else self.download_all_button
+                target.setFocus(Qt.FocusReason.OtherFocusReason)
+                self._set_guidance(
+                    self._l("Анализ выбранной озвучки завершён. Фокус на кнопке «Скачать книгу». Нажмите Enter или пробел, чтобы начать скачивание."),
+                    announce_now=True,
+                )
+            elif self.current_ui_mode() == "easy":
                 self.easy_download_button.setFocus(Qt.FocusReason.OtherFocusReason)
+                self._set_guidance(
+                    self._l("Книга готова к скачиванию. Проверьте сведения и нажмите «Скачать книгу»."),
+                    announce_now=True,
+                )
             else:
                 focus_table_row(self.track_table, 0, column=0, focus=True)
+                self._set_guidance(
+                    self._l("Анализ завершён. Стрелками просмотрите части; пробел меняет выбор. Затем Tab до «Скачать книгу» или нажмите Ctrl+D."),
+                    announce_now=True,
+                )
         if self._queue_reanalyze_task_id and enabled:
             task_id = self._queue_reanalyze_task_id
             self._queue_reanalyze_task_id = None
@@ -580,6 +610,10 @@ class AnalysisDownloadUiMixin:
         self._download_worker = worker
         self._active_download_mode = str(mode or "selected")
         self.download_activity_panel.setVisible(True)
+        self._set_guidance(
+            self._l("Скачивание началось. Ход работы показан ниже. Можно продолжать слушать сообщения скринридера; Esc запрашивает отмену текущей операции."),
+            announce_now=True,
+        )
         self.download_progress.setValue(0)
         self.download_stage_label.setText(self._l("Скачивание: подготовка"))
         self.download_speed_label.setText(self._l("Скорость: —"))
@@ -961,10 +995,19 @@ class AnalysisDownloadUiMixin:
         if kind == "cancelled":
             self.download_stage_label.setText(self._l("Скачивание: отменено"))
             self.set_status("Скачивание отменено пользователем.", assertive=True)
+            self._set_guidance(
+                self._l("Скачивание отменено. Можно изменить выбор частей или снова нажать «Скачать книгу»."),
+                announce_now=True,
+            )
             self._play_event_sound("download_cancelled")
         elif kind == "error":
             self.download_stage_label.setText(self._l("Скачивание: ошибка"))
             self.set_status("Ошибка скачивания: " + str(payload), assertive=True)
+            self._set_guidance(
+                self._l("Скачивание завершилось ошибкой. Прочитайте сообщение; затем можно повторить попытку или открыть Справочный центр клавишами Shift+F1."),
+                announce_now=True,
+                assertive=True,
+            )
             self._notify_tray_if_hidden("Ошибка скачивания. Откройте окно программы для подробностей.")
             self._play_event_sound("error")
             if self.isVisible():
@@ -992,6 +1035,10 @@ class AnalysisDownloadUiMixin:
             self.easy_open_folder_button.setEnabled(True)
             self.easy_listen_button.setEnabled(True)
             self._play_event_sound("download_complete")
+            self._set_guidance(
+                self._l("Скачивание завершено. Можно открыть папку или перейти на вкладку «Плеер» и начать прослушивание."),
+                announce_now=True,
+            )
             self._notify_tray_if_hidden("Скачивание аудиокниги завершено.")
             self._load_history()
         self.track_model.set_book(self.current_book)

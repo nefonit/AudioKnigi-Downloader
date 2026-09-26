@@ -63,6 +63,7 @@ class AudioKnigiQtWindow(
         self._search_thread: QThread | None = None
         self._search_worker: _SearchWorker | None = None
         self._search_cancel: threading.Event | None = None
+        self._source_health_running = False
         self._abs_thread: QThread | None = None
         self._abs_worker: _AudiobookshelfWorker | None = None
         self._history_rows: list[dict] = []
@@ -79,6 +80,7 @@ class AudioKnigiQtWindow(
         self._known_narration_variants = None
         self._pending_narration_switch = False
         self._suppress_next_book_found_sound = False
+        self._focus_download_after_analysis = False
         self._analysis_thread: QThread | None = None
         self._analysis_worker: _AnalysisWorker | None = None
         self._analysis_cancel: threading.Event | None = None
@@ -154,6 +156,10 @@ class AudioKnigiQtWindow(
         ready_text = self._rt("Приложение готово.")
         tray_text = self._rt(" Системный трей активен." if tray_started else " Системный трей недоступен.")
         self.set_status(ready_text + tray_text)
+        self._refresh_context_guidance(announce_now=True)
+        # Source availability is checked after the window is usable. The
+        # background daemon cannot block startup or application shutdown.
+        QTimer.singleShot(900, self._start_source_health_check)
         self._play_event_sound("app_ready", force=True)
     def _build_ui(self):
         central = QWidget(self)
@@ -198,6 +204,18 @@ class AudioKnigiQtWindow(
         mode_row.addStretch(1)
         layout.addWidget(mode_bar)
 
+        self.guidance_label = QLabel(self._l("Введите название, автора или ссылку. Затем нажмите «Искать» или «Открыть»."))
+        self.guidance_label.setObjectName("guidanceBanner")
+        self.guidance_label.setWordWrap(True)
+        self.guidance_label.setProperty("role", "info")
+        configure_accessible(
+            self.guidance_label,
+            name=self._l("Подсказка по текущему шагу"),
+            description=self.guidance_label.text(),
+            identifier="current_guidance",
+        )
+        layout.addWidget(self.guidance_label)
+
         self.tabs = QTabWidget(central)
         configure_accessible(
             self.tabs,
@@ -211,6 +229,7 @@ class AudioKnigiQtWindow(
         self.tabs.addTab(self._build_history_tab(), tr(self.language, "history"))
         self.tabs.addTab(self._build_settings_tab(), tr(self.language, "settings"))
         self.tabs.addTab(self._build_player_tab(), ui_text(self.language, "Плеер"))
+        self.tabs.currentChanged.connect(self._advanced_tab_guidance_changed)
 
         self.mode_stack = QStackedWidget(central)
         configure_accessible(self.mode_stack, name=ui_text(self.language, "Режим интерфейса"), identifier="ui_mode_stack")
@@ -409,7 +428,7 @@ class AudioKnigiQtWindow(
             identifier="easy_narration_variant",
         )
         self.easy_narration_label.setBuddy(self.easy_narration_combo)
-        self.easy_narration_combo.currentIndexChanged.connect(lambda _index: self._update_search_action_states())
+        self.easy_narration_combo.currentIndexChanged.connect(self._easy_narration_selected)
         self.easy_narration_label.setVisible(False)
         self.easy_narration_combo.setVisible(False)
         easy_narration_row.addWidget(self.easy_narration_label)
@@ -738,6 +757,7 @@ class AudioKnigiQtWindow(
                 return
 
         QTimer.singleShot(0, focus_target_if_alive)
+        QTimer.singleShot(0, lambda: self._refresh_context_guidance(announce_now=True))
 
     def current_ui_mode(self) -> str:
         return "easy" if self.mode_stack.currentIndex() == 0 else "advanced"

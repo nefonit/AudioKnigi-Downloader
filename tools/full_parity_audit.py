@@ -75,7 +75,7 @@ QT_EVIDENCE = {
     "help": [("audioknigi/qt/help_center.py", "class QtHelpCenter"), ("audioknigi/qt/main_window.py", "show_context_help")],
     "crash_report": [("audioknigi/qt/application.py", "build_report"), ("audioknigi/qt/main_window.py", "copy_last_crash_report")],
     "screen_reader_test": [("audioknigi/qt/accessibility_audit.py", "audit_accessibility_window"), ("audioknigi/qt/main_window.py", "Ctrl+Shift+F12")],
-    "hotkeys": [("audioknigi/qt/main_window.py", 'QKeySequence(f"Alt+{number}")'), ("audioknigi/qt/main_window.py", "QTabWidget already implements Ctrl+Tab"), ("audioknigi/qt/main_window.py", 'QKeySequence("Shift+F10")')],
+    "hotkeys": [("audioknigi/qt/main_window.py", '_add_window_shortcut(f"Alt+{number}"'), ("audioknigi/qt/main_window.py", "QTabWidget already implements Ctrl+Tab"), ("audioknigi/qt/main_window.py", 'QKeySequence("Shift+F10")')],
     "dependencies": [("audioknigi/qt/main_window.py", "_dependency_status_text"), ("audioknigi/qt/main_window.py", "resolve_executable")],
     "safe_shutdown": [("audioknigi/qt/main_window.py", "def closeEvent"), ("audioknigi/qt/main_window.py", "Скачивание выполняется"), ("audioknigi/qt/main_window.py", "Анализ выполняется")],
     "modal_dialogs": [("audioknigi/qt/main_window.py", "ApplicationModal"), ("audioknigi/qt/main_window.py", "setModal(True)")],

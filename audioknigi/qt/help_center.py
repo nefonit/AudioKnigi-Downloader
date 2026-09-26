@@ -3,10 +3,10 @@ from __future__ import annotations
 import html as html_lib
 import re
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton,
-    QTextBrowser, QVBoxLayout,
+    QSplitter, QTextBrowser, QVBoxLayout,
 )
 
 from ..i18n import tr, ui_text
@@ -944,6 +944,26 @@ TOPICS = {'ru': (('start',
          'Diagnosepaket erstellen.'))}
 
 
+ROUND55_TOPIC_DETAILS_RU = {
+    "start": "Практический ориентир: программа всегда показывает строку «Подсказка по текущему шагу» над рабочей областью. NVDA/JAWS получает ту же инструкцию голосом. Если вы потеряли контекст, нажмите Shift+F1 — справка откроется сразу по текущему разделу.",
+    "modes": "Для незрячего пользователя оба режима доступны с клавиатуры. В простом режиме меньше элементов в Tab-порядке. В расширенном режиме Ctrl+1…Ctrl+6 или Alt+1…Alt+6 сразу открывают нужную вкладку и озвучивают её назначение.",
+    "book": "После выбора другой озвучки повторный анализ запускается автоматически. Когда он закончится, фокус переводится на «Скачать книгу», а скринридер сообщает, что кнопку можно активировать Enter или пробелом. Для отдельных частей используйте стрелки в таблице и пробел для выбора.",
+    "search": "Источники опрашиваются параллельно, поэтому один медленный сайт не должен задерживать начало обработки остальных. Если у результата несколько озвучек, выберите чтеца: в простом режиме анализ выбранной озвучки запустится автоматически. Если часть сайтов недоступна, поиск продолжится по доступным.",
+    "download": "После запуска ничего дополнительно подтверждать не нужно: статус, этап и результат объявляются скринридером и одновременно видны на экране. Esc запрашивает отмену текущей операции. После успешного завершения можно открыть папку или перейти в плеер.",
+    "quality": "Если вы не знаете, что выбрать, оставьте «Стандартное». Меняйте кодирование или нормализацию только когда есть конкретная цель — уменьшить размер или выровнять громкость. Перед массовой загрузкой удобно проверить выбранный профиль на одной книге.",
+    "queue": "Сначала подготовьте задачи, затем запускайте очередь. На строке задачи Shift+F10 открывает действия. После ошибки устраните причину (например, сеть/VPN), затем используйте повтор выбранной задачи или повтор всех ошибок.",
+    "history": "Стрелками выберите запись. Shift+F10 открывает действия без мыши. Если книга была перемещена вручную и путь устарел, повторный анализ или повторное скачивание безопаснее, чем редактирование служебных файлов вручную.",
+    "player": "Все кнопки плеера доступны клавишами Tab/Shift+Tab. Enter и пробел активируют кнопки воспроизведения, паузы, перемотки, стопа и перехода в начало. Стрелки меняют позицию/громкость; список глав управляется стрелками и Enter. После открытия файла фокус ставится на Play/Pause и озвучивается следующий шаг.",
+    "settings": "Проходите элементы Tab и Shift+Tab. У каждого интерактивного элемента есть имя и описание для NVDA/JAWS. После изменения параметров обязательно активируйте «Сохранить настройки», затем обратите внимание на строку состояния.",
+    "files": "Не удаляйте .part и служебные сегменты во время незавершённой загрузки: они нужны для продолжения. Если меняете шаблоны имён, сначала проверьте результат на одной короткой книге и убедитесь, что путь остаётся допустимым для Windows.",
+    "backup": "Перед восстановлением остановите анализ, поиск и загрузки. Резервная копия хранит настройки и состояние программы, но не заменяет копию самих MP3. Для переноса на другой компьютер копируйте аудиокниги отдельно.",
+    "accessibility": "Главная строка подсказки всегда содержит текущий следующий шаг и дублируется через Qt Accessibility announcements. Кнопки должны объявлять назначение и способ активации; встроенная проверка доступности дополнительно контролирует подписи всех видимых кнопок.",
+    "shortcuts": "Глобальные сочетания зарегистрированы на уровне главного окна и работают независимо от активной вкладки, пока окно программы активно. Ctrl+1…Ctrl+6 и Alt+1…Alt+6 открывают конкретные вкладки. В плеере Enter/пробел действуют на сфокусированную кнопку.",
+    "diagnostics": "Если ошибка повторяется, сначала воспроизведите её один раз, затем создайте диагностический пакет. Не добавляйте в обращение MP3 вручную без необходимости: стандартный пакет уже содержит безопасную техническую информацию и очищенные хвосты журналов.",
+    "troubleshooting": "При запуске программа в фоне проверяет доступность всех источников. Если ни один источник недоступен, появляется модальное сообщение и скринридер получает предупреждение. Сначала проверьте интернет. При DNS/сетевой фильтрации может помочь Cloudflare WARP; если нужен выход через другую страну, используйте VPN с выбором страны, например Proton VPN или Mullvad VPN, затем повторите поиск.",
+}
+
+
 def _format_help_body_html(title: str, body: str) -> str:
     """Render plain help topics as readable rich text without changing content."""
     escaped_title = html_lib.escape(str(title or ""))
@@ -1013,28 +1033,39 @@ class QtHelpCenter(QDialog):
             self.language = "ru"
         self.copy_report_callback = copy_report_callback
         self.setWindowTitle(tr(self.language, "help_center"))
-        self.resize(900, 620)
+        self.resize(1020, 700)
+        self.setMinimumSize(760, 520)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         configure_accessible(self, name=tr(self.language, "help_center"), identifier="help_center")
         outer = QVBoxLayout(self)
         intro = QLabel(tr(self.language, "help_short_intro"))
         outer.addWidget(intro)
-        body = QHBoxLayout()
+        splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        splitter.setChildrenCollapsible(False)
         self.topics = QListWidget()
+        self.topics.setWordWrap(True)
+        self.topics.setSpacing(4)
+        self.topics.setMinimumWidth(240)
+        self.topics.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         configure_accessible(self.topics, name=ui_text(self.language, "Темы справки"), identifier="help_topics")
         self.text = QTextBrowser()
         self.text.setOpenExternalLinks(True)
         self.text.setStyleSheet("QTextBrowser { padding: 12px; }")
         configure_accessible(self.text, name=tr(self.language, "help_text_accessible"), identifier="help_text")
         self._topic_data = list(TOPICS[self.language])
+        topic_row_height = max(42, self.topics.fontMetrics().height() * 2 + 12)
         for key, title, _body in self._topic_data:
             item = QListWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, key)
+            item.setSizeHint(QSize(0, topic_row_height))
             self.topics.addItem(item)
         self.topics.currentRowChanged.connect(self._show_row)
-        body.addWidget(self.topics, 1)
-        body.addWidget(self.text, 3)
-        outer.addLayout(body, 1)
+        splitter.addWidget(self.topics)
+        splitter.addWidget(self.text)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([300, 700])
+        outer.addWidget(splitter, 1)
         row = QHBoxLayout()
         copy_btn = QPushButton(tr(self.language, "copy_error_report"))
         configure_accessible(copy_btn, name=tr(self.language, "copy_error_report"), identifier="help_copy_crash_report")
@@ -1053,7 +1084,11 @@ class QtHelpCenter(QDialog):
     def _show_row(self, row: int):
         if not 0 <= row < len(self._topic_data):
             return
-        _key, title, body = self._topic_data[row]
+        key, title, body = self._topic_data[row]
+        if self.language == "ru":
+            detail = ROUND55_TOPIC_DETAILS_RU.get(key, "")
+            if detail:
+                body = body.rstrip() + "\n\n" + detail
         self.text.setHtml(_format_help_body_html(title, body))
 
     def _copy_report(self):

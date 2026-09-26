@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """GUI-independent multi-source search orchestration through SourceProvider."""
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 
 from ..core import Cancelled, extract_extended_metadata_from_html, extract_metadata_from_html, get_http_session
@@ -80,32 +81,61 @@ def search_all_sources(query: str, cancel_event=None, progress=None, sources=Non
     results: list[SearchResult] = []
     errors: list[str] = []
     provider_count = max(1, len(providers))
-    for provider_index, provider in enumerate(providers):
+    provider_results_by_key: dict[str, list[SearchResult]] = {}
+
+    def run_provider(provider):
         if cancel_event is not None and cancel_event.is_set():
             raise Cancelled("Поиск отменён пользователем")
-        stage_start = 8 + int((provider_index / provider_count) * 82)
-        report(stage_start, f"Ищу на {provider.display_name}")
-        provider_failed = False
-        try:
-            provider_results = list(provider.search(cleaned, cancel_event=cancel_event) or [])
-            provider_results = list(
-                provider.enrich_search_results(provider_results, cancel_event=cancel_event) or []
+        found = list(provider.search(cleaned, cancel_event=cancel_event) or [])
+        return list(provider.enrich_search_results(found, cancel_event=cancel_event) or [])
+
+    # Independent sources should not make each other wait. Running the three
+    # provider adapters concurrently makes total search time track the slowest
+    # source instead of the sum of all source latencies. This intentionally
+    # supersedes the older no-outer-executor Phase 16 guard; cancellation is
+    # propagated into every provider and covered by current Round 55 tests.
+    report(8, f"Ищу одновременно на источниках: {len(providers)}")
+    pool = ThreadPoolExecutor(max_workers=min(4, len(providers)), thread_name_prefix="book-search")
+    futures = {pool.submit(run_provider, provider): provider for provider in providers}
+    completed_count = 0
+    cancelled = False
+    try:
+        for future in _iter_completed_cancellable(futures, cancel_event):
+            provider = futures[future]
+            provider_failed = False
+            try:
+                provider_results_by_key[provider.key] = list(future.result() or [])
+            except Cancelled:
+                cancelled = True
+                raise
+            except Exception as exc:
+                if cancel_event is not None and cancel_event.is_set():
+                    cancelled = True
+                    raise Cancelled("Поиск отменён пользователем") from exc
+                provider_failed = True
+                app_logger.exception("Ошибка поискового провайдера %s", provider.display_name)
+                errors.append(f"{provider.display_name}: {exc}")
+                provider_results_by_key[provider.key] = []
+            completed_count += 1
+            stage_end = 8 + int((completed_count / provider_count) * 82)
+            report(
+                stage_end,
+                f"Ошибка источника {provider.display_name}"
+                if provider_failed else f"Источник {provider.display_name} обработан",
             )
-            results.extend(provider_results)
-        except Cancelled:
-            raise
-        except Exception as exc:
-            if cancel_event is not None and cancel_event.is_set():
-                raise Cancelled("Поиск отменён пользователем") from exc
-            provider_failed = True
-            app_logger.exception("Ошибка поискового провайдера %s", provider.display_name)
-            errors.append(f"{provider.display_name}: {exc}")
-        stage_end = 8 + int(((provider_index + 1) / provider_count) * 82)
-        report(
-            stage_end,
-            f"Ошибка источника {provider.display_name}"
-            if provider_failed else f"Источник {provider.display_name} обработан",
-        )
+    except Cancelled:
+        cancelled = True
+        raise
+    finally:
+        for future in futures:
+            if not future.done():
+                future.cancel()
+        pool.shutdown(wait=not cancelled, cancel_futures=True)
+
+    # Preserve registry/source ordering even though providers finish in
+    # parallel, keeping result ordering stable for users and callers.
+    for provider in providers:
+        results.extend(provider_results_by_key.get(provider.key, []))
 
     report(94, "Объединяю результаты")
     seen: set[str] = set()
