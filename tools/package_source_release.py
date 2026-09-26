@@ -13,7 +13,7 @@ EXCLUDED_DIR_NAMES = {
 EXCLUDED_FILE_NAMES = {
     "settings.json", "history.json", "qt_queue.json", "cookies.json", "session_profile.json",
 }
-EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".tmp", ".part"}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".tmp", ".part", ".pyd", ".so", ".dll"}
 
 
 def _excluded(relative: Path) -> bool:
@@ -22,7 +22,10 @@ def _excluded(relative: Path) -> bool:
     name = relative.name
     if len(relative.parts) == 1 and name.startswith("AUDIT_NOTES_") and name.endswith(".md"):
         return True
-    if name in EXCLUDED_FILE_NAMES or name.startswith(".historical-regression-"):
+    # Keep intentional test fixtures; still exclude private runtime state from
+    # arbitrary nested folders (not only the repository root).
+    is_fixture = relative.parts[:2] == ("tests", "fixtures")
+    if (name in EXCLUDED_FILE_NAMES and not is_fixture) or name.startswith(".historical-regression-"):
         return True
     return relative.suffix.lower() in EXCLUDED_SUFFIXES
 

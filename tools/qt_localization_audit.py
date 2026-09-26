@@ -123,22 +123,37 @@ def _ui_text_literals(path: Path) -> set[str]:
     return values
 
 
+def _visible_text_argument(node: ast.Call, called: str) -> ast.AST | None:
+    keyword_names = {
+        "QLabel": {"text"}, "QPushButton": {"text"}, "QCheckBox": {"text"},
+        "QGroupBox": {"title"}, "QAction": {"text"},
+        "setText": {"text"}, "setWindowTitle": {"title"},
+        "setPlaceholderText": {"text", "placeholderText"},
+        "addAction": {"text"}, "addMenu": {"title"}, "addItem": {"text"},
+        "setToolTip": {"text", "toolTip"}, "setWhatsThis": {"text", "whatsThis"},
+        "setAccessibleName": {"name", "accessibleName"},
+        "setAccessibleDescription": {"description", "accessibleDescription"},
+    }.get(called, set())
+    keyword = next((kw.value for kw in node.keywords if kw.arg in keyword_names), None)
+    return keyword if keyword is not None else (node.args[0] if node.args else None)
+
+
 def _direct_visible_russian(path: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     issues: list[str] = []
     constructors = {"QLabel", "QPushButton", "QCheckBox", "QGroupBox", "QAction"}
     methods = {"setText", "setWindowTitle", "setPlaceholderText", "addAction", "addMenu", "addItem", "setToolTip", "setWhatsThis", "setAccessibleName", "setAccessibleDescription"}
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not node.args:
-            continue
-        arg = node.args[0]
-        if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str) or not CYRILLIC.search(arg.value):
+        if not isinstance(node, ast.Call):
             continue
         called = ""
         if isinstance(node.func, ast.Name):
             called = node.func.id
         elif isinstance(node.func, ast.Attribute):
             called = node.func.attr
+        arg = _visible_text_argument(node, called)
+        if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str) or not CYRILLIC.search(arg.value):
+            continue
         if called in constructors or called in methods:
             issues.append(f"{path.relative_to(ROOT)}:{getattr(node, 'lineno', '?')}: raw visible literal {arg.value!r}")
     return issues
@@ -188,12 +203,12 @@ def _unwrapped_dynamic_visible_russian(path: Path) -> list[str]:
         "setAccessibleName", "setAccessibleDescription", "setWindowTitle",
     }
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not node.args:
+        if not isinstance(node, ast.Call):
             continue
         called = node.func.attr if isinstance(node.func, ast.Attribute) else ""
         if called not in methods:
             continue
-        arg = node.args[0]
+        arg = _visible_text_argument(node, called)
         if isinstance(arg, ast.JoinedStr):
             rendered = ast.unparse(arg)
             if CYRILLIC.search(rendered):
@@ -266,6 +281,9 @@ def audit() -> list[str]:
         *sorted((ROOT / "audioknigi/qt/mixins").glob("*.py")),
     ]
     for path in runtime_paths:
+        if not path.is_file():
+            issues.append(f"missing runtime localization source: {path.relative_to(ROOT)}")
+            continue
         runtime_literals |= _runtime_visible_literals(path, include_log=True)
     for literal in sorted(runtime_literals):
         for language in ("uk", "de", "en"):

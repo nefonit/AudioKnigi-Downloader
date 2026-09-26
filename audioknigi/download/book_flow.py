@@ -454,7 +454,7 @@ class BookFlowMixin:
             if not str(getattr(tr, "file", "") or "").strip()
         ]
         if missing_source_indices:
-            joined = ", ".join(str(index) for index in missing_source_indices if index > 0) or "?"
+            joined = ", ".join(str(index) for index in missing_source_indices if index >= 0) or "?"
             raise RuntimeError(
                 "В плейлисте отсутствует адрес аудиофайла для частей: "
                 f"{joined}. Повторите анализ книги."

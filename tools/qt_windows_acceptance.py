@@ -271,7 +271,8 @@ def run_manual_reader(
 
 
 def print_status(
-    report: dict[str, Any], exe: Path | None = None, *, require_windows: bool = True
+    report: dict[str, Any], exe: Path | None = None, *, require_windows: bool = True,
+    extra_issues: tuple[str, ...] = (),
 ) -> int:
     expected_hash = sha256_file(exe) if exe is not None and exe.exists() else None
     issues = acceptance_issues(
@@ -280,6 +281,7 @@ def print_status(
         exe_sha256=expected_hash,
         require_windows=require_windows,
     )
+    issues = [*issues, *extra_issues]
     print(f"Qt acceptance status: {'PASS' if not issues else 'INCOMPLETE'}")
     print(f"App: {report.get('app_version', '')}; stage: {report.get('migration_stage', '')}")
     print(f"EXE SHA-256: {report.get('exe_sha256', '')}")
@@ -314,6 +316,22 @@ def main(argv: list[str] | None = None) -> int:
         print("Финальная NVDA/JAWS acceptance допускается только на Windows.", file=sys.stderr)
         return 42
     require_windows = not args.allow_non_windows
+    if args.status:
+        # Inspect the existing evidence without resetting a mismatched report or
+        # writing anything. A rejected candidate must never produce PASS.
+        try:
+            report = load_report(report_path)
+        except (OSError, ValueError, TypeError) as exc:
+            print(f"Acceptance report unavailable: {exc}", file=sys.stderr)
+            return 44
+        candidate_issues = ()
+        try:
+            validate_candidate_manifest(candidate_path, exe, require_windows=require_windows)
+        except (OSError, ValueError, TypeError) as exc:
+            candidate_issues = (f"Release-candidate manifest rejected: {exc}",)
+        status = print_status(report, exe, require_windows=require_windows, extra_issues=candidate_issues)
+        return 43 if candidate_issues else status
+
     try:
         validate_candidate_manifest(candidate_path, exe, require_windows=require_windows)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -322,9 +340,6 @@ def main(argv: list[str] | None = None) -> int:
 
     report = _load_or_create(report_path, exe)
     report["candidate_manifest"] = candidate_path.name
-    if args.status:
-        return print_status(report, exe, require_windows=require_windows)
-
     try:
         run_automated_gates(exe, report, report_path, require_windows=require_windows)
         if not args.automated_only:

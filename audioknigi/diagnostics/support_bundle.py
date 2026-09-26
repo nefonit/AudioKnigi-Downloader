@@ -214,7 +214,12 @@ def _tail(path: Path, *, max_bytes: int = 512_000) -> bytes:
                 if not starts_after_newline:
                     newline = data.find(b"\n")
                     if newline >= 0:
-                        data = data[newline + 1:]
+                        trimmed = data[newline + 1:]
+                        # A short CRLF tail may contain only the final newline.
+                        # Retain the bounded suffix rather than dropping all
+                        # diagnostics; UTF-8 cleanup below trims split bytes.
+                        if trimmed:
+                            data = trimmed
             # Diagnostics are text. Trim any incomplete UTF-8 codepoint at a
             # byte-window boundary while keeping the archived tail valid UTF-8.
             return data.decode("utf-8", errors="ignore").encode("utf-8")

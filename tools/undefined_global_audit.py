@@ -61,7 +61,7 @@ def _missing_globals(table: symtable.SymbolTable, module_definitions: set[str]) 
 
 def main() -> int:
     failures: list[str] = []
-    modules = sorted(PACKAGE_ROOT.rglob("*.py"))
+    modules = [ROOT / "audioknigi_qt.py", *sorted(PACKAGE_ROOT.rglob("*.py"))]
     for path in modules:
         source = path.read_text(encoding="utf-8")
         try:

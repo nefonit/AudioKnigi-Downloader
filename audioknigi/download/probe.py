@@ -531,8 +531,20 @@ class ProbeMixin:
         if selected_indices is None:
             chosen = tracks
         else:
-            wanted = set(int(x) for x in selected_indices)
-            chosen = [t for t in tracks if safe_int(getattr(t, "index", None), -1) in wanted]
+            values = [selected_indices] if isinstance(selected_indices, str) else list(selected_indices)
+            wanted = set()
+            select_all = False
+            for value in values:
+                if isinstance(value, str) and value.strip().lower() in {"all", "*"}:
+                    select_all = True
+                    continue
+                number = safe_int(value, -1)
+                if isinstance(value, bool) or number < 0:
+                    raise ValueError(f"Invalid selected track index: {value!r}")
+                wanted.add(number)
+            chosen = tracks if select_all else [
+                t for t in tracks if safe_int(getattr(t, "index", None), -1) in wanted
+            ]
 
         want_mp3 = True
         remote_size = int(book.remote_size or 0)

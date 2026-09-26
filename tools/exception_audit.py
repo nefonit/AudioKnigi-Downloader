@@ -6,7 +6,6 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ALLOWLIST_PATH = ROOT / "tools" / "exception_allowlist.json"
 
 
 def _parent_map(tree):
@@ -29,9 +28,20 @@ def _function_name(node, parents) -> str:
 def _broad_handler_kind(node: ast.ExceptHandler) -> str:
     if node.type is None:
         return "bare"
-    if isinstance(node.type, ast.Name) and node.type.id in {"Exception", "BaseException"}:
-        return node.type.id
-    return ""
+    types = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+    names = {item.id for item in types if isinstance(item, ast.Name)}
+    if "BaseException" in names:
+        return "BaseException"
+    return "Exception" if "Exception" in names else ""
+
+
+def _empty_handler_body(body: list[ast.stmt]) -> bool:
+    return bool(body) and all(
+        isinstance(stmt, ast.Pass)
+        or (isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
+            and stmt.value.value is Ellipsis)
+        for stmt in body
+    )
 
 
 def scan(root: Path = ROOT) -> list[dict]:
@@ -45,7 +55,7 @@ def scan(root: Path = ROOT) -> list[dict]:
             if not isinstance(node, ast.ExceptHandler):
                 continue
             kind = _broad_handler_kind(node)
-            if not kind or len(node.body) != 1 or not isinstance(node.body[0], ast.Pass):
+            if not kind or not _empty_handler_body(node.body):
                 continue
             candidates.append((node.lineno, _function_name(node, parents), kind))
         counters: dict[tuple[str, str], int] = defaultdict(int)
@@ -62,7 +72,8 @@ def scan(root: Path = ROOT) -> list[dict]:
 
 
 def audit(root: Path = ROOT) -> tuple[list[dict], list[dict], list[str]]:
-    allow = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    root = Path(root)
+    allow = json.loads((root / "tools" / "exception_allowlist.json").read_text(encoding="utf-8"))
     findings = scan(root)
     finding_keys = {item["key"] for item in findings}
     unknown = [item for item in findings if item["key"] not in allow]
