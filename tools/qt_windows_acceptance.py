@@ -48,7 +48,11 @@ def validate_candidate_manifest(path: Path, exe: Path, *, require_windows: bool 
         raise ValueError("Release-candidate manifest root must be an object")
     expected_hash = sha256_file(exe)
     problems: list[str] = []
-    if int(data.get("schema", 0) or 0) != ACCEPTANCE_SCHEMA:
+    try:
+        schema = int(data.get("schema", 0) or 0)
+    except (TypeError, ValueError, OverflowError):
+        schema = 0
+    if schema != ACCEPTANCE_SCHEMA:
         problems.append("schema")
     if str(data.get("app_version", "")) != APP_VERSION:
         problems.append("app_version")
@@ -334,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         validate_candidate_manifest(candidate_path, exe, require_windows=require_windows)
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
         print(f"Release-candidate manifest rejected: {exc}", file=sys.stderr)
         return 43
 

@@ -67,7 +67,11 @@ def acceptance_issues(
     require_windows: bool = True,
 ) -> list[str]:
     issues: list[str] = []
-    if int(report.get("schema", 0) or 0) != ACCEPTANCE_SCHEMA:
+    try:
+        schema = int(report.get("schema", 0) or 0)
+    except (TypeError, ValueError, OverflowError):
+        schema = 0
+    if schema != ACCEPTANCE_SCHEMA:
         issues.append("unsupported acceptance schema")
     if app_version is not None and str(report.get("app_version", "")) != str(app_version):
         issues.append("app version mismatch")

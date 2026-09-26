@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import shutil
 import subprocess
@@ -531,15 +532,27 @@ class ProbeMixin:
         if selected_indices is None:
             chosen = tracks
         else:
-            values = [selected_indices] if isinstance(selected_indices, str) else list(selected_indices)
+            if isinstance(selected_indices, (str, int, float, bool)):
+                values = [selected_indices]
+            else:
+                try:
+                    values = list(selected_indices)
+                except TypeError as exc:
+                    raise ValueError(
+                        f"Invalid selected track index collection: {selected_indices!r}"
+                    ) from exc
             wanted = set()
             select_all = False
             for value in values:
                 if isinstance(value, str) and value.strip().lower() in {"all", "*"}:
                     select_all = True
                     continue
+                if isinstance(value, bool):
+                    raise ValueError(f"Invalid selected track index: {value!r}")
+                if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
+                    raise ValueError(f"Invalid selected track index: {value!r}")
                 number = safe_int(value, -1)
-                if isinstance(value, bool) or number < 0:
+                if number < 0:
                     raise ValueError(f"Invalid selected track index: {value!r}")
                 wanted.add(number)
             chosen = tracks if select_all else [
