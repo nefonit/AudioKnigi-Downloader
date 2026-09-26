@@ -120,7 +120,8 @@ def test_root_library_recovery_depth_and_queue_drop_coordinate_are_hardened() ->
 def test_ctrl_d_respects_selected_tracks_and_batch_errors_do_not_stack_dialogs() -> None:
     accessibility = src("audioknigi/qt/mixins/accessibility_ui.py")
     analysis = src("audioknigi/qt/mixins/analysis_download.py")
-    assert 'QShortcut(QKeySequence("Ctrl+D"), self, activated=self._start_primary_download)' in accessibility
+    assert '_add_window_shortcut("Ctrl+D", self._start_primary_download)' in accessibility
+    assert "Qt.ShortcutContext.WindowShortcut" in accessibility
     error_block = analysis[analysis.index('if kind == "error":'):analysis.index("book = payload")]
     assert "batch_pending = bool(getattr(self, \"_pending_queue_urls\", None))" in error_block
     assert 'if batch_pending:' in error_block
@@ -162,12 +163,15 @@ def test_disk_space_proportional_recommendation_is_intentionally_not_applied_to_
     assert "remote_size * (missing_duration / total_duration)" not in probe[probe.index("source_remaining = 0"):probe.index("outputs = 0")]
 
 
-def test_unverified_or_risky_architecture_recommendations_remain_out_of_bugfix_round() -> None:
+def test_round55_parallel_search_is_bounded_and_keeps_stable_provider_order() -> None:
     search = src("audioknigi/services/search_service.py")
     bootstrap = src("tools/pyinstaller_bootstrap.py")
-    # Provider-level parallelism would materially alter ordering/progress and is
-    # deliberately not introduced without a dedicated performance round.
-    assert "for provider_index, provider in enumerate(providers):" in search
+    # Round 55 is the dedicated performance round: independent sources start
+    # concurrently, while final results are merged back in registry order.
+    assert "ThreadPoolExecutor(max_workers=min(4, len(providers))" in search
+    assert "provider_results_by_key" in search
+    assert "for provider in providers:" in search
+    assert "results.extend(provider_results_by_key.get(provider.key, []))" in search
     # The private CPython WMI workaround remains guarded by hasattr and selftest;
     # replacing it requires validation against the target Windows/Python build.
     assert 'hasattr(platform, "_wmi")' in bootstrap
