@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import weakref
 
-from PySide6.QtCore import QObject, Slot
+from PySide6.QtCore import QObject, Signal, Slot, Qt
 
 from ..logging_utils import app_logger
 
 
 class WorkerUiRelay(QObject):
+    source_health_result = Signal(object)
     """QObject receiver that guarantees worker callbacks enter the GUI thread.
 
     Several UI handlers live on Python mixins rather than directly on a QObject
@@ -20,9 +21,18 @@ class WorkerUiRelay(QObject):
     def __init__(self, owner) -> None:
         super().__init__(owner)
         self._owner_ref = weakref.ref(owner)
+        self.source_health_result.connect(
+            self.source_health_finished, Qt.ConnectionType.QueuedConnection
+        )
 
     def _owner(self):
         return self._owner_ref()
+
+    @Slot(object)
+    def source_health_finished(self, outcome) -> None:
+        owner = self._owner()
+        if owner is not None:
+            owner._source_health_finished(outcome)
 
     @Slot(int, str)
     def search_progress(self, percent: int, message: str) -> None:
