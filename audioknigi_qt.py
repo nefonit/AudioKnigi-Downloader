@@ -110,6 +110,8 @@ def _qt_accessibility_selftest() -> int:
     previous_qpa_platform = os.environ.get("QT_QPA_PLATFORM")
     previous_excepthook = sys.excepthook
     async_callback_errors: list[str] = []
+    exit_code = 0
+    success_message = ""
 
     def capture_async_callback_error(exc_type, exc_value, exc_tb) -> None:
         async_callback_errors.append(
@@ -120,7 +122,7 @@ def _qt_accessibility_selftest() -> int:
     try:
         # If a QApplication already exists (for example in an in-process test
         # runner), reuse it rather than attempting to construct a forbidden
-        # second singleton.  Only a selftest-owned application needs the
+        # second singleton. Only a selftest-owned application needs the
         # offscreen platform override.
         from PySide6.QtWidgets import QApplication
 
@@ -155,15 +157,18 @@ def _qt_accessibility_selftest() -> int:
         if not result.ok:
             print(report, file=sys.stderr, end="" if report.endswith("\n") else "\n")
             print("QT ACCESSIBILITY SELFTEST: FAILED", file=sys.stderr)
-            return 26
-        print(f"QT ACCESSIBILITY SELFTEST: OK ({result.checked} controls, {QT_RUNTIME_STAGE})")
-        return 0
+            exit_code = 26
+        else:
+            success_message = (
+                f"QT ACCESSIBILITY SELFTEST: OK "
+                f"({result.checked} controls, {QT_RUNTIME_STAGE})"
+            )
     except Exception:
         details = "FAILED\n" + traceback.format_exc()
         _write_report(env_name, filename, details)
         print(details, file=sys.stderr, end="" if details.endswith("\n") else "\n")
         print("QT ACCESSIBILITY SELFTEST: FAILED", file=sys.stderr)
-        return 26
+        exit_code = 26
     finally:
         try:
             if window is not None:
@@ -207,7 +212,7 @@ def _qt_accessibility_selftest() -> int:
                         send_posted_events()
                 app.processEvents()
             if owns_app and app is not None:
-                # Qt documents QApplication as a process-wide singleton.  Forcing
+                # Qt documents QApplication as a process-wide singleton. Forcing
                 # its C++ destruction through shiboken while style/clipboard/
                 # accessibility singletons still exist can cause access violations
                 # in in-process test runners. Quit cleanly and let process teardown
@@ -226,12 +231,20 @@ def _qt_accessibility_selftest() -> int:
             else:
                 os.environ.pop("QT_QPA_PLATFORM", None)
             sys.excepthook = previous_excepthook
-            if async_callback_errors:
-                details = "FAILED\nAsynchronous Qt callback exception:\n" + "\n".join(async_callback_errors)
-                _write_report(env_name, filename, details)
-                print(details, file=sys.stderr, end="" if details.endswith("\n") else "\n")
-                print("QT ACCESSIBILITY SELFTEST: FAILED", file=sys.stderr)
-                return 26
+
+    if async_callback_errors:
+        details = (
+            "FAILED\nAsynchronous Qt callback exception:\n"
+            + "\n".join(async_callback_errors)
+        )
+        _write_report(env_name, filename, details)
+        print(details, file=sys.stderr, end="" if details.endswith("\n") else "\n")
+        print("QT ACCESSIBILITY SELFTEST: FAILED", file=sys.stderr)
+        return 26
+
+    if exit_code == 0 and success_message:
+        print(success_message)
+    return exit_code
 
 
 def _playwright_edge_selftest() -> int:
