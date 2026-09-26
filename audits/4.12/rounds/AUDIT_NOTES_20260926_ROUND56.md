@@ -24,6 +24,7 @@ The self-test still returned success because Qt routed the callback exception to
 ## Regression coverage
 
 - A source-contract regression verifies the unsafe guidance lambda is gone and the three startup/window callbacks use the safe scheduler.
+- The accessibility self-test temporarily captures `sys.excepthook`; any asynchronous Qt callback exception now changes the self-test result to failure instead of printing a traceback while returning success.
 - A subprocess regression runs the real `audioknigi_qt.py --qt-accessibility-selftest` path and fails if stderr contains `Internal C++ object`, `already deleted`, or a Python traceback.
 
 The issue was observed in a successful Windows build after the accessibility self-test reported 141 controls and zero accessibility issues; Round 56 makes that teardown path clean rather than merely non-fatal.
