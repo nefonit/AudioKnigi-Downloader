@@ -57,3 +57,4 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - [Round 54 — 2026-09-26](AUDIT_NOTES_20260926_ROUND54.md)
 - [Round 55 — 2026-09-26](AUDIT_NOTES_20260926_ROUND55.md)
 - [Round 56 — 2026-09-26](AUDIT_NOTES_20260926_ROUND56.md)
+- [Round 57 — 2026-09-26](AUDIT_NOTES_20260926_ROUND57.md)
