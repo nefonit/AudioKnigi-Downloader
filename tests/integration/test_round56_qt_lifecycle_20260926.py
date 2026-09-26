@@ -20,6 +20,14 @@ def test_delayed_window_callbacks_use_lifecycle_safe_scheduler():
     assert 'QTimer.singleShot(0, lambda: self._refresh_context_guidance' not in source
 
 
+def test_accessibility_selftest_promotes_async_callback_exceptions_to_failure():
+    source = (ROOT / "audioknigi_qt.py").read_text(encoding="utf-8")
+    assert "capture_async_callback_error" in source
+    assert "sys.excepthook = capture_async_callback_error" in source
+    assert "Asynchronous Qt callback exception:" in source
+    assert "return 26" in source
+
+
 def test_qt_accessibility_selftest_has_no_deleted_qt_callback_traceback():
     env = os.environ.copy()
     env["QT_QPA_PLATFORM"] = "offscreen"
