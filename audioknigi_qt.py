@@ -108,6 +108,15 @@ def _qt_accessibility_selftest() -> int:
     owns_app = False
     had_qpa_platform = "QT_QPA_PLATFORM" in os.environ
     previous_qpa_platform = os.environ.get("QT_QPA_PLATFORM")
+    previous_excepthook = sys.excepthook
+    async_callback_errors: list[str] = []
+
+    def capture_async_callback_error(exc_type, exc_value, exc_tb) -> None:
+        async_callback_errors.append(
+            "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        )
+
+    sys.excepthook = capture_async_callback_error
     try:
         # If a QApplication already exists (for example in an in-process test
         # runner), reuse it rather than attempting to construct a forbidden
@@ -216,6 +225,13 @@ def _qt_accessibility_selftest() -> int:
                 os.environ["QT_QPA_PLATFORM"] = previous_qpa_platform or ""
             else:
                 os.environ.pop("QT_QPA_PLATFORM", None)
+            sys.excepthook = previous_excepthook
+            if async_callback_errors:
+                details = "FAILED\nAsynchronous Qt callback exception:\n" + "\n".join(async_callback_errors)
+                _write_report(env_name, filename, details)
+                print(details, file=sys.stderr, end="" if details.endswith("\n") else "\n")
+                print("QT ACCESSIBILITY SELFTEST: FAILED", file=sys.stderr)
+                return 26
 
 
 def _playwright_edge_selftest() -> int:
