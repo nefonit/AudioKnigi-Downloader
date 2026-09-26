@@ -123,6 +123,19 @@ def _ui_text_literals(path: Path) -> set[str]:
     return values
 
 
+def _looks_like_text_argument(node: ast.AST) -> bool:
+    if isinstance(node, (ast.JoinedStr,)):
+        return True
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return True
+    if isinstance(node, ast.Call):
+        name = node.func.id if isinstance(node.func, ast.Name) else (
+            node.func.attr if isinstance(node.func, ast.Attribute) else ""
+        )
+        return name in {"_l", "_rt", "ui_text", "localize_runtime_text"}
+    return False
+
+
 def _visible_text_argument(node: ast.Call, called: str) -> ast.AST | None:
     keyword_names = {
         "QLabel": {"text"}, "QPushButton": {"text"}, "QCheckBox": {"text"},
@@ -135,7 +148,18 @@ def _visible_text_argument(node: ast.Call, called: str) -> ast.AST | None:
         "setAccessibleDescription": {"description", "accessibleDescription"},
     }.get(called, set())
     keyword = next((kw.value for kw in node.keywords if kw.arg in keyword_names), None)
-    return keyword if keyword is not None else (node.args[0] if node.args else None)
+    if keyword is not None:
+        return keyword
+    if not node.args:
+        return None
+    # QAction/QPushButton and addAction/addItem have icon+text overloads.
+    # With two or more positional arguments, prefer the second argument when
+    # it is text-like and the first one is not; otherwise the first argument
+    # remains the ordinary text overload.
+    if called in {"QAction", "QPushButton", "addAction", "addItem"} and len(node.args) >= 2:
+        if _looks_like_text_argument(node.args[1]) and not _looks_like_text_argument(node.args[0]):
+            return node.args[1]
+    return node.args[0]
 
 
 def _direct_visible_russian(path: Path) -> list[str]:
@@ -198,15 +222,22 @@ def _unwrapped_dynamic_visible_russian(path: Path) -> list[str]:
     """Reject raw Russian f-strings sent directly to visible/accessibility setters."""
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     issues: list[str] = []
+    constructors = {"QLabel", "QPushButton", "QCheckBox", "QGroupBox", "QAction"}
     methods = {
         "setText", "setToolTip", "setWhatsThis", "setPlaceholderText",
         "setAccessibleName", "setAccessibleDescription", "setWindowTitle",
+        "addAction", "addMenu", "addItem",
     }
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        called = node.func.attr if isinstance(node.func, ast.Attribute) else ""
-        if called not in methods:
+        if isinstance(node.func, ast.Name):
+            called = node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            called = node.func.attr
+        else:
+            called = ""
+        if called not in constructors and called not in methods:
             continue
         arg = _visible_text_argument(node, called)
         if isinstance(arg, ast.JoinedStr):
