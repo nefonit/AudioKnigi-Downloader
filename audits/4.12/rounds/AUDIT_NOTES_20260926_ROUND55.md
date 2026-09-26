@@ -43,4 +43,6 @@ Round 55 follows a user workflow review focused on NVDA/JAWS usability, visual g
 - New focused Round 55 regressions cover parallel search, source-health semantics, VPN/WARP messaging, player activation guidance, global shortcut context, button accessibility checks, narration focus hand-off, Help Center layout and the visible guidance banner.
 - Local gates before push: full parity 61/61; Qt import audit OK; Qt localization audit OK; exception audit PASS; unused-import audit OK; undefined-global audit OK; historical regression PASS; Round 55 + Help Center focused tests 14 passed.
 
+Merged through PR #5 after Qt-only CI run 36259373029 passed on Python 3.11 and 3.14.7. A documentation-only post-merge commit is used to trigger the normal `main` push workflow so the merged tree is validated again on the target branch.
+
 Packaged Windows runtime and real NVDA/JAWS behavior remain release-acceptance checks beyond source-level CI.
