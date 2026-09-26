@@ -252,6 +252,10 @@ class SearchUiMixin:
             self.easy_input.setReadOnly(True)
         self._set_search_progress(5, "Поиск запущен", visible=True)
         self.set_status(f"Ищу: {query}")
+        self._set_guidance(
+            self._l("Поиск запущен сразу по выбранным источникам. Дождитесь результатов или нажмите «Отменить поиск»."),
+            announce_now=True,
+        )
         self._show_blocking_operation(
             "search",
             title=self._l("Поиск"),
@@ -335,6 +339,11 @@ class SearchUiMixin:
         elif outcome.errors:
             self._set_search_results_active(False)
             self.set_status("Поиск не выполнен: " + "; ".join(outcome.errors), assertive=True)
+            self._set_guidance(
+                self._l("Поиск не выполнен. Проверьте интернет. Если источники блокируются в вашей сети или стране, включите VPN и повторите поиск."),
+                announce_now=True,
+                assertive=True,
+            )
             if self.current_ui_mode() == "easy":
                 self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
             else:
@@ -471,6 +480,22 @@ class SearchUiMixin:
             self.easy_narration_combo.setAccessibleDescription(
                 self._l("Найдено вариантов озвучки: {count}. Выберите чтеца.", count=count)
             )
+
+    @Slot(int)
+    def _easy_narration_selected(self, index: int) -> None:
+        self._update_search_action_states()
+        if index <= 0 or self.current_ui_mode() != "easy":
+            return
+        result = self._selected_search_result(self.easy_search_table)
+        if result is None or self._easy_selected_narration(result) is None:
+            return
+        self._focus_download_after_analysis = True
+        self.set_status(self._l("Озвучка выбрана. Анализ запускается автоматически."))
+        self._set_guidance(
+            self._l("Озвучка выбрана. Анализ запускается автоматически; после завершения фокус перейдёт на кнопку «Скачать книгу»."),
+            announce_now=True,
+        )
+        QTimer.singleShot(0, self.use_selected_result)
 
     def _easy_selected_narration(self, result: SearchResult | None):
         variants = self._search_result_narration_variants(result)
