@@ -17,8 +17,8 @@ def test_support_tail_drops_partial_line_that_can_hide_windows_path_prefix(tmp_p
     path.write_bytes(
         ("prefix " + "X" * 80 + r"C:\Users\Alice\Private\Book\chapter.mp3" + "\r\n").encode("utf-8")
     )
-    payload = _tail(path, max_bytes=24)
-    assert payload == b"[truncated log line]\n"
+    payload = _tail(path, max_bytes=24, privacy_safe=True)
+    assert payload == b"[truncated]\n"
     sanitized = _sanitize_log_bytes(payload).decode("utf-8")
     assert "Alice" not in sanitized
     assert "Private" not in sanitized
