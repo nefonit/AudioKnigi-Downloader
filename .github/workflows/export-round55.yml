@@ -1,0 +1,34 @@
+name: Export Round55 Source
+
+on:
+  push:
+    branches:
+      - round55-accessibility-guidance
+    paths:
+      - .github/workflows/export-round55.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Create Round 55 source archive
+        run: |
+          git archive --format=zip \
+            --prefix=AudioKnigi-Downloader-4.12.42-Round55/ \
+            -o AudioKnigi-Downloader-4.12.42-Round55.zip HEAD
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: round55-source
+          path: AudioKnigi-Downloader-4.12.42-Round55.zip
+          if-no-files-found: error
+          retention-days: 1
