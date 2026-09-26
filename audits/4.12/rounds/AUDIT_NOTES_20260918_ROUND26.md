@@ -18,6 +18,10 @@ A Windows verification log from Round 25 isolated the Easy-mode search freeze to
 
 ## Verification
 
+Round 26 adds focused regression coverage for non-native modality, hide-only teardown, UI re-enable, and search completion ordering.
+
+## Verification
+
 - Full pytest suite: **409 passed, 0 failed**.
 - Qt localization audit: **OK** (`ru`, `uk`, `de`, `en`).
 - Exception audit: **PASS** (`reviewed_broad_exception_passes=107`).

@@ -227,6 +227,9 @@ class SearchResult(MappingDataclass):
     source: str = "audioknigi.com.ua"
     author: str = ""
     narrator: str = ""
+    # True only when a provider guessed the author from an ambiguous title
+    # prefix such as ``Name - Book`` rather than reading an author field.
+    author_inferred: bool = False
     variant_count: int = 1
     narration_variants: list[NarrationVariant] = field(default_factory=list)
     availability: str = ""

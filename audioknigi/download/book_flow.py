@@ -5,7 +5,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import requests
 from ..models import normalize_track_status, TRACK_STATUS_MISSING, TRACK_STATUS_PRESENT, TRACK_STATUS_READY, TRACK_STATUS_DAMAGED
 from ..logging_utils import app_logger
 from ..i18n import tr as i18n_tr
@@ -228,10 +227,18 @@ class BookFlowMixin:
 
     def _process_book(self, book, selected_indices=None, status_callback=None):
         """Process a book, refreshing short-lived media URLs once after HTTP 404/410."""
-        if selected_indices is None:
-            active_selected = {int(tr.index) for tr in book.tracks}
-        else:
-            active_selected = {int(x) for x in selected_indices}
+        values = list(getattr(book, "tracks", []) or []) if selected_indices is None else list(selected_indices)
+        active_selected = set()
+        for value in values:
+            raw_index = getattr(value, "index", value)
+            if isinstance(raw_index, bool):
+                continue
+            try:
+                track_index = int(raw_index)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if track_index >= 0:
+                active_selected.add(track_index)
         self._last_process_skipped_indices = []
         refreshed_after_not_found = False
         fallback_attempted = False
@@ -441,16 +448,30 @@ class BookFlowMixin:
                         pass
 
         source_tracks = list(mp3_needs_creation)
+        missing_source_indices = [
+            int(getattr(tr, "index", 0) or 0)
+            for tr in source_tracks
+            if not str(getattr(tr, "file", "") or "").strip()
+        ]
+        if missing_source_indices:
+            joined = ", ".join(str(index) for index in missing_source_indices if index > 0) or "?"
+            raise RuntimeError(
+                "В плейлисте отсутствует адрес аудиофайла для частей: "
+                f"{joined}. Повторите анализ книги."
+            )
         unique_files = []
         seen_files = set()
         fallback_by_file = {}
         for tr in source_tracks:
-            if tr.file not in seen_files:
-                seen_files.add(tr.file)
-                unique_files.append(tr.file)
+            source_url = str(getattr(tr, "file", "") or "").strip()
+            if getattr(tr, "file", None) != source_url:
+                tr.file = source_url
+            if source_url not in seen_files:
+                seen_files.add(source_url)
+                unique_files.append(source_url)
             fallback = str(getattr(tr, "fallback_file", "") or "")
-            if fallback and tr.file not in fallback_by_file:
-                fallback_by_file[tr.file] = fallback
+            if fallback and source_url not in fallback_by_file:
+                fallback_by_file[source_url] = fallback
 
         self._log_book_flow(
             "download_plan", book, selected=len(chosen), existing_mp3=len(chosen) - len(mp3_needs_creation) if want_mp3 else 0,
@@ -801,36 +822,5 @@ class BookFlowMixin:
         self.set_stage(5, done_text)
         report(done_text)
         return folder
-
-    def _is_transient_error(self, error):
-        if isinstance(
-            error,
-            (
-                requests.Timeout,
-                requests.ConnectionError,
-            ),
-        ):
-            return True
-
-        text = str(error).lower()
-
-        transient_markers = (
-            "timeout",
-            "timed out",
-            "connection reset",
-            "connection aborted",
-            "remote disconnected",
-            "http 429",
-            "http 500",
-            "http 502",
-            "http 503",
-            "http 504",
-            "502",
-            "503",
-            "504",
-        )
-
-        return any(marker in text for marker in transient_markers)
-
 
 __all__ = ["BookFlowMixin"]

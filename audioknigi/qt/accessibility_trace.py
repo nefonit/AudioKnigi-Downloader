@@ -114,6 +114,17 @@ class AccessibilityFocusTracer(QObject):
             self._write({"event": "trace_stopped"})
         finally:
             self._closed = True
+            # aboutToQuit may be followed by focus changes while widgets are
+            # being torn down. Disconnect before closing the stream so no late
+            # Qt callback can race diagnostics teardown.
+            try:
+                self.app.focusChanged.disconnect(self._focus_changed)
+            except (RuntimeError, TypeError):
+                pass
+            try:
+                self.app.aboutToQuit.disconnect(self.close)
+            except (RuntimeError, TypeError):
+                pass
             stream, self._stream = self._stream, None
             if stream is not None:
                 try:

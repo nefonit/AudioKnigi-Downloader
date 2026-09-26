@@ -18,6 +18,7 @@ from ..integrations import audiobookshelf_scan
 from ..logging_utils import app_logger
 from ..core import Cancelled, fmt_time, safe_int, safe_normalization_mode, resolve_executable, effective_track_duration, parse_time_seconds, hidden_subprocess_kwargs, save_json
 from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes
+from .errors import SharedSourceTimelineError
 
 _AUDIO_INFO_CACHE_INIT_LOCK = threading.Lock()
 _AUDIO_INFO_CACHE_MAX = 32
@@ -114,6 +115,7 @@ class MediaProcessingMixin:
                 except Exception:
                     pass
             self._unregister_active_subprocess(proc)
+            _close_subprocess_pipes(proc)
 
     def _run_ffmpeg_capture(self, cmd, timeout=14400):
         """Run FFmpeg safely and return stderr while keeping cancel support."""
@@ -181,6 +183,7 @@ class MediaProcessingMixin:
                 except Exception:
                     pass
             self._unregister_active_subprocess(proc)
+            _close_subprocess_pipes(proc)
 
     def _probe_audio_info(self, file_path):
         ffprobe = resolve_executable("ffprobe")
@@ -367,8 +370,9 @@ class MediaProcessingMixin:
             and source_channels and source_channels <= target_channels
         ):
             self.log(
-                f"Smart Format: источник {source_bps//1000}k/{source_channels}ch уже не хуже выбранного "
-                f"профиля {target_bps//1000}k/{target_channels}ch — использую copy."
+                f"Smart Format: источник уже MP3 {source_bps//1000}k/{source_channels}ch; "
+                f"повышать его до профиля {target_bps//1000}k/{target_channels}ch перекодированием "
+                "не имеет смысла — сохраняю исходный поток без потери качества."
             )
             return True, None, None
 
@@ -600,18 +604,24 @@ class MediaProcessingMixin:
                         if inferred > 0:
                             duration = inferred
                         elif duration is None:
-                            self.log(
-                                f"Предупреждение: для промежуточной части "
-                                f"{safe_int(getattr(track, 'index', None), current_pos + 1)} "
-                                "не удалось определить конец; FFmpeg будет читать "
-                                "общий источник до EOF."
-                            )
+                            # A middle chapter in one shared source must have a
+                            # strictly increasing next boundary.  Reading to EOF
+                            # here would duplicate the rest of the audiobook into
+                            # this one chapter and corrupt every subsequent split.
                             app_logger.warning(
                                 "MEDIA | event=split_missing_middle_boundary | track=%s | start=%s | next_start=%s",
                                 safe_int(getattr(track, "index", None), current_pos + 1),
                                 start,
                                 next_start,
                             )
+                            raise SharedSourceTimelineError({
+                                "reason": "non_increasing_middle_boundary",
+                                "track_index": safe_int(getattr(track, "index", None), current_pos + 1),
+                                "start": float(start),
+                                "next_start": float(next_start) if next_start is not None else None,
+                                "expected_end": float(next_start or start),
+                                "actual_duration": 0.0,
+                            })
 
         # Keep FFmpeg argv stable/readable for integral timestamps ("10"
         # rather than "10.0") while retaining sub-second precision when needed.

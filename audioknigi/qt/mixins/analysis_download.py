@@ -133,6 +133,8 @@ class AnalysisDownloadUiMixin:
         current_blocked = current_variant is not None and getattr(current_variant, "available", None) is False
         self.narration_available_button.setProperty("availableIndex", -1 if first_available is None else int(first_available))
         self.narration_available_button.setVisible(bool(visible and first_available is not None and (current_blocked or not getattr(book, "tracks", None))))
+        if hasattr(self, "narration_row_widget"):
+            self.narration_row_widget.setVisible(visible)
 
     @Slot(int)
     def _narration_selected(self, index: int):
@@ -195,6 +197,9 @@ class AnalysisDownloadUiMixin:
         self.current_book = None
         self.track_model.set_book(None)
         self.book_empty_state.setVisible(False)
+        self.book_details_panel.setVisible(False)
+        self.track_controls_panel.setVisible(False)
+        self.track_table.setVisible(False)
         self.book_summary.setText(self._rt("Анализирую книгу…"))
         self.cancel_analysis_button.setEnabled(True)
         self._set_analysis_button_state(True)
@@ -204,6 +209,7 @@ class AnalysisDownloadUiMixin:
         self.full_mp3_button.setEnabled(False)
         self.add_queue_button.setEnabled(False)
         self.analysis_progress.setRange(0, 0)
+        self.analysis_progress.setVisible(True)
         self.set_status("Начинаю анализ книги…")
         self._show_blocking_operation(
             "analysis",
@@ -250,6 +256,7 @@ class AnalysisDownloadUiMixin:
         self._suppress_next_book_found_sound = False
         self.analysis_progress.setRange(0, 1)
         self.analysis_progress.setValue(1 if kind == "ok" else 0)
+        self.analysis_progress.setVisible(False)
         self.cancel_analysis_button.setEnabled(False)
         self._set_analysis_button_state(False)
         if kind == "cancelled":
@@ -260,6 +267,9 @@ class AnalysisDownloadUiMixin:
             self._full_mp3_after_analysis = False
             self._history_redownload_confirmed = False
             self.book_summary.setText(self._rt("Анализ отменён."))
+            self.book_details_panel.setVisible(False)
+            self.track_controls_panel.setVisible(False)
+            self.track_table.setVisible(False)
             self.book_empty_state.setVisible(True)
             self.set_status("Анализ книги отменён.")
             # Explicit Cancel means cancel the whole dropped batch, not just
@@ -273,6 +283,9 @@ class AnalysisDownloadUiMixin:
             self._download_after_analysis = False
             self._full_mp3_after_analysis = False
             self.book_summary.setText(self._rt("Не удалось проанализировать книгу."))
+            self.book_details_panel.setVisible(False)
+            self.track_controls_panel.setVisible(False)
+            self.track_table.setVisible(False)
             self.book_empty_state.setVisible(True)
             self.set_status("Ошибка анализа: " + str(payload), assertive=True)
             batch_pending = bool(getattr(self, "_pending_queue_urls", None))
@@ -327,9 +340,14 @@ class AnalysisDownloadUiMixin:
         self._book_url_is_stale = False
         self.current_book = book
         self.book_empty_state.setVisible(False)
+        self.book_details_panel.setVisible(True)
         self.track_model.set_book(book)
         self._update_selected_track_player_button()
-        self.track_table.resizeColumnsToContents()
+        # Keep the Advanced table geometry stable. The header already owns the
+        # responsive policy: compact metadata columns use ResizeToContents, the
+        # title stretches, and the raw source URL stays at its bounded interactive
+        # width. resizeColumnsToContents() here used to let long source URLs
+        # override that policy after every analysis and visually blow out the tab.
         parts = len(book.tracks)
         details = [book.title or self._l("Без названия")]
         if book.author:
@@ -344,7 +362,9 @@ class AnalysisDownloadUiMixin:
         total_duration = sum(float(effective_track_duration(t) or 0.0) for t in book.tracks)
         if total_duration > 0:
             details.append(self._l("Длительность: {time}", time=fmt_time(total_duration)))
-        self.book_summary.setText(" • ".join(details))
+        summary_text = " • ".join(details)
+        self.book_summary.setText(summary_text)
+        self.book_summary.setToolTip(summary_text)
         self.book_description.setText(str(book.description or self._l("Описание отсутствует.")))
         cover = cover_cache_bytes(getattr(book, "cover_cache", None))
         self.book_cover_label.setText(self._l("Нет обложки"))
@@ -354,7 +374,7 @@ class AnalysisDownloadUiMixin:
             if pix.loadFromData(cover):
                 self.book_cover_label.setPixmap(pix)
                 self.book_cover_label.setText("")
-        self.easy_summary.setText(" • ".join(details))
+        self.easy_summary.setText(summary_text)
         easy_description = str(book.description or "").strip()
         self.easy_description.setPlainText(easy_description)
         self.easy_description_title.setVisible(bool(easy_description))
@@ -379,6 +399,8 @@ class AnalysisDownloadUiMixin:
         self.download_button.setEnabled(enabled and self.track_model.selected_count() > 0)
         self.full_mp3_button.setEnabled(enabled and self._book_supports_full_mp3(book))
         self.add_queue_button.setEnabled(enabled and self.track_model.selected_count() > 0)
+        self.track_controls_panel.setVisible(enabled)
+        self.track_table.setVisible(enabled)
         self._update_download_primary_button()
         if not enabled:
             # A failed/empty analysis must never arm a later unrelated book for
@@ -557,6 +579,7 @@ class AnalysisDownloadUiMixin:
         self._download_thread = thread
         self._download_worker = worker
         self._active_download_mode = str(mode or "selected")
+        self.download_activity_panel.setVisible(True)
         self.download_progress.setValue(0)
         self.download_stage_label.setText(self._l("Скачивание: подготовка"))
         self.download_speed_label.setText(self._l("Скорость: —"))
@@ -801,12 +824,10 @@ class AnalysisDownloadUiMixin:
         text = parts_text + "\n\n" + self._l("Программа уже обновила плейлист, но файл всё равно отсутствует.")
         if prompt.detail:
             text += "\n\n" + prompt.detail
-        dialog_parent = (
-            self._operation_dialog
-            if getattr(self, "_operation_dialog_kind", "") == "download" and self._operation_dialog is not None
-            else self
-        )
-        box = QMessageBox(dialog_parent)
+        # Parent the decision prompt to the stable main window. The operation
+        # progress dialog can be closed/replaced during cancellation; making a
+        # modal decision box its child can otherwise strand the modal UI.
+        box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
         box.setWindowTitle(self._l("Недоступная часть аудиокниги"))
         box.setText(text)
@@ -883,6 +904,7 @@ class AnalysisDownloadUiMixin:
         self._finish_blocking_operation("download")
         self.speed_graph.set_transfer_active(False)
         self.speed_graph.setVisible(False)
+        self.download_activity_panel.setVisible(False)
         self.cancel_download_button.setEnabled(False)
         queue_task = self._active_queue_task()
         if queue_task is not None:

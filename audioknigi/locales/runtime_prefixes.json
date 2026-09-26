@@ -59,11 +59,6 @@
     "en": "Downloaded ",
     "uk": "Завантажено "
   },
-  "Скачивание завершено. Пропущены недоступные части: ": {
-    "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
-    "en": "Download completed. Unavailable parts were skipped: ",
-    "uk": "Завантаження завершено. Пропущено недоступні частини: "
-  },
   "Скорость: ": {
     "de": "Geschwindigkeit: ",
     "en": "Speed: ",
@@ -73,5 +68,10 @@
     "de": "Erstelle ",
     "en": "Creating ",
     "uk": "Створюю "
+  },
+  "Скачивание завершено. Пропущены недоступные части: ": {
+    "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
+    "en": "Download completed. Unavailable parts were skipped: ",
+    "uk": "Завантаження завершено. Пропущено недоступні частини: "
   }
 }

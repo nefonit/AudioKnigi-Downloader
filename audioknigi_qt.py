@@ -263,7 +263,8 @@ def main() -> int:
 
     from audioknigi.qt.application import run_qt
 
-    return run_qt(sys.argv)
+    code = run_qt(sys.argv)
+    return 0 if code is None else int(code)
 
 
 if __name__ == "__main__":

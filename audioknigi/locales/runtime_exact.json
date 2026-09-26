@@ -563,5 +563,10 @@
     "uk": "Системний звук Windows недоступний.",
     "de": "Der Windows-Systemton ist nicht verfügbar.",
     "en": "Windows system sound is unavailable."
+  },
+  "Не удалось освободить старый файл для повторного скачивания.": {
+    "uk": "Не вдалося звільнити старий файл для повторного завантаження.",
+    "de": "Die alte Datei konnte für den erneuten Download nicht freigegeben werden.",
+    "en": "Could not release the old file for re-download."
   }
 }

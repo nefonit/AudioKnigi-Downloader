@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 from ...brand import DISPLAY_NAME
 from ...metadata import APP_VERSION
 from ...core import DEFAULT_OUTPUT, safe_int
-from ...config.settings import AppSettings, normalize_settings, save_app_settings
+from ...config.settings import normalize_settings, save_app_settings
 from ..theme import THEMES, apply_theme
 from ..workers import AudiobookshelfWorker as _AudiobookshelfWorker
 
@@ -21,6 +21,39 @@ class SettingsUiMixin:
         ]
         for edit in (item for item in edits if item is not None):
             edit.textChanged.connect(lambda text, source=edit: self._sync_output_dir_text(source, text))
+            # Synchronize text live, but scan resume manifests only after the
+            # user finishes editing.  os.walk() over a large library must not run
+            # repeatedly while a path is being typed character by character.
+            edit.editingFinished.connect(self._schedule_unfinished_refresh)
+
+    def _wire_book_input_sync(self):
+        """Keep Easy and Advanced query/link fields synchronized.
+
+        Easy mode exposes one universal field while Advanced mode has both the
+        Book field and a dedicated Search field.  They all address the same
+        shared query/book state, so switching modes must not make the text or
+        search context appear to disappear.
+        """
+        edits = [
+            getattr(self, name, None)
+            for name in ("book_url_edit", "easy_input", "search_edit")
+        ]
+        for edit in (item for item in edits if item is not None):
+            edit.textChanged.connect(
+                lambda text, source=edit: self._sync_book_input_text(source, text)
+            )
+
+    def _sync_book_input_text(self, source, text: str):
+        if getattr(self, "_syncing_book_inputs", False):
+            return
+        self._syncing_book_inputs = True
+        try:
+            for name in ("book_url_edit", "easy_input", "search_edit"):
+                edit = getattr(self, name, None)
+                if edit is not None and edit is not source and edit.text() != text:
+                    edit.setText(text)
+        finally:
+            self._syncing_book_inputs = False
 
     @Slot(int)
     def _easy_quality_preset_changed(self, _index: int):
@@ -48,7 +81,6 @@ class SettingsUiMixin:
                     edit.setText(text)
         finally:
             self._syncing_output_dirs = False
-        self._schedule_unfinished_refresh()
 
     def _schedule_unfinished_refresh(self) -> None:
         timer = getattr(self, "_unfinished_refresh_timer", None)
@@ -66,10 +98,8 @@ class SettingsUiMixin:
         selected = QFileDialog.getExistingDirectory(self, self._l("Папка для аудиокниг"), start or str(DEFAULT_OUTPUT))
         if selected:
             if edit is not None:
-                # textChanged synchronizes all three fields and schedules one
-                # debounced unfinished-download scan. Avoid an immediate second
-                # scan here, which is expensive on NAS/external drives.
                 edit.setText(selected)
+            self._schedule_unfinished_refresh()
 
     def _preview_theme(self):
         theme = self.theme_combo.currentData() or "system"
@@ -180,7 +210,11 @@ class SettingsUiMixin:
         updated = self._settings_from_ui()
         updated = normalize_settings(updated)
         if save_app_settings(updated):
-            self.settings = AppSettings.from_mapping(updated)
+            # Keep object identity stable: other controllers can retain a
+            # reference to self.settings. Replacing the object would leave
+            # those consumers reading stale values after Save.
+            self.settings.clear()
+            self.settings.update(updated)
             self.language = str(updated.get("language", self.language) or self.language)
             self.event_sound_manager.configure(
                 enabled=bool(updated.get("event_sounds_enabled", True)),

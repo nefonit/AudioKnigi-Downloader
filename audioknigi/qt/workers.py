@@ -62,15 +62,16 @@ class SearchWorker(QObject):
 class AudiobookshelfWorker(QObject):
     finished = Signal(object)
 
-    def __init__(self, url: str, api_key: str):
+    def __init__(self, url: str, api_key: str, *, timeout: float = 4.0):
         super().__init__()
         self.url = str(url or "")
         self.api_key = str(api_key or "")
+        self.timeout = max(1.0, min(10.0, float(timeout or 4.0)))
 
     @Slot()
     def run(self):
         try:
-            libraries = audiobookshelf_get_libraries(self.url, self.api_key)
+            libraries = audiobookshelf_get_libraries(self.url, self.api_key, timeout=self.timeout)
             self.finished.emit(("ok", libraries))
         except Exception as exc:
             app_logger.exception("Qt Audiobookshelf worker failed")

@@ -201,8 +201,14 @@ def _extract_names(value) -> list[str]:
     def walk(obj):
         if isinstance(obj, dict):
             name = _clean_text(obj.get("name", ""))
-            if name and name not in result:
-                result.append(name)
+            if name:
+                if name not in result:
+                    result.append(name)
+                # Structured person nodes can contain nested metadata such as
+                # genre/category objects with their own ``name`` fields. Once a
+                # person name is present, treat that node as terminal so those
+                # metadata names cannot leak into authors/readers.
+                return
             for child in obj.values():
                 if isinstance(child, (dict, list, tuple)):
                     walk(child)
@@ -295,7 +301,11 @@ def _fallback_script_book(html_text: str, page_url: str) -> Book | None:
     unique = []
     for value in urls:
         value = value.strip()
-        if value.endswith("/0.mp3") or value in unique:
+        try:
+            audio_path = urlparse(value).path.casefold()
+        except Exception:
+            audio_path = ""
+        if audio_path.endswith("/0.mp3") or value in unique:
             continue
         unique.append(value)
     if not unique:
@@ -1161,6 +1171,9 @@ def _knigavuhe_query_tokens(value: str) -> list[str]:
 def _knigavuhe_token_matches(query_token: str, candidate_token: str) -> bool:
     if query_token == candidate_token:
         return True
+    # Keep a small, conservative Russian inflection allowance so a query such
+    # as "Крыса" still matches "Крысы в стенах", without accepting unrelated
+    # words such as "Крауч". Limit both the shared stem and the length delta.
     if (
         len(query_token) >= 5
         and len(candidate_token) >= 5
@@ -1175,6 +1188,11 @@ def _knigavuhe_matches_query(result: SearchResult, query: str) -> bool:
     query_tokens = _knigavuhe_query_tokens(query)
     if not query_tokens:
         return True
+    # A one-character search is too ambiguous to use as an initial match on
+    # its own.  The UI normally enforces a longer query, but keep this helper
+    # safe for provider/tests/direct callers as well.
+    if len(query_tokens) == 1 and len(query_tokens[0]) == 1:
+        return False
     title = _clean_text(getattr(result, "title", ""))
     author = _clean_text(getattr(result, "author", ""))
     narrator = _clean_text(getattr(result, "narrator", ""))
@@ -1182,17 +1200,31 @@ def _knigavuhe_matches_query(result: SearchResult, query: str) -> bool:
     if not haystack_tokens:
         return False
 
-    fully_matched = 0
+    person_tokens = _knigavuhe_query_tokens(" ".join(x for x in (author, narrator) if x))
+    strong_matches = 0
+    initial_matches = 0
     for query_token in query_tokens:
         if any(_knigavuhe_token_matches(query_token, candidate) for candidate in haystack_tokens):
-            fully_matched += 1
+            strong_matches += 1
             continue
-        person_tokens = _knigavuhe_query_tokens(" ".join(x for x in (author, narrator) if x))
-        initials = {token for token in person_tokens if len(token) == 1}
-        if fully_matched and len(query_token) > 1 and query_token[:1] in initials:
+        # Initial matching must be symmetric and order-independent.  Support
+        # both "Л. Толстой" -> "Лев Толстой" and "Лев Толстой" ->
+        # "Л. Толстой", but require another strong token match so a single
+        # coincidental letter never makes an unrelated result relevant.
+        if len(query_token) == 1 and any(
+            len(candidate) > 1 and candidate.startswith(query_token)
+            for candidate in person_tokens
+        ):
+            initial_matches += 1
+            continue
+        if len(query_token) > 1 and any(
+            len(candidate) == 1 and query_token.startswith(candidate)
+            for candidate in person_tokens
+        ):
+            initial_matches += 1
             continue
         return False
-    return True
+    return strong_matches > 0 or initial_matches == 0
 
 
 def _hydrate_search_result_titles(results: list[SearchResult], query: str = "", cancel_event=None) -> list[SearchResult]:
@@ -1228,7 +1260,7 @@ def _hydrate_search_result_titles(results: list[SearchResult], query: str = "", 
         finally:
             _shutdown_pool_now(pool, futures)
 
-    # Knigavuhe's site search also matches descriptions/series/genres. Those
+    # Knigavuhe's site search also matches descriptions/series/genres.  Those
     # are useful on the web site, but in AudioKnigi's result table they produce
     # visibly unrelated books. After hydration, keep only results whose exposed
     # title/author/narrator actually matches the user's query.

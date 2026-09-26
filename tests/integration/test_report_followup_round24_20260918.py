@@ -87,8 +87,9 @@ def test_network_proxy_and_media_edge_cases_are_hardened() -> None:
 def test_support_bundle_tail_and_path_privacy_cover_reported_boundaries() -> None:
     support = (ROOT / "audioknigi/diagnostics/support_bundle.py").read_text(encoding="utf-8")
     assert "if newline >= 0:" in support
-    assert "embedded_drive = re.compile" in support
-    assert "segment =" in support and "final =" in support
+    assert "_EMBEDDED_DRIVE_PATH_RE = re.compile" in support
+    assert "_EMBEDDED_UNC_PATH_RE = re.compile" in support
+    assert "_WINDOWS_PATH_SEGMENT_RE =" in support and "_WINDOWS_PATH_FINAL_RE =" in support
 
 
 def test_player_queue_clipboard_and_root_scan_followup_contracts() -> None:

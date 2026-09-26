@@ -72,7 +72,6 @@ def _ensure_system_scheme_listener(app: QApplication) -> None:
     except (AttributeError, RuntimeError, TypeError):
         pass
 
-
 def _dark_palette() -> QPalette:
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window, QColor("#181a1f"))

@@ -58,6 +58,7 @@ class AudioKnigiQtWindow(
         self._refreshing_queue = False
         self._syncing_output_dirs = False
         self._syncing_quality = False
+        self._syncing_book_inputs = False
         self._book_url_is_stale = False
         self._search_thread: QThread | None = None
         self._search_worker: _SearchWorker | None = None
@@ -229,6 +230,7 @@ class AudioKnigiQtWindow(
         self._accessibility_announcer = AccessibleAnnouncer(self.status, parent=self)
         self._wire_live_accessibility_feedback()
         self._wire_output_dir_sync()
+        self._wire_book_input_sync()
         self._build_menu()
         self._configure_keyboard_tab_order()
         self.set_ui_mode(str(self.settings.get("ui_mode", "easy") or "easy"), persist=False)
@@ -270,7 +272,7 @@ class AudioKnigiQtWindow(
         # still has a bounded maximum so it remains visually coherent on very
         # wide monitors, but it now grows with the window instead of keeping a
         # narrow fixed-looking search area.
-        card.setMinimumWidth(860)
+        card.setMinimumWidth(820)
         card.setMaximumWidth(1500)
         card.setMinimumHeight(360)
         card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -548,9 +550,7 @@ class AudioKnigiQtWindow(
         self.book_url_edit.clear()
         self.search_edit.clear()
         self.search_model.set_results([])
-        if hasattr(self, "search_results_stack"):
-            self.search_results_stack.setCurrentIndex(0)
-        self.easy_search_table.setVisible(False)
+        self._set_search_results_active(False)
         self.easy_narration_label.setVisible(False)
         self.easy_narration_combo.setVisible(False)
         self.easy_narration_combo.clear()
@@ -565,6 +565,11 @@ class AudioKnigiQtWindow(
         self.book_description.clear()
         self.book_cover_label.setPixmap(QPixmap())
         self.book_cover_label.setText(self._l("Нет обложки"))
+        self.book_details_panel.setVisible(False)
+        self.track_controls_panel.setVisible(False)
+        self.track_table.setVisible(False)
+        self.analysis_progress.setVisible(False)
+        self.download_activity_panel.setVisible(False)
         self.book_empty_state.setVisible(True)
 
         if clear_input and self.easy_input.text():
@@ -711,7 +716,13 @@ class AudioKnigiQtWindow(
         if persist:
             self.settings["ui_mode"] = mode
             save_app_settings(self.settings)
-        target = self.easy_input if mode == "easy" else self.book_url_edit
+        search_owns_view = self._sync_search_presentation_for_mode(mode)
+        if mode == "easy":
+            target = self.easy_search_table if search_owns_view else self.easy_input
+        elif search_owns_view:
+            target = self.search_table
+        else:
+            target = self.book_url_edit
         target_ref = weakref.ref(target)
 
         def focus_target_if_alive() -> None:

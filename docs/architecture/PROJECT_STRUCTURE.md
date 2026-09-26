@@ -58,7 +58,6 @@ Active tests live only under `tests/` and are grouped by behavior:
 - unused-import audit for the refactored downloader/Qt-mixin layers;
 - undefined-global audit for split-module imports/constants that `compileall` cannot detect;
 - historical-regression compatibility gate;
-- clean source-release ZIP packager;
 - frozen-module and Windows accessibility acceptance checks.
 
 One-off migration tools belong under `archive/tools/`.

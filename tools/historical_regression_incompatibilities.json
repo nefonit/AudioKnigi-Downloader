@@ -125,5 +125,6 @@
   "test_qt_windows_runtime_hardening_phase14_41231.py::test_playwright_analysis_locals_are_initialized_and_guarded",
   "test_qt_windows_runtime_hardening_phase14_41231.py::test_queue_clear_drops_stale_selection_before_model_reset",
   "test_qt_windows_runtime_hardening_phase14_41231.py::test_settings_fields_are_not_reassigned_after_update_dict",
-  "test_qt_windows_runtime_hardening_phase14_41231.py::test_windows_build_runs_full_window_selftest_before_pyinstaller"
+  "test_qt_windows_runtime_hardening_phase14_41231.py::test_windows_build_runs_full_window_selftest_before_pyinstaller",
+  "test_qt_windows_runtime_hardening_phase14_41231.py::test_keyboard_seek_updates_label_and_commits_position"
 ]

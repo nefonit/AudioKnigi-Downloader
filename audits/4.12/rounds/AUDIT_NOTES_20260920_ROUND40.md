@@ -10,7 +10,7 @@ Round 40 is based on direct review of the Windows production screenshots from Ro
 - Centered the Advanced workspace and capped it at 1500 px so tables no longer span an entire ultrawide monitor.
 - Rebalanced Advanced Search columns: Title, Author and Narrator are flexible; Source stays compact. The book-parts table stretches the chapter title rather than the source URL.
 - Added a modest minimum height to the Easy card so the centered layout feels less like a compressed island on large displays.
-- Upgraded Help Center rendering from plain text to rich text without changing topic content: larger blue heading, paragraph/list spacing and keyboard badges.
+- Upgraded Help Center rendering from plain text to rich text without changing topic content: larger blue heading, paragraph/list spacing and `<kbd>`-style keyboard badges.
 - Increased menu-bar top/bottom padding slightly for Windows 11 breathing room.
 - Search progress dialog was deliberately left unchanged because the supplied screenshot showed it as one of the strongest visual components.
 
@@ -23,11 +23,5 @@ Round 40 is based on direct review of the Windows production screenshots from Ro
 ## Verification
 
 - `compileall`: PASS.
-- Round 39 + Round 40 static UI contracts: **14 passed**.
-- Qt localization audit: PASS.
-- Qt import audit: PASS.
-- Exception audit: PASS.
-- Undefined-global audit: PASS.
-- Unused-import audit: PASS.
-- Full parity: PASS **61/61**.
+- Round 40 static UI contracts: PASS.
 - PySide6/Windows visual acceptance must be performed on the user Windows build; this container does not include PySide6.

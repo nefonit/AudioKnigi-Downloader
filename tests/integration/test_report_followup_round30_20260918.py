@@ -28,9 +28,7 @@ def test_selected_easy_narration_url_is_used_for_analysis_and_preserves_variants
     search = (ROOT / "audioknigi/qt/mixins/search.py").read_text(encoding="utf-8")
     block = search[search.index("def use_selected_result"):search.index("def copy_selected_url")]
     assert "selected_variant = self._easy_selected_narration(result)" in block
-    assert "selected_result = replace(" in block
-    assert "url=selected_url" in block
-    assert "narrator=selected_narrator or result.narrator" in block
+    assert "selected_result = replace(result, url=selected_url, narrator=selected_narrator or result.narrator)" in block
     assert "self._pending_search_result = selected_result" in block
     assert "self.book_url_edit.setText(selected_result.url)" in block
 
@@ -38,5 +36,5 @@ def test_selected_easy_narration_url_is_used_for_analysis_and_preserves_variants
 def test_single_narration_keeps_one_click_flow() -> None:
     search = (ROOT / "audioknigi/qt/mixins/search.py").read_text(encoding="utf-8")
     assert "multiple = len(variants) > 1" in search
-    assert 'self.easy_narration_label.setVisible(multiple and self.current_ui_mode() == "easy")' in search
-    assert 'self.easy_narration_combo.setVisible(multiple and self.current_ui_mode() == "easy")' in search
+    assert "self.easy_narration_label.setVisible(multiple and self.current_ui_mode() == \"easy\")" in search
+    assert "self.easy_narration_combo.setVisible(multiple and self.current_ui_mode() == \"easy\")" in search

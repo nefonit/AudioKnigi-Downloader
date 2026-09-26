@@ -13,6 +13,13 @@ from ...services.library_service import scan_unfinished
 from ..accessibility import focus_table_row
 from ..menu_utils import transient_menu
 
+def _unquote_shortcut_url(value: str) -> str:
+    text = str(value or "").strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"\"", "'"}:
+        return text[1:-1].strip()
+    return text
+
+
 class ClipboardUiMixin:
     """Clipboard behavior for :class:`AudioKnigiQtWindow`."""
 
@@ -49,6 +56,7 @@ class ClipboardUiMixin:
                         match = re.search(r"(?im)^URL=(.+)$", content)
                         if match:
                             shortcut_url = match.group(1).strip()
+                            shortcut_url = _unquote_shortcut_url(shortcut_url)
                             if valid_site_url(shortcut_url):
                                 value = shortcut_url
                     except (OSError, ValueError):
@@ -312,10 +320,22 @@ class ClipboardUiMixin:
         elif action is redownload:
             path_text = str(getattr(track, "local_path", "") or "").strip()
             if path_text:
+                path = Path(path_text).expanduser()
+                controller = getattr(self, "player_controller", None)
+                if controller is not None:
+                    try:
+                        controller.unload_if_path(path)
+                    except RuntimeError:
+                        pass
                 try:
-                    Path(path_text).expanduser().unlink(missing_ok=True)
+                    path.unlink(missing_ok=True)
                 except Exception as exc:
                     self._append_log(f"Не удалось удалить старый файл части: {exc}")
+                    self.set_status(
+                        "Не удалось освободить старый файл для повторного скачивания.",
+                        assertive=True,
+                    )
+                    return
             track.local_status = TRACK_STATUS_MISSING
             track.actual_duration = None
             track.local_path = ""

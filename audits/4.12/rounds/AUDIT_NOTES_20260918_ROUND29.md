@@ -14,6 +14,10 @@ Windows screenshot verification after Round 28 showed that Easy-mode search resu
 
 ## Verification
 
+- Added Round 29 regression coverage for responsive Easy-mode search columns and no-horizontal-scroll behavior.
+
+## Verification
+
 - Round 29 focused regressions: **2 passed**.
 - Full pytest suite: **420 passed, 0 failed**.
 - Qt localization audit: **OK** (`ru`, `uk`, `de`, `en`).

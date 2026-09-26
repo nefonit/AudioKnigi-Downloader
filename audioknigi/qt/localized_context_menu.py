@@ -142,7 +142,7 @@ def show_localized_text_context_menu(
     cut_action.triggered.connect(widget.cut)
     copy_action.triggered.connect(widget.copy)
     paste_action.triggered.connect(widget.paste)
-    delete_action.triggered.connect(lambda: _delete_selection(widget))
+    delete_action.triggered.connect(lambda *_: _delete_selection(widget))
 
     menu.addSeparator()
     select_all_action = menu.addAction(ui_text(language, "Выделить всё"))

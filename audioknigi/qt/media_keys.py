@@ -153,6 +153,9 @@ class WindowsMediaKeyFilter(QAbstractNativeEventFilter):
         if os.name != "nt" or not self._registered:
             self._registered.clear()
             return
+        if not self._hwnd:
+            self._registered.clear()
+            return
         try:
             user32 = _configure_user32(ctypes.windll.user32)
         except Exception:
@@ -175,7 +178,10 @@ class WindowsMediaKeyFilter(QAbstractNativeEventFilter):
         if os.name != "nt":
             return False, 0
         try:
-            msg = wintypes.MSG.from_address(int(message))
+            address = int(message)
+            if not address:
+                return False, 0
+            msg = wintypes.MSG.from_address(address)
         except Exception:
             return False, 0
 

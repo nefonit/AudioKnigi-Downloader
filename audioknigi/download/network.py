@@ -290,7 +290,7 @@ class NetworkDownloadMixin:
             ) as response:
                 response.raise_for_status()
                 content_range = response.headers.get("content-range", "")
-                match = re.match(r"bytes\s+0-0/(\d+)", content_range, re.I)
+                match = re.match(r"(?i)^bytes\s+0-0\s*/\s*(\d+)", content_range.strip())
                 if response.status_code == 206 and match:
                     return True, int(match.group(1))
                 length = int(response.headers.get("content-length", 0) or 0)
@@ -616,6 +616,9 @@ class NetworkDownloadMixin:
     def _download_segmented(self, url, target, referer, total_size, segment_count):
         """Download a file as resumable byte-range chunks with adaptive concurrency."""
         self._check_cancel()
+        total_size = int(total_size or 0)
+        if total_size <= 0:
+            raise RangeUnsupported("Неизвестен положительный размер файла для Range-загрузки")
         target = Path(target)
         part = target.with_name(target.name + ".part")
         initial_workers = max(2, min(8, int(segment_count)))

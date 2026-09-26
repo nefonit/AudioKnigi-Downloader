@@ -267,6 +267,11 @@ def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDown
                 # Older manifests sometimes encoded whole-book selection as []
                 # while the current request contract uses null/None. Preserve both.
                 indices = None
+            elif isinstance(selected_payload, str) and (
+                not selected_payload.strip()
+                or selected_payload.strip().casefold() in {"all", "*"}
+            ):
+                indices = None
             else:
                 indices = []
                 if isinstance(selected_payload, (str, bytes, bytearray)):

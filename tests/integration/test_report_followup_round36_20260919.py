@@ -17,7 +17,7 @@ def src(relative: str) -> str:
 
 def test_easy_card_is_substantially_wider_and_table_keeps_adaptive_header_modes() -> None:
     source = src("audioknigi/qt/main_window.py")
-    assert "card.setMinimumWidth(860)" in source
+    assert "card.setMinimumWidth(820)" in source
     assert "card.setMaximumWidth(1500)" in source
     assert "card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)" in source
     assert "center_row.addWidget(card, 8)" in source
@@ -62,8 +62,13 @@ def test_audioknigi_grouping_filters_unrelated_results_even_without_metadata(mon
 
 def test_audioknigi_real_annotation_beats_seo_description() -> None:
     html = """
-    <meta name="description" content="Крыса аудиокнига слушать онлайн https://audioknigi.com.ua/">
-    <div class="book-description">Настоящая аннотация рассказывает о герое, его конфликте и событиях книги.</div>
+    <html><head>
+      <meta name="description" content="Крыса аудиокнига слушать онлайн https://audioknigi.com.ua/">
+    </head><body>
+      <div class="book-description">
+        Настоящая аннотация рассказывает о герое, его конфликте и событиях книги.
+      </div>
+    </body></html>
     """
     value = audioknigi_search._audioknigi_description_from_html(html, title="Крыса", author="Автор")
     assert value.startswith("Настоящая аннотация")
@@ -72,11 +77,14 @@ def test_audioknigi_real_annotation_beats_seo_description() -> None:
 
 def test_audioknigi_analysis_normalizes_title_author_and_description() -> None:
     html = """
-    <title>Бурносов Юрий Тоннельная крыса аудиокнига слушать онлайн https://audioknigi.com.ua/</title>
-    <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"AudioBook","name":"Бурносов Юрий Тоннельная крыса аудиокнига слушать онлайн","author":{"@type":"Person","name":"Юрий Бурносов"},"description":"Слушать аудиокнигу онлайн бесплатно"}
-    </script>
-    <div class="book-description">Содержательная аннотация о событиях романа и главных героях.</div>
+    <html><head>
+      <title>Бурносов Юрий Тоннельная крыса аудиокнига слушать онлайн https://audioknigi.com.ua/</title>
+      <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"AudioBook","name":"Бурносов Юрий Тоннельная крыса аудиокнига слушать онлайн","author":{"@type":"Person","name":"Юрий Бурносов"},"description":"Слушать аудиокнигу онлайн бесплатно"}
+      </script>
+    </head><body>
+      <div class="book-description">Содержательная аннотация о событиях романа и главных героях.</div>
+    </body></html>
     """
     service = BookAnalysisService(
         cancel_event=threading.Event(),

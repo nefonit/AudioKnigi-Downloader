@@ -31,12 +31,16 @@ class DownloadRequest:
     @staticmethod
     def track_index(value) -> int:
         """Return a validated numeric track index from a Track, mapping or raw scalar."""
+        if isinstance(value, bool):
+            raise ValueError(f"Некорректный индекс части: {value!r}")
         if isinstance(value, (int, str)):
             raw = value
         elif isinstance(value, Mapping):
             raw = value.get("index", -1)
         else:
             raw = getattr(value, "index", value)
+        if isinstance(raw, bool):
+            raise ValueError(f"Некорректный индекс части: {raw!r}")
         number = safe_int(raw, -1)
         if number < 0:
             raise ValueError(f"Некорректный индекс части: {raw!r}")
@@ -78,7 +82,7 @@ def build_download_request(
         book=book,
         selected_indices=(
             None if selected_indices is None
-            else sorted({int(index) for index in selected_indices})
+            else sorted({DownloadRequest.track_index(index) for index in selected_indices})
         ),
         output_dir=Path(str(data.get("output_dir") or DEFAULT_OUTPUT)).expanduser(),
         naming_mode=str(data.get("naming_mode", "number") or "number"),

@@ -18,7 +18,7 @@ from ..templates import AUDIO_EXTENSIONS, render_folder, render_track_filename, 
 from ..logging_utils import app_logger
 from ..sources import normalize_supported_url, source_key
 from ..network_dns import cloudflare_ffmpeg_input_args
-from ..core import USER_AGENT, DEFAULT_OUTPUT, Cancelled, fmt_size, safe_name, resolve_executable, parse_time_seconds, effective_track_duration, hidden_subprocess_kwargs
+from ..core import USER_AGENT, DEFAULT_OUTPUT, Cancelled, fmt_size, safe_int, safe_name, resolve_executable, parse_time_seconds, effective_track_duration, hidden_subprocess_kwargs
 from .common import close_subprocess_pipes as _close_subprocess_pipes
 
 _DURATION_CACHE = {}
@@ -532,7 +532,7 @@ class ProbeMixin:
             chosen = tracks
         else:
             wanted = set(int(x) for x in selected_indices)
-            chosen = [t for t in tracks if t.index in wanted]
+            chosen = [t for t in tracks if safe_int(getattr(t, "index", None), -1) in wanted]
 
         want_mp3 = True
         remote_size = int(book.remote_size or 0)
@@ -660,12 +660,13 @@ class ProbeMixin:
         author = str(getattr(book, "author", "") or "").strip()
         narrator = str(getattr(book, "narrator", "") or "").strip()
         title = raw_title
-        if " - " in raw_title:
-            prefix, suffix = raw_title.split(" - ", 1)
-            if suffix.strip() and len(prefix.split()) <= 5:
-                title = suffix.strip()
+        parts = re.split(r"\s+[–—-]\s+", raw_title, maxsplit=1)
+        if len(parts) == 2:
+            prefix, suffix = (part.strip() for part in parts)
+            if suffix and len(prefix.split()) <= 5:
+                title = suffix
                 if not author:
-                    author = prefix.strip()
+                    author = prefix
         return title, author, narrator
 
     def _shared_source_timeline_issue(self, book, local_map=None):

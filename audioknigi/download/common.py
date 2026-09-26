@@ -54,7 +54,7 @@ def unlink_with_retry(path, *, missing_ok=True, attempts=5):
 def atomic_write_text(path, text, *, encoding="utf-8"):
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    temp = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.{time.monotonic_ns()}.tmp")
     try:
         temp.write_text(text, encoding=encoding)
         replace_with_retry(temp, target, attempts=4)
@@ -68,7 +68,7 @@ def atomic_write_text(path, text, *, encoding="utf-8"):
 def atomic_write_bytes(path, data):
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    temp = target.with_name(f".{target.name}.{os.getpid()}.{threading.get_ident()}.{time.monotonic_ns()}.tmp")
     try:
         temp.write_bytes(bytes(data or b""))
         replace_with_retry(temp, target, attempts=4)

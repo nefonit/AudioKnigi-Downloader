@@ -36,6 +36,8 @@ class QtPlayerController(QObject):
         self._resume_after_stop_ms = 0
         self._at_end = False
         self._last_persisted_at = 0.0
+        self._last_seek_target_ms = 0
+        self._last_seek_at = 0.0
 
         self.player.positionChanged.connect(self._on_position_changed)
         self.player.durationChanged.connect(self._on_duration_changed)
@@ -68,6 +70,8 @@ class QtPlayerController(QObject):
         self._resume_after_stop_ms = 0
         self._at_end = False
         self._last_persisted_at = 0.0
+        self._last_seek_target_ms = 0
+        self._last_seek_at = 0.0
         self.player.setSource(QUrl.fromLocalFile(str(path.resolve())))
         self.sourceChanged.emit(str(path))
         app = QApplication.instance()
@@ -130,18 +134,67 @@ class QtPlayerController(QObject):
         else:
             self.play()
 
+    def _position_for_persistence_ms(self) -> int:
+        position = max(0, int(self.player.position()))
+        # QMediaPlayer.setPosition() is asynchronous on some Windows backends.
+        # If Stop/Shutdown follows a user seek immediately, persist the requested
+        # target rather than a stale pre-seek backend position.
+        if (
+            self._last_seek_at > 0
+            and time.monotonic() - self._last_seek_at <= 1.5
+            and abs(position - int(self._last_seek_target_ms)) > 250
+        ):
+            return max(0, int(self._last_seek_target_ms))
+        return position
+
     @Slot()
     def stop(self) -> None:
         if self.current_path is None:
             return
-        position = max(0, int(self.player.position()))
-        self.save_position(force=True)
+        position = self._position_for_persistence_ms()
+        self.save_position(force=True, explicit_seconds=position / 1000.0)
         # Do not setPosition() immediately after stop(): with the FFmpeg backend
         # the asynchronous transition to StoppedState can race that seek. Keep
         # the resume point in controller state and apply it immediately before
         # the next Play instead.
         self._resume_after_stop_ms = 0 if self._at_end else (position if position >= 3000 else 0)
         self.player.stop()
+
+    def unload(self, *, save_position: bool = True) -> None:
+        """Release the current media source so Windows no longer locks the file."""
+        if self.current_path is None:
+            return
+        if save_position:
+            position = self._position_for_persistence_ms()
+            self.save_position(force=True, explicit_seconds=position / 1000.0)
+        self.player.stop()
+        self.player.setSource(QUrl())
+        self.current_path = None
+        self._pending_resume_ms = 0
+        self._pending_autoplay = False
+        self._resume_applied = False
+        self._resume_after_stop_ms = 0
+        self._at_end = False
+        self._last_seek_target_ms = 0
+        self._last_seek_at = 0.0
+        self.sourceChanged.emit("")
+        self.positionChanged.emit(0, 0)
+        self.durationChanged.emit(0)
+        self.seekableChanged.emit(False)
+
+    def unload_if_path(self, file_path: str | Path) -> bool:
+        """Release the source only when it refers to ``file_path``."""
+        if self.current_path is None:
+            return False
+        candidate = Path(file_path).expanduser()
+        try:
+            same = self.current_path.resolve() == candidate.resolve()
+        except OSError:
+            same = self.current_path == candidate
+        if not same:
+            return False
+        self.unload(save_position=True)
+        return True
 
     def seek(self, position_ms: int) -> None:
         if self.current_path is None:
@@ -152,6 +205,8 @@ class QtPlayerController(QObject):
             target = min(target, duration)
         self._resume_after_stop_ms = target if self.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState else 0
         self._at_end = False
+        self._last_seek_target_ms = target
+        self._last_seek_at = time.monotonic()
         self.player.setPosition(target)
         # Keyboard auto-repeat can call seek dozens of times per second. Use
         # the existing persistence throttle instead of forcing a disk write for
@@ -179,7 +234,7 @@ class QtPlayerController(QObject):
         if explicit_seconds is not None:
             position_seconds = max(0.0, float(explicit_seconds))
         else:
-            position_ms = max(0, int(self.player.position()))
+            position_ms = self._position_for_persistence_ms()
             # QMediaPlayer resets position() to zero after Stop. Preserve the
             # controller's remembered stop position so a timer/shutdown write
             # cannot delete the resume entry that stop() just saved.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from audioknigi import core
 from audioknigi.core import fmt_size
-from audioknigi.models import Track
+from audioknigi.models import Book, Track
 from audioknigi.services.download_request import DownloadRequest
 from audioknigi.templates import render_text_template
 
@@ -88,6 +88,7 @@ def test_cover_format_switch_removes_stale_alternate_sidecars() -> None:
 def test_middle_shared_track_without_end_boundary_is_diagnosed() -> None:
     source = src("audioknigi/download/media.py")
     assert "event=split_missing_middle_boundary" in source
+    assert "raise SharedSourceTimelineError" in source
 
 
 def test_audioknigi_search_normalizes_query_and_decodes_bom() -> None:
@@ -113,8 +114,7 @@ def test_root_library_recovery_depth_and_queue_drop_coordinate_are_hardened() ->
     workers = src("audioknigi/qt/workers.py")
     assert "if depth >= 8:" in library
     assert "target_row = self.rowAt(int(event.position().y()))" in workers
-    drop_block = workers[workers.index("def dropEvent"):workers.index("super().dropEvent", workers.index("def dropEvent"))]
-    assert "mapFrom" not in drop_block
+    assert "mapFrom" not in workers[workers.index("def dropEvent"):workers.index("super().dropEvent", workers.index("def dropEvent"))]
 
 
 def test_ctrl_d_respects_selected_tracks_and_batch_errors_do_not_stack_dialogs() -> None:
@@ -123,7 +123,9 @@ def test_ctrl_d_respects_selected_tracks_and_batch_errors_do_not_stack_dialogs()
     assert 'QShortcut(QKeySequence("Ctrl+D"), self, activated=self._start_primary_download)' in accessibility
     error_block = analysis[analysis.index('if kind == "error":'):analysis.index("book = payload")]
     assert "batch_pending = bool(getattr(self, \"_pending_queue_urls\", None))" in error_block
+    assert 'if batch_pending:' in error_block
     assert 'self._append_log("Ошибка анализа при пакетном добавлении: " + str(payload))' in error_block
+    assert 'else:\n                self._show_message' in error_block
 
 
 def test_duplicate_open_folder_updates_book_state_and_audit_timeout_is_relaxed() -> None:
@@ -144,12 +146,18 @@ def test_runtime_catalog_static_literal_duplicate_is_removed_but_prefix_fallback
     exact = json.loads((ROOT / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8"))
     prefixes = json.loads((ROOT / "audioknigi/locales/runtime_prefixes.json").read_text(encoding="utf-8"))
     assert "ID библиотеки Audiobookshelf" not in exact
+    # Runtime regex wins first, but keeping the translated prefix provides a
+    # static-audit/fallback contract for partial variants of the message.
     assert "Скачивание завершено. Пропущены недоступные части: " in prefixes
 
 
 def test_disk_space_proportional_recommendation_is_intentionally_not_applied_to_shared_source() -> None:
     source = src("audioknigi/services/book_analysis_service.py")
     probe = src("audioknigi/download/probe.py")
+    # remote_size is only populated by this analyser when exactly one unique
+    # source file backs the book. Proportionally shrinking that source by
+    # selected chapter duration would underestimate the full shared file that
+    # must actually be downloaded before splitting.
     assert "if self.options.fetch_remote_size and len(unique_files) == 1:" in source
     assert "remote_size * (missing_duration / total_duration)" not in probe[probe.index("source_remaining = 0"):probe.index("outputs = 0")]
 
@@ -157,5 +165,9 @@ def test_disk_space_proportional_recommendation_is_intentionally_not_applied_to_
 def test_unverified_or_risky_architecture_recommendations_remain_out_of_bugfix_round() -> None:
     search = src("audioknigi/services/search_service.py")
     bootstrap = src("tools/pyinstaller_bootstrap.py")
+    # Provider-level parallelism would materially alter ordering/progress and is
+    # deliberately not introduced without a dedicated performance round.
     assert "for provider_index, provider in enumerate(providers):" in search
+    # The private CPython WMI workaround remains guarded by hasattr and selftest;
+    # replacing it requires validation against the target Windows/Python build.
     assert 'hasattr(platform, "_wmi")' in bootstrap

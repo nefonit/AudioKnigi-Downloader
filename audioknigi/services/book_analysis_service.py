@@ -31,6 +31,7 @@ from ..knigavuhe import fetch_book as fetch_knigavuhe_book, search as search_kni
 from ..poleknig import fetch_book as fetch_poleknig_book
 from ..providers.audioknigi_search import (
     _audioknigi_description_from_html,
+    _audioknigi_plain_narrator,
     _canonical_title as _canonical_audioknigi_title,
     _merge_author_names as _merge_audioknigi_authors,
     _split_multi_author_prefix as _split_audioknigi_multi_author_prefix,
@@ -544,14 +545,17 @@ class BookAnalysisService:
         author = _merge_audioknigi_authors(visible_authors, author, metadata_prefix_authors)
         title = metadata_book_title if metadata_prefix_authors else metadata_title
         if author:
+            stripped = title
             for known_author in [part.strip() for part in author.split(",") if part.strip()]:
-                candidate = _strip_audioknigi_author_prefix(title, known_author)
-                if candidate != title:
-                    title = candidate
-                    break
+                candidate = _strip_audioknigi_author_prefix(stripped, known_author)
+                if candidate != stripped:
+                    stripped = candidate.lstrip(" ,;")
+            title = stripped or title
         if cover_url:
             cover_url = urljoin(url, cover_url)
         _structured_description, narrator, genre, year = extract_extended_metadata_from_html(normalized_html)
+        if not narrator:
+            narrator = _audioknigi_plain_narrator(normalized_html)
         description = _audioknigi_description_from_html(
             normalized_html, title=title, author=author
         )

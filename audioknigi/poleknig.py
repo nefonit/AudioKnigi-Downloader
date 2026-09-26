@@ -262,13 +262,22 @@ def _looks_like_poleknig_seo_description(value: str, *, title: str = "", author:
     compact = re.sub(r"[^\w]+", " ", folded, flags=re.UNICODE).strip()
     title_key = re.sub(r"[^\w]+", " ", _clean_title_text(title).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
     author_key = re.sub(r"[^\w]+", " ", _clean_text(author).casefold().replace("ё", "е"), flags=re.UNICODE).strip()
+    # A meta-description that is almost entirely "author + title + listen/download"
+    # is catalogue SEO, not the book annotation shown on the page.
     if title_key and title_key in compact and author_key and author_key in compact and len(text) < 260:
         return True
     return False
 
 
 def _poleknig_description_from_html(html_text: str, *, title: str = "", author: str = "") -> str:
-    """Extract the visible book annotation instead of the page SEO description."""
+    """Extract the visible book annotation instead of the page SEO description.
+
+    PoleKnig detail pages expose the real synopsis in visible content while the
+    meta description can contain a search-engine phrase such as "скачать
+    аудиокнигу ...". Prefer semantically named description/annotation blocks,
+    then substantial paragraphs, then JSON-LD, and only finally a non-SEO meta
+    description.
+    """
     html = str(html_text or "")
     candidates: list[str] = []
 
@@ -289,6 +298,8 @@ def _poleknig_description_from_html(html_text: str, *, title: str = "", author: 
         if len(text) >= 80:
             candidates.append(text)
 
+    # Structured data is a useful secondary source on layouts where the visible
+    # synopsis container has no stable CSS class.
     for script in re.findall(r'<script\b[^>]*type=["\']application/ld\+json["\'][^>]*>([\s\S]*?)</script>', html, re.I):
         try:
             payload = json.loads(html_lib.unescape(script).strip())
@@ -642,7 +653,7 @@ def _normalize_js_literals_for_python(candidate: str) -> str:
                 quote = ""
             i += 1
             continue
-        if ch in ("'", '"'):
+        if ch in ("'", '"', "`"):
             quote = ch
             out.append(ch)
             i += 1
@@ -769,7 +780,7 @@ def _parse_playlist_objects(value: str, page_url: str) -> list[Track]:
         track_index = len(compact_tracks) + 1
         compact_tracks.append(Track(index=track_index, title=title or f"{track_index:03d}", file=urljoin(page_url, file_url), start=start))
     for current, following in zip(compact_tracks, compact_tracks[1:]):
-        if current.start is not None and following.start is not None and following.start >= current.start:
+        if current.start is not None and following.start is not None and following.start > current.start:
             current.end = following.start
             current.duration = following.start - current.start
     return compact_tracks

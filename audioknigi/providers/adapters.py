@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterable
 
 from .base import SourceProvider
 from ..models import Book, SearchResult
@@ -25,7 +26,12 @@ class KnigavuheProvider(SourceProvider):
         from ..knigavuhe import search
         return list(search(query, cancel_event=cancel_event) or [])
 
-    def enrich_search_results(self, results, *, cancel_event: threading.Event | None = None):
+    def enrich_search_results(
+        self,
+        results: Iterable[SearchResult],
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> list[SearchResult]:
         from ..knigavuhe import enrich_search_variants
         return list(enrich_search_variants(list(results), cancel_event=cancel_event) or [])
 

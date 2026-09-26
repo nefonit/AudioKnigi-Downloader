@@ -602,6 +602,10 @@ class _DownloadEngine(DownloaderMixin):
                 callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
                 if req is not None:
                     req.book = book
+                    req.selected_indices = [
+                        req.track_index(track)
+                        for track in list(getattr(book, "tracks", None) or [])
+                    ]
                     if callback is not None:
                         try:
                             callback(req)

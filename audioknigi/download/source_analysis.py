@@ -64,7 +64,13 @@ class SourceAnalysisMixin:
                         candidate_score -= 2.0
                 candidates.append((candidate_score, candidate_url))
 
+        seen_urls = set()
+        unknown_narrator_choice = None
+        unknown_narrator_identity = None
         for _score, candidate_url in sorted(candidates, reverse=True)[:8]:
+            if candidate_url in seen_urls:
+                continue
+            seen_urls.add(candidate_url)
             self._check_cancel()
             try:
                 fallback = provider_for_key("knigavuhe").fetch_book(candidate_url, cancel_event=cancel_event)
@@ -85,12 +91,24 @@ class SourceAnalysisMixin:
                 if author_overlap < 0.50:
                     continue
             fb_narrator_tokens = set(self._identity_tokens(fallback_narrator))
-            if narrator_tokens and fb_narrator_tokens:
+            if narrator_tokens:
+                if not fb_narrator_tokens:
+                    if unknown_narrator_choice is None:
+                        unknown_narrator_choice = fallback
+                    continue
                 narrator_overlap = len(narrator_tokens & fb_narrator_tokens) / max(1, len(narrator_tokens | fb_narrator_tokens))
                 if narrator_overlap < 0.40:
                     continue
-            return fallback
-        return None
+                return fallback
+            narrator_identity = " ".join(str(fallback_narrator or "").casefold().split())
+            identity = narrator_identity or ("url:" + candidate_url)
+            if unknown_narrator_choice is None:
+                unknown_narrator_choice = fallback
+                unknown_narrator_identity = identity
+            elif identity != unknown_narrator_identity:
+                app_logger.info("Download fallback is ambiguous because the source narrator is unknown")
+                return None
+        return unknown_narrator_choice
 
     def _service(self) -> BookAnalysisService:
         return BookAnalysisService(

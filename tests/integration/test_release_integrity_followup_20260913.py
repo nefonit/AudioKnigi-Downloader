@@ -108,7 +108,7 @@ def test_split_module_style_regressions_are_cleaned():
     lifecycle = (ROOT / "audioknigi" / "qt" / "mixins" / "lifecycle.py").read_text(encoding="utf-8")
     clipboard = (ROOT / "audioknigi" / "qt" / "mixins" / "clipboard.py").read_text(encoding="utf-8")
     search = (ROOT / "audioknigi" / "qt" / "mixins" / "search.py").read_text(encoding="utf-8")
-    assert "return None\n\n    def _service" in source_analysis
+    assert "return unknown_narrator_choice\n\n    def _service" in source_analysis
     assert 'reason="disabled")\n\n        self._save_book_sidecars' in book_flow
     assert "try: self.tray_controller.shutdown()" not in lifecycle
     assert "; self.track_table.selectRow" not in clipboard

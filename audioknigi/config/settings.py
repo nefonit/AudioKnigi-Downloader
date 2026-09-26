@@ -14,14 +14,18 @@ from ..core import (
 CURRENT_SETTINGS_VERSION = 2
 
 def _safe_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return bool(default)
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
         return bool(value)
-    text = str(value or "").strip().casefold()
+    text = str(value).strip().casefold()
+    if not text:
+        return bool(default)
     if text in {"1", "true", "yes", "on", "да", "так"}:
         return True
-    if text in {"0", "false", "no", "off", "нет", "ні", ""}:
+    if text in {"0", "false", "no", "off", "нет", "ні"}:
         return False
     return bool(default)
 
@@ -77,7 +81,7 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     # v1 -> v2: the historic key said "kbps" even though the UI and runtime
     # consistently used KB/s. Keep reading the old key, but persist the precise
     # name from now on.
-    if "auto_chunk_min_kbytes_per_sec" not in raw and "auto_chunk_min_kbps" in raw:
+    if raw.get("auto_chunk_min_kbytes_per_sec") is None and "auto_chunk_min_kbps" in raw:
         raw["auto_chunk_min_kbytes_per_sec"] = raw.get("auto_chunk_min_kbps")
     raw.pop("auto_chunk_min_kbps", None)
 
@@ -93,6 +97,18 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     raw.pop("normalize_audio", None)
 
     raw["settings_version"] = CURRENT_SETTINGS_VERSION
+
+    # Existing profiles created before the onboarding flag was introduced have
+    # already been through first-run setup.  Treat only a genuinely empty/new
+    # profile as incomplete; otherwise an upgrade would reopen the wizard.
+    legacy_profile_keys = (
+        set(DEFAULT_SETTINGS) - {"settings_version", "first_run_complete"}
+    ) | {"auto_chunk_min_kbps", "normalize_audio"}
+    if (
+        "first_run_complete" not in original
+        and any(key in original for key in legacy_profile_keys)
+    ):
+        raw["first_run_complete"] = True
 
     for key, default in DEFAULT_SETTINGS.items():
         if key not in raw or raw[key] is None:
@@ -111,7 +127,14 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     raw["segment_threshold_mb"] = max(1, safe_int(raw.get("segment_threshold_mb"), 16))
     raw["auto_chunk_min_kbytes_per_sec"] = max(1, safe_int(raw.get("auto_chunk_min_kbytes_per_sec"), 256))
     raw["bandwidth_limit"] = max(0.0, safe_float(raw.get("bandwidth_limit"), 0.0))
-    raw["segment_count"] = str(raw.get("segment_count") or "auto")
+    segment_count = str(raw.get("segment_count") or "auto").strip().lower()
+    if segment_count != "auto":
+        try:
+            segment_number = int(segment_count)
+        except (TypeError, ValueError):
+            segment_number = 0
+        segment_count = str(segment_number) if 1 <= segment_number <= 8 else "auto"
+    raw["segment_count"] = segment_count
     raw["normalization_mode"] = safe_normalization_mode(raw.get("normalization_mode"))
     raw["folder_template"] = str(raw.get("folder_template") or "{Book_Title}")
     raw["track_template"] = str(raw.get("track_template") or "{Track_Number}.mp3")
@@ -130,6 +153,27 @@ class AppSettings(MutableMapping[str, Any]):
     """Dictionary-compatible settings object with a versioned schema."""
 
     _data: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # AppSettings is a public construction boundary as well as a
+        # MutableMapping. Normalize direct mappings here so callers cannot
+        # accidentally retain string numerics, invalid ranges or loose boolean
+        # spellings merely because they did not use ``from_mapping``. A direct
+        # constructor represents current intent rather than a legacy profile
+        # load, so do not re-run the historic automatic-125% migration here.
+        original = dict(self._data or {})
+        payload = dict(original)
+        payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
+        normalized = normalize_settings(payload)
+        # The migration marker is persistence metadata, not part of the public
+        # direct-construction schema unless the caller supplied it explicitly.
+        if UI_SCALE_MIGRATION_KEY not in original:
+            normalized.pop(UI_SCALE_MIGRATION_KEY, None)
+        # Likewise, merely constructing a partial in-memory mapping must not be
+        # mistaken for loading an already-used legacy settings profile.
+        if "first_run_complete" not in original:
+            normalized["first_run_complete"] = DEFAULT_SETTINGS["first_run_complete"]
+        self._data = normalized
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any] | None) -> "AppSettings":

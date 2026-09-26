@@ -86,7 +86,19 @@ def safe_int(value, default=0):
     try:
         return int(value)
     except (TypeError, ValueError, OverflowError):
+        pass
+    # Tolerate serialized integer-like floats ("12.0") without silently
+    # truncating genuinely fractional values such as "12.5".
+    try:
+        numeric = float(value)
+        if math.isfinite(numeric) and numeric.is_integer():
+            return int(numeric)
+    except (TypeError, ValueError, OverflowError):
+        pass
+    try:
         return int(default)
+    except (TypeError, ValueError, OverflowError):
+        return 0
 
 
 def migrate_ui_scale_settings(settings):
@@ -806,7 +818,6 @@ def _load_persisted_cookies(session):
 
 def persist_browser_session(cookies, headers=None):
     """Persist successful Playwright cookies plus the browser headers most likely tied to them."""
-    cookies_provided = cookies is not None
     cleaned = []
     for item in cookies or []:
         if not isinstance(item, dict) or not item.get("name"):
@@ -836,24 +847,41 @@ def persist_browser_session(cookies, headers=None):
             safe_headers[target_name] = str(value)
 
     existing_profile = _load_persisted_profile()
-    if not safe_headers and isinstance(existing_profile.get("headers"), dict):
-        safe_headers = dict(existing_profile.get("headers") or {})
+    existing_headers = (
+        dict(existing_profile.get("headers") or {})
+        if isinstance(existing_profile.get("headers"), dict)
+        else {}
+    )
+    if not safe_headers:
+        safe_headers = dict(existing_headers)
 
-    if cleaned:
+    existing_cookies = load_json(COOKIE_FILE, []) if cleaned else []
+    if not isinstance(existing_cookies, list):
+        existing_cookies = []
+    cookies_changed = bool(cleaned) and cleaned != existing_cookies
+    headers_changed = safe_headers != existing_headers
+
+    if cookies_changed:
         save_json(COOKIE_FILE, cleaned)
     # An empty browser cookie list is not an explicit user request to erase a
     # previously solved Cloudflare session. Preserve the cookie file/count while
     # still allowing fresh browser headers to update the paired profile.
     if cleaned or safe_headers:
         cookies_count = len(cleaned) if cleaned else safe_int(existing_profile.get("cookies_saved", 0), 0)
-        save_json(
-            SESSION_PROFILE_FILE,
-            {"headers": safe_headers, "cookies_saved": cookies_count, "saved_at": int(time.time())},
+        profile_changed = (
+            headers_changed
+            or safe_int(existing_profile.get("cookies_saved", 0), 0) != cookies_count
         )
-        # A Session may already have been created before Playwright solved a
-        # challenge. Invalidate all thread-local pools so the next request sees
-        # the newly persisted cookies and matching browser headers.
-        refresh_http_session_profile()
+        if profile_changed:
+            save_json(
+                SESSION_PROFILE_FILE,
+                {"headers": safe_headers, "cookies_saved": cookies_count, "saved_at": int(time.time())},
+            )
+        # Invalidate thread-local requests pools only when session material
+        # actually changed. Re-saving identical headers/cookies must not tear
+        # down healthy keep-alive connections during downloads.
+        if cookies_changed or headers_changed:
+            refresh_http_session_profile()
 
 
 def persist_browser_cookies(cookies, headers=None):

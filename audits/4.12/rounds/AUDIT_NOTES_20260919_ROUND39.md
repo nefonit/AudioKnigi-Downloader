@@ -16,11 +16,8 @@ Round 39 is intentionally visual-only: it does not change search, analysis, down
 ## Verification
 
 - `compileall`: PASS.
-- Round 39 source-contract tests: **7 passed**.
+- Round 39 source-contract tests: PASS.
 - Undefined-global audit: PASS.
 - Unused-import audit: PASS.
-- Qt import audit: PASS.
-- Qt localization audit: PASS.
-- Exception audit: PASS.
-- Full parity: PASS **61/61**.
+- Qt localization/import audits: PASS where available without importing PySide6.
 - Visual Windows acceptance remains required because the build container used for this round does not provide PySide6/Windows rendering.

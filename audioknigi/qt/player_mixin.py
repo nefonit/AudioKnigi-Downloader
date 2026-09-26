@@ -7,7 +7,7 @@ import re
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import QTimer, Slot, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
@@ -325,6 +325,10 @@ class PlayerUiMixin:
 
     def _init_player(self):
         self._player_seek_active = False
+        self._player_keyboard_seek_timer = QTimer(self)
+        self._player_keyboard_seek_timer.setSingleShot(True)
+        self._player_keyboard_seek_timer.setInterval(120)
+        self._player_keyboard_seek_timer.timeout.connect(self._commit_keyboard_seek)
         self.player_controller = QtPlayerController(parent=self)
         self.player_controller.sourceChanged.connect(self._player_source_changed)
         self.player_controller.positionChanged.connect(self._player_position_changed)
@@ -591,9 +595,23 @@ class PlayerUiMixin:
     @Slot()
     def _player_seek_released(self):
         self._player_seek_active = False
+        timer = getattr(self, "_player_keyboard_seek_timer", None)
+        if timer is not None:
+            timer.stop()
         if self.player_controller is not None:
             self.player_controller.seek(self.player_seek_slider.value() * 1000)
         self.set_status(f"Позиция: {fmt_time(self.player_seek_slider.value())}.")
+
+    @Slot()
+    def _commit_keyboard_seek(self):
+        if (
+            not getattr(self, "_player_seek_active", False)
+            and self.player_seek_slider.hasFocus()
+            and self.player_controller is not None
+            and self.player_controller.has_source()
+        ):
+            value = self.player_seek_slider.value()
+            self.player_controller.seek(int(value) * 1000)
 
     @Slot(int)
     def _player_seek_preview(self, value: int):
@@ -603,16 +621,17 @@ class PlayerUiMixin:
         self.player_time_label.setText(
             f"{fmt_time(value)} / {fmt_time(self.player_seek_slider.maximum())}"
         )
-        # Keyboard slider actions also need to seek immediately. Programmatic
-        # playback updates are signal-blocked in _player_position_changed, while
-        # mouse dragging remains deferred until sliderReleased.
+        # Programmatic playback updates are signal-blocked in
+        # _player_position_changed. Keyboard auto-repeat, however, can generate
+        # dozens of valueChanged events per second on Windows; coalesce them into
+        # one seek after the user pauses instead of hammering the media backend.
         if (
             not getattr(self, "_player_seek_active", False)
             and self.player_seek_slider.hasFocus()
             and self.player_controller is not None
             and self.player_controller.has_source()
         ):
-            self.player_controller.seek(int(value) * 1000)
+            self._player_keyboard_seek_timer.start()
 
     @Slot(int)
     def _on_player_volume_slider_moved(self, value: int):
@@ -663,10 +682,26 @@ class PlayerUiMixin:
 
     @Slot(str)
     def _player_source_changed(self, file_path: str):
+        source_text = str(file_path or "").strip()
         media_filter = getattr(self, "_media_key_filter", None)
         if media_filter is not None:
-            media_filter.set_global_enabled(bool(str(file_path or "").strip()))
-        path = Path(file_path)
+            media_filter.set_global_enabled(bool(source_text))
+        if not source_text:
+            self.player_file_label.setText(self._l("Аудиофайл не выбран."))
+            for button in (
+                self.player_play_button, self.player_restart_button,
+                self.player_back_button, self.player_forward_button, self.player_stop_button,
+            ):
+                button.setEnabled(False)
+            self.player_seek_slider.blockSignals(True)
+            self.player_seek_slider.setRange(0, 1)
+            self.player_seek_slider.setValue(0)
+            self.player_seek_slider.setEnabled(False)
+            self.player_seek_slider.blockSignals(False)
+            self.player_time_label.setText("00:00 / 00:00")
+            self._refresh_player_context()
+            return
+        path = Path(source_text)
         self.player_file_label.setText(self._l("Файл: {name}", name=path.name))
         self.player_play_button.setEnabled(True)
         self.player_restart_button.setEnabled(True)

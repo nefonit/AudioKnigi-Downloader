@@ -150,7 +150,7 @@ class SearchUiMixin:
         self.copy_result_button.setEnabled(False)
         selection_model = self.search_table.selectionModel()
         if selection_model is not None:
-            selection_model.selectionChanged.connect(lambda _selected, _deselected: self._update_search_action_states())
+            selection_model.selectionChanged.connect(self._advanced_search_selection_changed)
         actions.addWidget(self.use_result_button)
         actions.addWidget(self.copy_result_button)
         actions.addStretch(1)
@@ -227,14 +227,19 @@ class SearchUiMixin:
             self.set_status("Предыдущий поиск ещё выполняется.")
             return
 
-        sources = [name for name, action in getattr(self, "_search_source_actions", {}).items() if action.isChecked()]
+        source_actions = getattr(self, "_search_source_actions", {})
+        sources = [name for name, action in source_actions.items() if action.isChecked()]
+        if not sources and self.current_ui_mode() == "easy":
+            # Source filters belong to Advanced mode. Hidden unchecked actions
+            # must never make Easy mode appear broken; use every configured
+            # source without mutating the Advanced user's saved checkboxes.
+            sources = list(source_actions)
         if not sources:
             self.set_status(self._l("Выберите хотя бы один сайт для поиска."), assertive=True)
             return
 
         self.search_model.set_results([])
-        if hasattr(self, "search_results_stack"):
-            self.search_results_stack.setCurrentIndex(0)
+        self._set_search_results_active(False)
         self._update_search_action_states()
         self.search_button.setEnabled(False)
         self.search_edit.setReadOnly(True)
@@ -310,8 +315,7 @@ class SearchUiMixin:
         self.search_model.set_results(outcome.results)
         app_logger.info("SEARCH UI | event=model_reset_complete")
         if outcome.results:
-            if hasattr(self, "search_results_stack"):
-                self.search_results_stack.setCurrentIndex(1)
+            self._set_search_results_active(True)
             if outcome.source_count:
                 message = self._rt(f"Найдено {len(outcome.results)} книг, источников: {outcome.source_count}.")
             else:
@@ -320,20 +324,16 @@ class SearchUiMixin:
                 message += " " + self._rt("Часть источников недоступна.")
             self.set_status(message)
             # Both headers already use ResizeToContents mode. Explicit synchronous
-            # column-resize scans duplicated a full model walk in both views
+            # resizeColumnsToContents() duplicated a full model scan in both views
             # exactly while the modal window was closing, so leave sizing to Qt's
             # normal event-driven layout pass.
-            self.easy_search_table.setVisible(self.current_ui_mode() == "easy")
-            self.easy_use_result_button.setVisible(self.current_ui_mode() == "easy")
-            self.easy_copy_url_button.setVisible(self.current_ui_mode() == "easy")
             self._refresh_easy_narration_variants()
             app_logger.info("SEARCH UI | event=views_visible | scheduling_focus=1")
             QTimer.singleShot(0, self._focus_search_result_after_render)
             self._update_search_action_states()
             self._play_event_sound("search_complete")
         elif outcome.errors:
-            if hasattr(self, "search_results_stack"):
-                self.search_results_stack.setCurrentIndex(0)
+            self._set_search_results_active(False)
             self.set_status("Поиск не выполнен: " + "; ".join(outcome.errors), assertive=True)
             if self.current_ui_mode() == "easy":
                 self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
@@ -341,8 +341,7 @@ class SearchUiMixin:
                 self.search_edit.setFocus(Qt.FocusReason.OtherFocusReason)
             self._play_event_sound("error")
         else:
-            if hasattr(self, "search_results_stack"):
-                self.search_results_stack.setCurrentIndex(0)
+            self._set_search_results_active(False)
             self.set_status("Ничего не найдено.")
             if self.current_ui_mode() == "easy":
                 self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
@@ -350,6 +349,72 @@ class SearchUiMixin:
                 self.search_edit.setFocus(Qt.FocusReason.OtherFocusReason)
             self._play_event_sound("book_not_found")
         app_logger.info("SEARCH UI | event=result_render_complete")
+
+    def _set_search_results_active(self, active: bool) -> None:
+        """Mirror result visibility across Easy and Advanced presentations."""
+        active = bool(active and getattr(self, "search_model", None) is not None and self.search_model.rowCount() > 0)
+        self._search_results_active = active
+        if hasattr(self, "search_results_stack"):
+            self.search_results_stack.setCurrentIndex(1 if active else 0)
+        if hasattr(self, "easy_search_table"):
+            self.easy_search_table.setVisible(active)
+        if hasattr(self, "easy_use_result_button"):
+            self.easy_use_result_button.setVisible(active)
+        if hasattr(self, "easy_copy_url_button"):
+            self.easy_copy_url_button.setVisible(active)
+        if not active:
+            if hasattr(self, "easy_narration_label"):
+                self.easy_narration_label.setVisible(False)
+            if hasattr(self, "easy_narration_combo"):
+                self.easy_narration_combo.setVisible(False)
+
+    def _search_results_are_active(self) -> bool:
+        return bool(
+            getattr(self, "_search_results_active", False)
+            and getattr(self, "search_model", None) is not None
+            and self.search_model.rowCount() > 0
+        )
+
+    def _sync_search_selection(self, source_table, target_table) -> None:
+        if getattr(self, "_syncing_search_selection", False):
+            return
+        source_selection = source_table.selectionModel() if source_table is not None else None
+        rows = source_selection.selectedRows() if source_selection is not None else []
+        if not rows:
+            return
+        row = rows[0].row()
+        self._syncing_search_selection = True
+        try:
+            focus_table_row(target_table, row, column=1, focus=False)
+        finally:
+            self._syncing_search_selection = False
+
+    def _advanced_search_selection_changed(self, *_args) -> None:
+        if hasattr(self, "easy_search_table"):
+            self._sync_search_selection(self.search_table, self.easy_search_table)
+        self._refresh_easy_narration_variants()
+        self._update_search_action_states()
+
+    def _sync_search_presentation_for_mode(self, mode: str) -> bool:
+        """Restore the shared search presentation when switching UI modes.
+
+        Returns True when active search results own the destination view.
+        """
+        active = self._search_results_are_active()
+        self._set_search_results_active(active)
+        if not active:
+            return False
+        if mode == "advanced":
+            if hasattr(self, "tabs"):
+                self.tabs.setCurrentIndex(self.TAB_SEARCH)
+            if hasattr(self, "easy_search_table"):
+                self._sync_search_selection(self.easy_search_table, self.search_table)
+        else:
+            if hasattr(self, "search_table"):
+                self._sync_search_selection(self.search_table, self.easy_search_table)
+            self._refresh_easy_narration_variants()
+        self._update_search_action_states()
+        return True
 
     def _focus_search_result_after_render(self) -> None:
         if self.search_model.rowCount() <= 0:
@@ -373,6 +438,8 @@ class SearchUiMixin:
 
     @Slot()
     def _easy_search_selection_changed(self, *_args) -> None:
+        if hasattr(self, "search_table"):
+            self._sync_search_selection(self.easy_search_table, self.search_table)
         self._refresh_easy_narration_variants()
         self._update_search_action_states()
 
@@ -394,10 +461,7 @@ class SearchUiMixin:
                     else f" — {self._l('доступно')}" if available is True
                     else ""
                 )
-                self.easy_narration_combo.addItem(
-                    narrator + suffix,
-                    normalize_supported_url(str(getattr(item, "url", "") or "")),
-                )
+                self.easy_narration_combo.addItem(narrator + suffix, normalize_supported_url(str(getattr(item, "url", "") or "")))
             self.easy_narration_combo.setCurrentIndex(0)
         self.easy_narration_combo.blockSignals(False)
         self.easy_narration_label.setVisible(multiple and self.current_ui_mode() == "easy")
@@ -505,12 +569,9 @@ class SearchUiMixin:
                 selected_url = normalize_supported_url(str(getattr(selected_variant, "url", "") or ""))
                 selected_narrator = str(getattr(selected_variant, "narrator", "") or "").strip()
                 if selected_url:
-                    selected_result = replace(
-                        result,
-                        url=selected_url,
-                        narrator=selected_narrator or result.narrator,
-                    )
+                    selected_result = replace(result, url=selected_url, narrator=selected_narrator or result.narrator)
         self._pending_search_result = selected_result
+        self._set_search_results_active(False)
         self.book_url_edit.setText(selected_result.url)
         if self.current_ui_mode() == "easy":
             self.easy_input.setText(selected_result.url)
@@ -538,11 +599,7 @@ class SearchUiMixin:
         copy_url = result.url
         if self.current_ui_mode() == "easy":
             selected_variant = self._easy_selected_narration(result)
-            selected_url = (
-                normalize_supported_url(str(getattr(selected_variant, "url", "") or ""))
-                if selected_variant is not None
-                else ""
-            )
+            selected_url = normalize_supported_url(str(getattr(selected_variant, "url", "") or "")) if selected_variant is not None else ""
             if selected_url:
                 copy_url = selected_url
         self._set_clipboard_text(copy_url)

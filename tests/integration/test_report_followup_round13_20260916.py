@@ -56,11 +56,13 @@ def test_support_bundle_directory_destination_creates_zip_inside_directory(tmp_p
 
 
 def test_app_settings_uses_mapping_equality_contract():
-    from audioknigi.config.settings import AppSettings
+    from audioknigi.config.settings import AppSettings, DEFAULT_SETTINGS
 
     settings = AppSettings({"scale": 100, "language": "ru"})
-    assert settings == {"scale": 100, "language": "ru"}
-    assert settings != {"scale": 125, "language": "ru"}
+    expected = dict(DEFAULT_SETTINGS)
+    expected.update({"scale": 100, "language": "ru"})
+    assert settings == expected
+    assert settings != {**expected, "scale": 125}
 
 
 def test_audioknigi_query_filter_ignores_noise_and_accepts_initials():

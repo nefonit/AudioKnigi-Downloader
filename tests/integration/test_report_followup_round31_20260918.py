@@ -43,7 +43,7 @@ def test_easy_reset_clears_book_search_variant_and_description_state() -> None:
 
 def test_easy_mode_has_accessible_annotation_block() -> None:
     source = _source("audioknigi/qt/main_window.py")
-    assert 'self.easy_description_title = QLabel(self._l("Аннотация"))' in source
+    assert "self.easy_description_title = QLabel(self._l(\"Аннотация\"))" in source
     assert "self.easy_description = QPlainTextEdit()" in source
     assert "self.easy_description.setReadOnly(True)" in source
     assert "self.easy_description.setMaximumHeight(150)" in source

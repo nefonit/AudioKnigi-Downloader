@@ -434,7 +434,7 @@ class QueueUiMixin:
 
     @Slot(int, int)
     def _queue_drag_reordered(self, source_row: int, target_row: int):
-        if self._queue_running or self._refreshing_queue:
+        if self._queue_running or self._refreshing_queue or self._active_queue_task_id is not None:
             return
         if not (0 <= source_row < len(self.queue_tasks) and 0 <= target_row < len(self.queue_tasks)):
             return

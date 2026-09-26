@@ -4,7 +4,7 @@ import threading
 import time
 from pathlib import Path
 
-from ..core import PLAYER_POSITIONS_FILE, load_json, save_json
+from ..core import PLAYER_POSITIONS_FILE, load_json, safe_float, save_json
 
 _POSITION_CACHE_MAX = 2000
 
@@ -20,9 +20,11 @@ class PlayerPositionStore:
     def __init__(self, path: str | Path = PLAYER_POSITIONS_FILE) -> None:
         self.path = Path(path)
         self._lock = threading.RLock()
+        self._persist_lock = threading.Lock()
         data = load_json(self.path, {})
         self._positions: dict[str, object] = data if isinstance(data, dict) else {}
-        self._prune_locked()
+        with self._lock:
+            self._prune_locked()
 
 
     def _prune_locked(self) -> None:
@@ -37,6 +39,16 @@ class PlayerPositionStore:
         for key, _value in ranked[:overflow]:
             self._positions.pop(key, None)
 
+    def _persist_latest(self) -> bool:
+        """Serialize disk writes without blocking readers on filesystem I/O."""
+        with self._persist_lock:
+            with self._lock:
+                snapshot = {
+                    item_key: dict(value) if isinstance(value, dict) else value
+                    for item_key, value in self._positions.items()
+                }
+            return bool(save_json(self.path, snapshot))
+
     @staticmethod
     def key(file_path: str | Path) -> str:
         raw = str(file_path or "").strip()
@@ -50,7 +62,7 @@ class PlayerPositionStore:
     @staticmethod
     def _resume_guard_seconds(duration: float) -> float:
         """Ignore only a small edge region on short tracks; keep 3 s for normal chapters."""
-        value = max(0.0, float(duration or 0.0))
+        value = max(0.0, safe_float(duration, 0.0))
         if value <= 0:
             return 3.0
         return min(3.0, max(0.25, value * 0.10))
@@ -129,11 +141,9 @@ class PlayerPositionStore:
                     "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 self._prune_locked()
-            snapshot = {
-                item_key: dict(value) if isinstance(value, dict) else value
-                for item_key, value in self._positions.items()
-            }
-        return bool(save_json(self.path, snapshot)) if persist else True
+        # A dedicated persistence lock preserves write ordering while leaving the
+        # in-memory state lock free for UI reads during slow disk/AV activity.
+        return self._persist_latest() if persist else True
 
     def clear(self, file_path: str | Path, *, persist: bool = True) -> bool:
         key = self.key(file_path)
@@ -141,11 +151,7 @@ class PlayerPositionStore:
             return False
         with self._lock:
             self._positions.pop(key, None)
-            snapshot = {
-                item_key: dict(value) if isinstance(value, dict) else value
-                for item_key, value in self._positions.items()
-            }
-        return bool(save_json(self.path, snapshot)) if persist else True
+        return self._persist_latest() if persist else True
 
 
 __all__ = ["PlayerPositionStore"]

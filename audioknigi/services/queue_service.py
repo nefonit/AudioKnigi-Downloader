@@ -19,6 +19,11 @@ QT_QUEUE_FILE = APP_DIR / "qt_queue.json"
 FINAL_STATUSES = {"completed", "cancelled"}
 RUNNABLE_STATUSES = {"pending", "retry", "interrupted"}
 NON_RUNNABLE_ANALYSIS_STATUS = "needs_analysis"
+# Queue persistence is rewritten whenever task state changes.  Keep only small
+# thumbnail-sized covers inline; large source artwork remains available through
+# cover_url and can be fetched again without turning qt_queue.json into a
+# hundreds-of-megabytes binary container.
+_MAX_PERSISTED_COVER_BYTES = 256 * 1024
 
 
 @dataclass(slots=True)
@@ -59,6 +64,14 @@ def _track_from_dict(data: dict[str, Any]) -> Track:
             continue
         parsed = parse_time_seconds(allowed[key])
         allowed[key] = float(parsed) if parsed is not None else None
+    if "selected" in allowed:
+        selected = allowed.get("selected")
+        if isinstance(selected, str):
+            allowed["selected"] = selected.strip().casefold() not in {
+                "", "0", "false", "no", "off", "нет", "ні",
+            }
+        else:
+            allowed["selected"] = bool(selected)
     return Track(**allowed)
 
 
@@ -83,6 +96,7 @@ def _item_to_dict(value: Any) -> dict[str, Any] | None:
 
 def _book_to_dict(book: Book) -> dict[str, Any]:
     cover = normalize_cover_cache(book.cover_cache)
+    persisted_cover = cover if cover and len(cover[0]) <= _MAX_PERSISTED_COVER_BYTES else None
     tracks = [item for value in (book.tracks or []) if (item := _item_to_dict(value)) is not None]
     variants = [item for value in (book.narration_variants or []) if (item := _item_to_dict(value)) is not None]
     return {
@@ -99,8 +113,8 @@ def _book_to_dict(book: Book) -> dict[str, Any]:
         "narration_variants": variants,
         "restricted": bool(book.restricted),
         "remote_size": int(book.remote_size or 0),
-        "cover_cache_b64": base64.b64encode(cover[0]).decode("ascii") if cover else "",
-        "cover_cache_mime": cover[1] if cover else "",
+        "cover_cache_b64": base64.b64encode(persisted_cover[0]).decode("ascii") if persisted_cover else "",
+        "cover_cache_mime": persisted_cover[1] if persisted_cover else "",
     }
 
 
@@ -188,6 +202,11 @@ def _parse_selected_indices_payload(payload) -> list[int] | None:
     return result
 
 
+def _normalize_queue_download_mode(value: Any) -> str:
+    """Map persisted/resume aliases onto the two queue UI modes."""
+    return "full_mp3" if str(value or "selected").strip().casefold() == "full_mp3" else "selected"
+
+
 def task_from_dict(data: dict[str, Any]) -> QueueTask:
     if not isinstance(data, dict):
         raise TypeError("Queue task must be a mapping")
@@ -251,7 +270,7 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
             paused=True,
             last_error="Очередь импортирована из старого формата; выберите задачу и нажмите «Повторить» для автоматического анализа.",
             output_folder=str(data.get("output_folder", "") or ""),
-            download_mode=str(data.get("download_mode", "selected") or "selected"),
+            download_mode=_normalize_queue_download_mode(data.get("download_mode", "selected")),
             created_at=float(data.get("created_at", time.time()) or time.time()),
         )
 
@@ -289,7 +308,7 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
         paused=bool(data.get("paused", False)),
         last_error=str(data.get("last_error", "") or ""),
         output_folder=str(data.get("output_folder", "") or ""),
-        download_mode=str(data.get("download_mode", "selected") or "selected"),
+        download_mode=_normalize_queue_download_mode(data.get("download_mode", "selected")),
         created_at=float(data.get("created_at", time.time()) or time.time()),
     )
 
@@ -321,7 +340,7 @@ class QueueStore:
         request: DownloadRequest, *, priority: bool = False, download_mode: str = "selected"
     ) -> QueueTask:
         request.validate()
-        mode = "full_mp3" if str(download_mode or "selected") == "full_mp3" else "selected"
+        mode = _normalize_queue_download_mode(download_mode)
         return QueueTask(
             id=uuid.uuid4().hex,
             request=request,

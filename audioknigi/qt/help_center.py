@@ -1001,7 +1001,7 @@ def _format_help_body_html(title: str, body: str) -> str:
       li {{ margin: 4px 0; }}
       kbd {{ background: #303640; border: 1px solid #596273; border-radius: 4px;
              padding: 1px 5px; color: #f3f6fa; font-family: 'Segoe UI'; font-weight: 600; }}
-    </style></head><body><h2>{escaped_title}</h2>{"".join(blocks)}</body></html>
+    </style></head><body><h2>{escaped_title}</h2>{''.join(blocks)}</body></html>
     """
 
 

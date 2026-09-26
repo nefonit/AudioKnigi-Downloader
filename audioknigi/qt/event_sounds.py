@@ -136,9 +136,13 @@ class QtEventSoundManager(QObject):
             try:
                 flag = self._system_sound_queue.get(timeout=0.25)
             except queue.Empty:
+                if self._system_shutdown.is_set():
+                    return
                 continue
             try:
                 if flag is None:
+                    return
+                if self._system_shutdown.is_set():
                     return
                 if winsound is not None:
                     winsound.MessageBeep(flag)
