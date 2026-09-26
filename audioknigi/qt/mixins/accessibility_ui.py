@@ -66,6 +66,7 @@ class AccessibilityUiMixin:
         if not self.isVisible() or bool(getattr(self, "_source_health_running", False)):
             return
         self._source_health_running = True
+        owner_ref = weakref.ref(self)
         relay_ref = weakref.ref(self._worker_ui_relay)
 
         def run_check() -> None:
@@ -79,7 +80,9 @@ class AccessibilityUiMixin:
                         pass
             except Exception:
                 app_logger.exception("Background source health check failed")
-                self._source_health_running = False
+                owner = owner_ref()
+                if owner is not None:
+                    owner._source_health_running = False
 
         threading.Thread(
             target=run_check, name="source-health-startup", daemon=True
