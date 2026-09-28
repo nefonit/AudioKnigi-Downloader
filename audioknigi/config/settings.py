@@ -121,6 +121,11 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     for key, default in DEFAULT_SETTINGS.items():
         if isinstance(default, bool):
             raw[key] = _safe_bool(raw.get(key), default)
+
+    # Apply the one-time legacy 125% migration before final range validation.
+    # This guarantees that every migrated value is clamped by the same current
+    # 80..200 contract as ordinary settings input.
+    raw, ui_migrated = migrate_ui_scale_settings(raw)
     raw["scale"] = max(80, min(200, safe_int(raw.get("scale"), 100)))
     raw["event_sound_volume"] = max(0, min(100, safe_int(raw.get("event_sound_volume"), 100)))
     raw["player_volume"] = max(0, min(100, safe_int(raw.get("player_volume"), 80)))
@@ -143,7 +148,6 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     raw["track_template"] = str(raw.get("track_template") or "{Track_Number}.mp3")
     raw["output_dir"] = str(raw.get("output_dir") or DEFAULT_OUTPUT)
 
-    raw, ui_migrated = migrate_ui_scale_settings(raw)
     return raw, ui_migrated or raw != original
 
 

@@ -41,10 +41,11 @@ class SearchOutcome:
         return len({item.source for item in self.results if getattr(item, "source", "")})
 
 
-def _audioknigi_page_metadata(result: SearchResult) -> SearchResult:
+def _audioknigi_page_metadata(result: SearchResult, cancel_event=None) -> SearchResult:
     """Compatibility wrapper around the provider-level metadata hydrator."""
     return _provider_audioknigi_page_metadata(
         result,
+        cancel_event=cancel_event,
         session_factory=get_http_session,
         metadata_extractor=extract_metadata_from_html,
         extended_metadata_extractor=extract_extended_metadata_from_html,

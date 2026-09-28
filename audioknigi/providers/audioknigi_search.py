@@ -13,6 +13,7 @@ from ..models import NarrationVariant, SearchResult
 from ..sources import AUDIOKNIGI_HOST
 
 SEARCH_URL = f"https://{AUDIOKNIGI_HOST}/search"
+SEARCH_HTTP_TIMEOUT = (4.0, 8.0)
 _AUDIO_PATH_RE = re.compile(r"^/audio-\d+(?:[-/][^?#]*)?$", re.I)
 _TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
@@ -691,7 +692,7 @@ def _audioknigi_page_metadata(
         response = session.get(
             result.url,
             headers={"Referer": SEARCH_URL},
-            timeout=(5, 10),
+            timeout=SEARCH_HTTP_TIMEOUT,
             allow_redirects=True,
         )
         response.raise_for_status()
@@ -847,7 +848,7 @@ def search_audioknigi(query: str, cancel_event=None) -> list[SearchResult]:
     response = session.get(
         SEARCH_URL,
         params={"text": query_text},
-        timeout=(6, 12),
+        timeout=SEARCH_HTTP_TIMEOUT,
         headers={"Referer": f"https://{AUDIOKNIGI_HOST}/"},
     )
     response.raise_for_status()

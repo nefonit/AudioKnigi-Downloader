@@ -268,14 +268,19 @@ class ClipboardUiMixin:
         self._full_mp3_after_analysis = str(getattr(record, "download_mode", "parts") or "parts") == "full_mp3"
         self._download_after_analysis = not self._full_mp3_after_analysis
         self._queue_after_analysis = False
-        self.settings.update({
+        recovered_settings = {
             "naming_mode": record.naming_mode,
             "audio_preset": record.audio_preset,
             "normalization_mode": record.normalization_mode,
-            "use_templates": record.use_templates,
-            "folder_template": record.folder_template,
-            "track_template": record.track_template,
-        })
+        }
+        # Old resume manifests may omit template fields. None means inherit the
+        # user's current global setting; an explicitly stored value (including
+        # an empty string) remains exact resume data.
+        for key in ("use_templates", "folder_template", "track_template"):
+            value = getattr(record, key, None)
+            if value is not None:
+                recovered_settings[key] = value
+        self.settings.update(recovered_settings)
         self._apply_settings_to_qt_controls()
         self.book_url_edit.setText(record.url)
         self.tabs.setCurrentIndex(self.TAB_BOOK)
