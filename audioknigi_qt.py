@@ -200,16 +200,12 @@ def _qt_accessibility_selftest() -> int:
                 window = None
             if app is not None:
                 # Flush DeferredDelete/native cleanup before touching QApplication.
-                from PySide6.QtCore import QCoreApplication, QEvent
+                from PySide6.QtCore import QCoreApplication
 
-                send_posted_events = QCoreApplication.sendPostedEvents
-                try:
-                    send_posted_events(None, QEvent.Type.DeferredDelete)
-                except TypeError:
-                    try:
-                        send_posted_events(event_type=QEvent.Type.DeferredDelete)
-                    except TypeError:
-                        send_posted_events()
+                # The no-argument overload is supported consistently by
+                # PySide6 and flushes posted events without probing wrapper-
+                # specific QObject/enum signatures.
+                QCoreApplication.sendPostedEvents()
                 app.processEvents()
             if owns_app and app is not None:
                 # Qt documents QApplication as a process-wide singleton. Forcing
