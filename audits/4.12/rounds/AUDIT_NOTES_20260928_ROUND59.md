@@ -30,4 +30,4 @@ Examples include the reported BandwidthLimiter zero-capacity loop (nonzero rates
 
 ## Regression coverage
 
-`tests/integration/test_round59_audit_hardening_20260928.py` covers POSIX support-bundle privacy, initial matching, cancellation-before-HTTP, meaningful playlist labels, UTC player timestamps, LF-only proxy requests, source-level Qt/thread/selection contracts, changelog formatting, and runtime translation consistency.
+`tests/integration/test_external_review_hardening_20260928.py` covers POSIX support-bundle privacy, initial matching, cancellation-before-HTTP, meaningful playlist labels, UTC player timestamps, LF-only proxy requests, source-level Qt/thread/selection contracts, changelog formatting, and runtime translation consistency.
