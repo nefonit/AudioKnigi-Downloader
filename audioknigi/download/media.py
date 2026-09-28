@@ -797,7 +797,7 @@ class MediaProcessingMixin:
             if narrator:
                 atomic_write_text(folder / "reader.txt", narrator + "\n", encoding="utf-8")
 
-            cover = self._cover_bytes(book)
+            cover = normalize_cover_cache(self._cover_bytes(book))
             if cover:
                 data, mime = cover
                 mime_text = str(mime or "").lower()
