@@ -134,7 +134,7 @@ def test_changelog_and_runtime_translation_format_are_clean():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "\\n\\n" not in changelog
     assert "Acceptance parser, cancellation and diagnostics hardening (2026-09-18)" in changelog
-    assert "Post-release audit updates through 2026-09-28" in changelog
+    assert "Post-release audit updates through 2026-09-29" in changelog
 
     raw = (ROOT / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8")
     assert raw.count('"Проверить системный звук":') == 1
