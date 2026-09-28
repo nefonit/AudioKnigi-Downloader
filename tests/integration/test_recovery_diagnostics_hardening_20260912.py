@@ -29,9 +29,9 @@ def test_whole_book_resume_manifest_null_or_empty_is_discoverable(tmp_path):
     assert all(record.selected_indices is None for record in records)
 
 
-def test_support_bundle_home_redaction_does_not_replace_filesystem_root(monkeypatch):
+def test_support_bundle_absolute_posix_path_stays_private_even_when_home_is_root(monkeypatch):
     monkeypatch.setattr("pathlib.Path.home", lambda: Path("/"))
-    assert support_bundle._privacy_path("/var/log/audio/app.log") == "/var/log/audio/app.log"
+    assert support_bundle._privacy_path("/var/log/audio/app.log") == "<configured-path>"
 
 
 def test_support_bundle_home_placeholder_matches_platform(monkeypatch, tmp_path):
@@ -76,11 +76,11 @@ def test_playwright_private_entry_uses_runtime_error_not_assert(monkeypatch):
         service._analyze_audioknigi_playwright("https://example.test")
 
 
-def test_qt_selftest_uses_binding_safe_deferred_delete_call():
+def test_qt_selftest_uses_binding_safe_posted_event_flush():
     source = (ROOT / "audioknigi_qt.py").read_text(encoding="utf-8")
-    assert "send_posted_events = QCoreApplication.sendPostedEvents" in source
-    assert "send_posted_events(None, QEvent.Type.DeferredDelete)" in source
-    assert "send_posted_events(event_type=QEvent.Type.DeferredDelete)" in source
+    assert "QCoreApplication.sendPostedEvents()" in source
+    assert "send_posted_events(None" not in source
+    assert "event_type=QEvent.Type.DeferredDelete" not in source
 
 
 def test_readme_quality_gate_paths_are_cross_platform():
