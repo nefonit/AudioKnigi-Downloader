@@ -137,6 +137,45 @@ def test_round58_timeout_and_circuit_are_bounded():
     assert network_dns.CLOUDFLARE_CIRCUIT_COOLDOWN_SECONDS == 300.0
 
 
+def test_cached_cloudflare_answer_does_not_fake_recovery(monkeypatch):
+    network_dns.configure_dns_mode("auto")
+    network_dns._record_cloudflare_failure(socket.gaierror(socket.EAI_AGAIN, "DoH unavailable"))
+    key = ("cached.example", 1)
+    with network_dns._CACHE_LOCK:
+        network_dns._CACHE[key] = (network_dns.time.monotonic() + 60.0, ("203.0.113.8",))
+
+    monkeypatch.setattr(
+        network_dns,
+        "_query_cloudflare_json",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("live DoH must not run")),
+    )
+    assert network_dns._resolve_with_policy("cached.example", socket.AF_INET) == ("203.0.113.8",)
+    assert network_dns.dns_runtime_status()["fallback_active"] is True
+
+
+def test_live_cloudflare_success_announces_recovery(monkeypatch):
+    network_dns.configure_dns_mode("auto")
+    network_dns._record_cloudflare_failure(socket.gaierror(socket.EAI_AGAIN, "DoH unavailable"))
+    before = int(network_dns.dns_runtime_status()["recovery_event"])
+    with network_dns._CACHE_LOCK:
+        network_dns._CACHE.pop(("fresh.example", 1), None)
+    monkeypatch.setattr(
+        network_dns,
+        "_query_cloudflare_json",
+        lambda *args, **kwargs: (("203.0.113.9",), 60, "1.1.1.1"),
+    )
+
+    assert network_dns._resolve_with_policy("fresh.example", socket.AF_INET) == ("203.0.113.9",)
+    status = network_dns.dns_runtime_status()
+    assert status["fallback_active"] is False
+    assert int(status["recovery_event"]) == before + 1
+
+
+def test_auto_mode_limits_cloudflare_bootstraps_to_ipv4_pair():
+    source = (ROOT / "audioknigi/network_dns.py").read_text(encoding="utf-8")
+    assert "CLOUDFLARE_BOOTSTRAP_IPS[:2]" in source
+
+
 def test_qt_exposes_dns_mode_and_accessible_fallback_feedback():
     pages = (ROOT / "audioknigi/qt/main_window_pages.py").read_text(encoding="utf-8")
     settings = (ROOT / "audioknigi/qt/mixins/settings.py").read_text(encoding="utf-8")
