@@ -153,10 +153,9 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks[index.row()].selected = bool(selected)
         left = self.index(index.row(), 0)
         right = self.index(index.row(), max(0, self.columnCount() - 1))
-        self.dataChanged.emit(
-            left, right,
-            [Qt.ItemDataRole.CheckStateRole, Qt.ItemDataRole.AccessibleTextRole, Qt.ItemDataRole.AccessibleDescriptionRole],
-        )
+        # Empty roles means every role changed. This reliably refreshes both
+        # the visual checkbox and cached Windows UIA/NVDA row text.
+        self.dataChanged.emit(left, right, [])
         return True
 
     def set_book(self, book: Book | None):
@@ -186,8 +185,23 @@ class TrackTableModel(QAbstractTableModel):
         self.dataChanged.emit(
             self.index(0, 0),
             self.index(len(self._tracks) - 1, max(0, self.columnCount() - 1)),
-            [Qt.ItemDataRole.CheckStateRole, Qt.ItemDataRole.AccessibleTextRole, Qt.ItemDataRole.AccessibleDescriptionRole],
+            [],
         )
+
+    def set_selected_indices(self, indices) -> None:
+        wanted = {safe_int(value, -1) for value in (indices or [])}
+        changed = False
+        for track in self._tracks:
+            selected = self._safe_track_index(track) in wanted
+            if bool(track.selected) != selected:
+                track.selected = selected
+                changed = True
+        if changed and self._tracks:
+            self.dataChanged.emit(
+                self.index(0, 0),
+                self.index(len(self._tracks) - 1, max(0, self.columnCount() - 1)),
+                [],
+            )
 
 
 __all__ = ["TrackTableModel"]
