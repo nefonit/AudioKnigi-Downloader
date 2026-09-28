@@ -1,6 +1,8 @@
 # Changelog
 
-## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (updated 2026-09-28)
+## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)
+
+> Post-release audit updates through 2026-09-28 are recorded below; the published 4.12.42 release date remains 2026-09-18.
 
 - Round 59 audit hardening (2026-09-28): redact POSIX paths from diagnostic bundles; harden cover sidecar normalization, adaptive Range sampling, AudioKnigi cancellation/author matching, numbered chapter titles, UTC player-position timestamps, Qt event-sound configuration, track-selection accessibility, single-track selection preservation, narration-switch selection semantics, queue focus restoration, crash hooks, invalid-audio auto-advance, proxy header parsing, and PySide self-test event flushing. Reviewed the remaining external-audit findings as already fixed, intentional contracts, or non-runtime/style observations.
 
