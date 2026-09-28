@@ -85,9 +85,21 @@ class SettingsSyncMixin:
         explicit_quality = str(data.get("quality_preset", "") or "").strip()
         quality = explicit_quality if explicit_quality in {"standard", "phone", "normalize"} else inferred_quality
         if hasattr(self, "quality_combo"):
-            self._set_combo_data(self.quality_combo, quality)
+            blocker = getattr(self.quality_combo, "blockSignals", None)
+            previous = blocker(True) if callable(blocker) else None
+            try:
+                self._set_combo_data(self.quality_combo, quality)
+            finally:
+                if callable(blocker):
+                    blocker(previous)
         if hasattr(self, "easy_quality_combo"):
-            self._set_combo_data(self.easy_quality_combo, quality)
+            blocker = getattr(self.easy_quality_combo, "blockSignals", None)
+            previous = blocker(True) if callable(blocker) else None
+            try:
+                self._set_combo_data(self.easy_quality_combo, quality)
+            finally:
+                if callable(blocker):
+                    blocker(previous)
         self._apply_large_mode()
         self._apply_source_visibility()
 

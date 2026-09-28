@@ -711,6 +711,7 @@ class NetworkDownloadMixin:
             min_per_worker=max(64.0, min_worker_kbytes_per_sec) * 1024.0,
         )
         last_target = [initial_workers]
+        last_observe = [0.0]
 
         def report(delta, force=False):
             nonlocal aggregate
@@ -722,7 +723,14 @@ class NetworkDownloadMixin:
                     return
                 last_report[0] = now
                 done = aggregate
-            target_workers = controller.observe(speed)
+                should_observe = now - last_observe[0] >= 0.20
+                if should_observe:
+                    last_observe[0] = now
+            # Multiple Range workers can force a progress flush at nearly the
+            # same instant. Sample the adaptive controller at most once per
+            # reporting interval so one throughput observation cannot count as
+            # several consecutive slow/fast samples.
+            target_workers = controller.observe(speed) if should_observe else controller.current_workers()
             previous = None
             with progress_lock:
                 if target_workers != last_target[0]:

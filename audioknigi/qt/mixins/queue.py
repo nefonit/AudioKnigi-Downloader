@@ -689,6 +689,11 @@ class QueueUiMixin:
         if task.id == self._active_queue_task_id:
             self.set_status("Сначала остановите текущую задачу.", assertive=True)
             return
+        # _refresh_queue() preserves the selected task by ID. Clear the stale
+        # pre-delete row first; otherwise the row that shifts into this index is
+        # briefly treated as the old selection and Windows UIA sees two focus
+        # restorations in rapid succession.
+        self.queue_table.clearSelection()
         del self.queue_tasks[idx]
         self._persist_queue()
         self._refresh_queue()

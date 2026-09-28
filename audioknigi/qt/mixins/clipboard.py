@@ -382,10 +382,14 @@ class ClipboardUiMixin:
         if track is None:
             self.set_status("Сначала выберите часть книги.", assertive=True)
             return
-        self.track_model.set_all_selected(False)
-        index = self.track_model.index(self.track_table.currentIndex().row(), 0)
-        self.track_model.setData(index, Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
-        self.start_download()
+        previous_selection = list(self.track_model.selected_indices())
+        try:
+            self.track_model.set_selected_indices([int(track.index)])
+            # start_download() snapshots selected_indices synchronously into the
+            # request before the worker thread starts.
+            self.start_download()
+        finally:
+            self.track_model.set_selected_indices(previous_selection)
 
 
 __all__ = ["ClipboardUiMixin"]

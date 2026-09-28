@@ -75,11 +75,19 @@ def _playlist_track_title(raw_title, file_url: str, index: int, book_title: str,
         return re.sub(r"[^0-9a-zа-яё]+", "", str(value or "").casefold())
 
     matches_file_stem = bool(text and stem and compact(text) == compact(stem))
+    simple_numbered_label = bool(
+        text
+        and re.fullmatch(r"(?:chapter|track|part|cd\d*)[_-]?\d+", text, re.I)
+    )
+    separator_count = text.count("_") + text.count("-") if text else 0
+    machine_marker = bool(text and re.search(r"(?:kbps|audiofile|source|stream|final)", text, re.I))
     slug_like = bool(
         text
+        and not simple_numbered_label
         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", text)
         and ("_" in text or "-" in text)
         and re.search(r"(?:[_-]?\d+)$", text)
+        and (separator_count >= 2 or machine_marker)
     )
     if not text or matches_file_stem or slug_like:
         clean_book = re.sub(r"\s+", " ", str(book_title or "")).strip()
