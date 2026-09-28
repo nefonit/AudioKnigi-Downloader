@@ -91,13 +91,15 @@ def run_qt(argv=None) -> int:
     def _exception_hook(exc_type, exc, tb):
         try:
             build_report(exc_type, exc, tb, component="qt-application")
-        finally:
-            hook = original_excepthook
-            if callable(hook) and hook is not _exception_hook:
-                try:
-                    hook(exc_type, exc, tb)
-                except Exception:
-                    pass
+        except Exception:
+            # Crash reporting must never replace the original unhandled error.
+            app_logger.debug("Failed to build Qt crash report", exc_info=True)
+        hook = original_excepthook
+        if callable(hook) and hook is not _exception_hook:
+            try:
+                hook(exc_type, exc, tb)
+            except Exception:
+                pass
     sys.excepthook = _exception_hook
 
     def _thread_exception_hook(args):
@@ -107,13 +109,14 @@ def run_qt(argv=None) -> int:
                 args.exc_type, args.exc_value, args.exc_traceback,
                 component=f"python-thread:{thread_name}",
             )
-        finally:
-            hook = original_thread_excepthook
-            if callable(hook) and hook is not _thread_exception_hook:
-                try:
-                    hook(args)
-                except Exception:
-                    pass
+        except Exception:
+            app_logger.debug("Failed to build worker crash report", exc_info=True)
+        hook = original_thread_excepthook
+        if callable(hook) and hook is not _thread_exception_hook:
+            try:
+                hook(args)
+            except Exception:
+                pass
 
     if original_thread_excepthook is not None:
         threading.excepthook = _thread_exception_hook
