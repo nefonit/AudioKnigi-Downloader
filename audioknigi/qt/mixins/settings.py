@@ -6,6 +6,7 @@ from ...brand import DISPLAY_NAME
 from ...metadata import APP_VERSION
 from ...core import DEFAULT_OUTPUT, safe_int
 from ...config.settings import normalize_settings, save_app_settings
+from ...network_dns import install_cloudflare_dns
 from ..theme import THEMES, apply_theme
 from ..workers import AudiobookshelfWorker as _AudiobookshelfWorker
 
@@ -165,6 +166,7 @@ class SettingsUiMixin:
             "save_sidecars": bool(self.sidecars_check.isChecked()),
             "delete_source": bool(self.delete_source_check.isChecked()),
             "playwright_fallback_enabled": bool(self.playwright_check.isChecked()),
+            "dns_mode": self.dns_mode_combo.currentData() or "auto",
             "clipboard_auto": bool(self.clipboard_auto_check.isChecked()),
             "parallel_single_source": bool(self.parallel_single_source_check.isChecked()),
             "segment_count": self.segment_count_combo.currentData() or "auto",
@@ -215,6 +217,7 @@ class SettingsUiMixin:
             # those consumers reading stale values after Save.
             self.settings.clear()
             self.settings.update(updated)
+            install_cloudflare_dns(mode=str(updated.get("dns_mode", "auto") or "auto"))
             self.language = str(updated.get("language", self.language) or self.language)
             self.event_sound_manager.configure(
                 enabled=bool(updated.get("event_sounds_enabled", True)),
