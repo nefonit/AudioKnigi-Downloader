@@ -124,6 +124,7 @@ class BookAnalysisService:
         self.options = options or AnalysisOptions()
         self._duration_probe_lock = threading.RLock()
         self._duration_probe_processes: set[subprocess.Popen] = set()
+        self._duration_probe_stop_requested: set[subprocess.Popen] = set()
 
     def _emit(self, message: str) -> None:
         callback = self.progress
@@ -137,22 +138,37 @@ class BookAnalysisService:
     def _register_duration_probe_process(self, proc: subprocess.Popen) -> None:
         with self._duration_probe_lock:
             self._duration_probe_processes.add(proc)
+            self._duration_probe_stop_requested.discard(proc)
 
     def _unregister_duration_probe_process(self, proc: subprocess.Popen | None) -> None:
         if proc is None:
             return
         with self._duration_probe_lock:
             self._duration_probe_processes.discard(proc)
+            self._duration_probe_stop_requested.discard(proc)
+
+    def _request_duration_probe_stop(self, proc: subprocess.Popen | None) -> None:
+        """Request one ffprobe termination without competing for its pipes."""
+        if proc is None:
+            return
+        with self._duration_probe_lock:
+            if proc in self._duration_probe_stop_requested:
+                return
+            self._duration_probe_stop_requested.add(proc)
+        try:
+            if proc.poll() is None:
+                proc.kill()
+        except (OSError, ProcessLookupError):
+            pass
 
     def _cancel_duration_probe_processes(self) -> None:
+        # The coordinator may request termination, but only the worker that
+        # created a Popen owns communicate() and pipe cleanup. This avoids two
+        # threads concurrently communicating/closing the same Windows process.
         with self._duration_probe_lock:
             processes = tuple(self._duration_probe_processes)
         for proc in processes:
-            try:
-                if proc.poll() is None:
-                    proc.kill()
-            except (OSError, ProcessLookupError):
-                pass
+            self._request_duration_probe_stop(proc)
 
     def _probe_remote_duration(self, url: str, referer: str = "") -> float | None:
         """Best-effort duration probe for a public direct audio URL.
@@ -199,11 +215,7 @@ class BookAnalysisService:
                 self._check_cancel()
                 remaining = 18.0 - (time.monotonic() - started)
                 if remaining <= 0:
-                    try:
-                        proc.kill()
-                        proc.communicate(timeout=2)
-                    except Exception:
-                        pass
+                    self._request_duration_probe_stop(proc)
                     return None
                 try:
                     stdout, _stderr = proc.communicate(timeout=min(0.25, remaining))
@@ -217,21 +229,24 @@ class BookAnalysisService:
                     return None
                 return duration if 0 < duration < 30 * 24 * 3600 else None
         except Cancelled:
-            if proc is not None and proc.poll() is None:
-                try:
-                    proc.kill()
-                    proc.communicate(timeout=2)
-                except Exception:
-                    pass
+            self._request_duration_probe_stop(proc)
             raise
         except Exception:
             return None
         finally:
             if proc is not None and proc.poll() is None:
+                self._request_duration_probe_stop(proc)
                 try:
-                    proc.kill()
                     proc.communicate(timeout=2)
-                except Exception:
+                except subprocess.TimeoutExpired:
+                    # A killed process should normally exit immediately. Keep
+                    # cleanup bounded and never let a stuck ffprobe block Qt
+                    # analysis teardown indefinitely.
+                    try:
+                        proc.wait(timeout=1)
+                    except Exception:
+                        pass
+                except (OSError, ValueError):
                     pass
             self._unregister_duration_probe_process(proc)
             close_subprocess_pipes(proc)
