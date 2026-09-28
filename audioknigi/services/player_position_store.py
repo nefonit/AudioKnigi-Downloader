@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..core import PLAYER_POSITIONS_FILE, load_json, safe_float, save_json
@@ -138,7 +139,7 @@ class PlayerPositionStore:
                     "position": position_value,
                     "duration": duration_value,
                     "file": path.name,
-                    "updated": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 }
                 self._prune_locked()
         # A dedicated persistence lock preserves write ordering while leaving the
