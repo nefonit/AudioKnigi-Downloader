@@ -51,6 +51,10 @@ _EMBEDDED_UNC_PATH_RE = re.compile(
     rf"(?:\\\\{_WINDOWS_PATH_SEGMENT_RE}[\\/](?:{_WINDOWS_PATH_SEGMENT_RE}[\\/])*(?:{_WINDOWS_PATH_FINAL_RE})?[\\/]?|"
     rf"(?<!:)//{_WINDOWS_PATH_SEGMENT_RE}/(?:{_WINDOWS_PATH_SEGMENT_RE}/)*(?:{_WINDOWS_PATH_FINAL_RE})?/?)"
 )
+_EMBEDDED_POSIX_PATH_RE = re.compile(
+    r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/\s|;\r\n\"']+/)*[^/\s|;\r\n\"']+)",
+    re.MULTILINE,
+)
 
 
 
@@ -90,13 +94,14 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
         # sanitizing drive/UNC paths below instead of returning the raw value.
         home_path = None
 
-    # Windows settings may point outside %USERPROFILE% (D:\\... or UNC
-    # shares). A diagnostics archive must not disclose those personal/server
-    # paths. POSIX absolute paths keep their established diagnostic behavior.
+    # Configured absolute paths can live outside the user's home directory on
+    # Windows, Linux or macOS. A support archive must never disclose those
+    # mount points, server/share names or folder structures.
     if collapse_whole_path and "\n" not in text and "\r" not in text and (
         re.match(r"^[A-Za-z]:[\\/]", text)
         or text.startswith("\\\\")
         or re.match(r"^//[^/\s\"']+/[^/\s\"']+", text)
+        or (text.startswith("/") and not text.startswith("//"))
     ):
         return "<configured-path>"
 
@@ -109,6 +114,10 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
     text = _EMBEDDED_UNC_FILE_RE.sub("<configured-path>", text)
     text = _EMBEDDED_DRIVE_PATH_RE.sub("<configured-path>", text)
     text = _EMBEDDED_UNC_PATH_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_POSIX_PATH_RE.sub(
+        lambda match: match.group("prefix") + "<configured-path>",
+        text,
+    )
     return text
 
 
@@ -159,6 +168,7 @@ def _sanitize_setting_value(key: str, value: Any) -> Any:
             re.match(r"^[A-Za-z]:[\\/]", text)
             or text.startswith("\\\\")
             or re.match(r"^//[^/\s\"']+/[^/\s\"']+", text)
+            or (text.startswith("/") and not text.startswith("//"))
         ):
             return _privacy_path(text, collapse_whole_path=True)
         # Nested plugin/header settings can contain credentials inside a string
