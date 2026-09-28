@@ -182,6 +182,8 @@ class TrackTableModel(QAbstractTableModel):
             return
         for track in self._tracks:
             track.selected = bool(selected)
+        # Empty roles invalidates every cached role, including
+        # Qt.ItemDataRole.AccessibleTextRole and AccessibleDescriptionRole.
         self.dataChanged.emit(
             self.index(0, 0),
             self.index(len(self._tracks) - 1, max(0, self.columnCount() - 1)),
