@@ -853,9 +853,14 @@ def search_audioknigi(query: str, cancel_event=None) -> list[SearchResult]:
     response.raise_for_status()
     if cancel_event is not None and cancel_event.is_set():
         raise Cancelled("Поиск отменён пользователем")
-    # Keep search-result and detail-page decoding on one code path so legacy
-    # encodings/BOM handling cannot drift between the two entry points.
-    html_text = _response_html_text(response)
+    content = bytes(getattr(response, "content", b"") or b"")
+    declared_encoding = str(getattr(response, "encoding", "") or "").strip().casefold()
+    if declared_encoding and declared_encoding not in {"utf-8", "utf8", "utf-8-sig"}:
+        html_text = _response_html_text(response)
+    else:
+        html_text = content.decode("utf-8-sig", errors="replace")
+        if not html_text:
+            html_text = str(getattr(response, "text", "") or "")
     return _group_audioknigi_recordings(
         parse_audioknigi_results(html_text, response.url, query=query_text),
         cancel_event=cancel_event,
