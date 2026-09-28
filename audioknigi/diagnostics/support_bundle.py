@@ -51,6 +51,10 @@ _EMBEDDED_UNC_PATH_RE = re.compile(
     rf"(?:\\\\{_WINDOWS_PATH_SEGMENT_RE}[\\/](?:{_WINDOWS_PATH_SEGMENT_RE}[\\/])*(?:{_WINDOWS_PATH_FINAL_RE})?[\\/]?|"
     rf"(?<!:)//{_WINDOWS_PATH_SEGMENT_RE}/(?:{_WINDOWS_PATH_SEGMENT_RE}/)*(?:{_WINDOWS_PATH_FINAL_RE})?/?)"
 )
+_EMBEDDED_POSIX_FILE_RE = re.compile(
+    r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/|;\r\n\"']+/)*[^/|;\r\n\"']+\.[A-Za-z0-9]{1,16})",
+    re.MULTILINE,
+)
 _EMBEDDED_POSIX_PATH_RE = re.compile(
     r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/\s|;\r\n\"']+/)*[^/\s|;\r\n\"']+)",
     re.MULTILINE,
@@ -114,6 +118,10 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
     text = _EMBEDDED_UNC_FILE_RE.sub("<configured-path>", text)
     text = _EMBEDDED_DRIVE_PATH_RE.sub("<configured-path>", text)
     text = _EMBEDDED_UNC_PATH_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_POSIX_FILE_RE.sub(
+        lambda match: match.group("prefix") + "<configured-path>",
+        text,
+    )
     text = _EMBEDDED_POSIX_PATH_RE.sub(
         lambda match: match.group("prefix") + "<configured-path>",
         text,
