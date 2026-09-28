@@ -1,4 +1,5 @@
-# Windows release dependency pins: originally verified 2026-09-18; revalidated by current 4.12.42 CI on 2026-09-28.
+# Verified published release baseline for 2026-09-18 (Python 3.14.7 Windows build).
+# Revalidated by current 4.12.42 CI on 2026-09-28; dependency pins are unchanged.
 # Reproducible Windows release baseline (validated for CPython 3.14.7 x64).
 PySide6==6.11.2
 requests==2.32.5
