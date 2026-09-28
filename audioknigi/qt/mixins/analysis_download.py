@@ -145,9 +145,9 @@ class AnalysisDownloadUiMixin:
         # Re-analysis creates a fresh Book/Track list. Preserve "all selected"
         # as intent, and preserve explicit indices only when the new narration
         # has the same chapter geometry.
-        selected_indices = list(self.track_model.selected_indices())
+        self._pending_narration_selected_indices = list(self.track_model.selected_indices())
+        selected_indices = list(self._pending_narration_selected_indices)
         old_track_count = self.track_model.rowCount()
-        self._pending_narration_selected_indices = selected_indices
         self._pending_narration_selected_all = bool(
             old_track_count > 0 and len(selected_indices) == old_track_count
         )
