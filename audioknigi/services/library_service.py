@@ -45,9 +45,9 @@ class UnfinishedDownload:
     naming_mode: str = "number"
     audio_preset: str = "copy"
     normalization_mode: str = "off"
-    use_templates: bool = False
-    folder_template: str = "{Book_Title}"
-    track_template: str = "{Track_Number}.mp3"
+    use_templates: bool | None = None
+    folder_template: str | None = None
+    track_template: str | None = None
     download_mode: str = "parts"
     updated_at: str = ""
 
@@ -302,9 +302,9 @@ def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDown
                     naming_mode=str(raw.get("naming_mode", "number") or "number"),
                     audio_preset=str(raw.get("audio_preset", "copy") or "copy"),
                     normalization_mode=str(raw.get("normalization_mode", "off") or "off"),
-                    use_templates=bool(raw.get("use_templates", False)),
-                    folder_template=str(raw.get("folder_template", "{Book_Title}") or "{Book_Title}"),
-                    track_template=str(raw.get("track_template", "{Track_Number}.mp3") or "{Track_Number}.mp3"),
+                    use_templates=(None if "use_templates" not in raw or raw.get("use_templates") is None else bool(raw.get("use_templates"))),
+                    folder_template=(None if "folder_template" not in raw or raw.get("folder_template") is None else str(raw.get("folder_template"))),
+                    track_template=(None if "track_template" not in raw or raw.get("track_template") is None else str(raw.get("track_template"))),
                     download_mode="full_mp3" if str(raw.get("download_mode", "parts")) == "full_mp3" else "parts",
                     updated_at=str(raw.get("updated_at", "") or ""),
                 )
