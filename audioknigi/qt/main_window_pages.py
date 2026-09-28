@@ -489,7 +489,7 @@ class MainWindowPagesMixin:
             ],
             "dns_mode",
             "auto",
-            "Режим DNS",
+            self._l("Режим DNS"),
             "dns_mode",
         )
         dns_description = self._l("Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.")
