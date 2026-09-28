@@ -38,6 +38,7 @@ class QtPlayerController(QObject):
         self._last_persisted_at = 0.0
         self._last_seek_target_ms = 0
         self._last_seek_at = 0.0
+        self._source_loaded_at = 0.0
 
         self.player.positionChanged.connect(self._on_position_changed)
         self.player.durationChanged.connect(self._on_duration_changed)
@@ -72,6 +73,7 @@ class QtPlayerController(QObject):
         self._last_persisted_at = 0.0
         self._last_seek_target_ms = 0
         self._last_seek_at = 0.0
+        self._source_loaded_at = time.monotonic()
         self.player.setSource(QUrl.fromLocalFile(str(path.resolve())))
         self.sourceChanged.emit(str(path))
         app = QApplication.instance()
@@ -309,6 +311,16 @@ class QtPlayerController(QObject):
         ):
             self._apply_resume_and_autoplay()
         elif status == QMediaPlayer.MediaStatus.EndOfMedia:
+            if self._at_end:
+                return
+            # Some Windows backends report EndOfMedia immediately for a broken
+            # or unsupported file. Treat a zero-duration instant completion as
+            # a playback error instead of auto-advancing through many chapters.
+            elapsed = time.monotonic() - float(self._source_loaded_at or 0.0)
+            if elapsed < 1.0 and int(self.player.duration()) <= 0 and int(self.player.position()) <= 0:
+                self._at_end = True
+                self.error.emit(self.player.errorString() or "Не удалось воспроизвести выбранный аудиофайл.")
+                return
             path = self.current_path
             if path is not None:
                 self.store.clear(path)
