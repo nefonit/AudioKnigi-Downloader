@@ -1,13 +1,10 @@
-"""Cloudflare 1.1.1.1 DNS-over-HTTPS integration.
+"""Resilient DNS policy for Python, Playwright/Chromium and FFmpeg.
 
-The desktop application targets Windows.  Public hostname lookups made by
-Python networking are resolved through Cloudflare DoH and never fall back to
-the ISP/system resolver.  Numeric IPs, localhost and .local names are left to
-the operating system because they are not public DNS names.
-
-Playwright runs Chromium in a child process, so the Python socket hook cannot
-reach it.  ``cloudflare_chromium_args`` returns the Secure DNS arguments used by
-all Chromium fallback launches.
+Three runtime modes are supported: auto (Cloudflare DoH first with a
+system-resolver fallback), cloudflare (strict DoH only) and system.
+Automatic mode uses a short Cloudflare timeout and a circuit breaker so a
+blocked or unavailable DoH endpoint cannot stall every audiobook source.
+Numeric IPs, localhost and private/local names always stay on the OS resolver.
 """
 from __future__ import annotations
 
@@ -44,6 +41,125 @@ _CACHE: dict[tuple[str, int], tuple[float, tuple[str, ...]]] = {}
 _CACHE_MAX = 512
 _INSTALLED = False
 
+DNS_MODE_AUTO = "auto"
+DNS_MODE_CLOUDFLARE = "cloudflare"
+DNS_MODE_SYSTEM = "system"
+DNS_MODES = (DNS_MODE_AUTO, DNS_MODE_CLOUDFLARE, DNS_MODE_SYSTEM)
+CLOUDFLARE_DOH_TIMEOUT = 1.5
+CLOUDFLARE_FAILURE_THRESHOLD = 3
+CLOUDFLARE_CIRCUIT_COOLDOWN_SECONDS = 300.0
+
+_STATE_LOCK = threading.RLock()
+_DNS_MODE = DNS_MODE_AUTO
+_CLOUDFLARE_FAILURES = 0
+_CLOUDFLARE_CIRCUIT_OPEN_UNTIL = 0.0
+_CLOUDFLARE_FALLBACK_ACTIVE = False
+_CLOUDFLARE_FALLBACK_EVENT = 0
+_CLOUDFLARE_RECOVERY_EVENT = 0
+_CLOUDFLARE_LAST_ERROR = ""
+
+
+def normalize_dns_mode(value) -> str:
+    mode = str(value or DNS_MODE_AUTO).strip().lower()
+    return mode if mode in DNS_MODES else DNS_MODE_AUTO
+
+
+def current_dns_mode() -> str:
+    with _STATE_LOCK:
+        return _DNS_MODE
+
+
+def _reset_dns_runtime_state(*, recovered: bool = False) -> None:
+    global _CLOUDFLARE_FAILURES, _CLOUDFLARE_CIRCUIT_OPEN_UNTIL
+    global _CLOUDFLARE_FALLBACK_ACTIVE, _CLOUDFLARE_RECOVERY_EVENT, _CLOUDFLARE_LAST_ERROR
+    with _STATE_LOCK:
+        was_active = _CLOUDFLARE_FALLBACK_ACTIVE
+        _CLOUDFLARE_FAILURES = 0
+        _CLOUDFLARE_CIRCUIT_OPEN_UNTIL = 0.0
+        _CLOUDFLARE_FALLBACK_ACTIVE = False
+        _CLOUDFLARE_LAST_ERROR = ""
+        if recovered and was_active:
+            _CLOUDFLARE_RECOVERY_EVENT += 1
+
+
+def configure_dns_mode(mode) -> str:
+    global _DNS_MODE
+    normalized = normalize_dns_mode(mode)
+    with _STATE_LOCK:
+        changed = normalized != _DNS_MODE
+        _DNS_MODE = normalized
+    if changed:
+        _reset_dns_runtime_state()
+        with _CACHE_LOCK:
+            _CACHE.clear()
+    return normalized
+
+
+def _circuit_is_open(now: float | None = None) -> bool:
+    global _CLOUDFLARE_CIRCUIT_OPEN_UNTIL
+    moment = time.monotonic() if now is None else float(now)
+    with _STATE_LOCK:
+        if _CLOUDFLARE_CIRCUIT_OPEN_UNTIL <= 0:
+            return False
+        if moment < _CLOUDFLARE_CIRCUIT_OPEN_UNTIL:
+            return True
+        _CLOUDFLARE_CIRCUIT_OPEN_UNTIL = 0.0
+        return False
+
+
+def _record_cloudflare_failure(exc: BaseException) -> None:
+    global _CLOUDFLARE_FAILURES, _CLOUDFLARE_CIRCUIT_OPEN_UNTIL
+    global _CLOUDFLARE_FALLBACK_ACTIVE, _CLOUDFLARE_FALLBACK_EVENT, _CLOUDFLARE_LAST_ERROR
+    now = time.monotonic()
+    with _STATE_LOCK:
+        _CLOUDFLARE_FAILURES += 1
+        _CLOUDFLARE_LAST_ERROR = str(exc).strip() or exc.__class__.__name__
+        if not _CLOUDFLARE_FALLBACK_ACTIVE:
+            _CLOUDFLARE_FALLBACK_ACTIVE = True
+            _CLOUDFLARE_FALLBACK_EVENT += 1
+        if _CLOUDFLARE_FAILURES >= CLOUDFLARE_FAILURE_THRESHOLD:
+            _CLOUDFLARE_CIRCUIT_OPEN_UNTIL = max(
+                _CLOUDFLARE_CIRCUIT_OPEN_UNTIL,
+                now + CLOUDFLARE_CIRCUIT_COOLDOWN_SECONDS,
+            )
+    app_logger.warning(
+        "NETWORK DNS | provider=Cloudflare | event=fallback_to_system | failures=%s | circuit_open=%s | error=%s",
+        _CLOUDFLARE_FAILURES,
+        _circuit_is_open(now),
+        _CLOUDFLARE_LAST_ERROR,
+    )
+
+
+def _record_cloudflare_success() -> None:
+    global _CLOUDFLARE_FAILURES, _CLOUDFLARE_CIRCUIT_OPEN_UNTIL
+    global _CLOUDFLARE_FALLBACK_ACTIVE, _CLOUDFLARE_RECOVERY_EVENT, _CLOUDFLARE_LAST_ERROR
+    with _STATE_LOCK:
+        recovered = _CLOUDFLARE_FALLBACK_ACTIVE
+        _CLOUDFLARE_FAILURES = 0
+        _CLOUDFLARE_CIRCUIT_OPEN_UNTIL = 0.0
+        _CLOUDFLARE_FALLBACK_ACTIVE = False
+        _CLOUDFLARE_LAST_ERROR = ""
+        if recovered:
+            _CLOUDFLARE_RECOVERY_EVENT += 1
+    if recovered:
+        app_logger.info("NETWORK DNS | provider=Cloudflare | event=recovered | system_fallback=False")
+
+
+def dns_runtime_status() -> dict[str, object]:
+    now = time.monotonic()
+    with _STATE_LOCK:
+        retry_after = max(0.0, _CLOUDFLARE_CIRCUIT_OPEN_UNTIL - now)
+        return {
+            "mode": _DNS_MODE,
+            "fallback_active": bool(_CLOUDFLARE_FALLBACK_ACTIVE),
+            "failures": int(_CLOUDFLARE_FAILURES),
+            "circuit_open": bool(_CLOUDFLARE_CIRCUIT_OPEN_UNTIL > now),
+            "retry_after_seconds": retry_after,
+            "last_error": _CLOUDFLARE_LAST_ERROR,
+            "fallback_event": int(_CLOUDFLARE_FALLBACK_EVENT),
+            "recovery_event": int(_CLOUDFLARE_RECOVERY_EVENT),
+        }
+
 
 def _is_numeric_host(host: str) -> bool:
     value = str(host or "").strip().strip("[]")
@@ -79,7 +195,7 @@ def _bypass_cloudflare(host) -> bool:
 class _BootstrapHTTPSConnection(http.client.HTTPSConnection):
     """HTTPS connection whose TCP bootstrap never needs DNS."""
 
-    def __init__(self, bootstrap_ip: str, timeout: float = 4.0):
+    def __init__(self, bootstrap_ip: str, timeout: float = CLOUDFLARE_DOH_TIMEOUT):
         context = ssl.create_default_context()
         super().__init__(CLOUDFLARE_DOH_HOST, 443, timeout=timeout, context=context)
         self._bootstrap_ip = bootstrap_ip
@@ -97,7 +213,7 @@ class _BootstrapHTTPSConnection(http.client.HTTPSConnection):
             raise
 
 
-def _query_cloudflare_json(host: str, record_type: int, timeout: float = 4.0, _seen: set[str] | None = None) -> tuple[tuple[str, ...], int, str]:
+def _query_cloudflare_json(host: str, record_type: int, timeout: float = CLOUDFLARE_DOH_TIMEOUT, _seen: set[str] | None = None) -> tuple[tuple[str, ...], int, str]:
     """Return (addresses, ttl, bootstrap_ip) from Cloudflare DoH."""
     qtype = "AAAA" if int(record_type) == 28 else "A"
     try:
@@ -111,7 +227,15 @@ def _query_cloudflare_json(host: str, record_type: int, timeout: float = 4.0, _s
     seen.add(folded_host)
     path = f"{CLOUDFLARE_DOH_PATH}?name={quote(dns_host, safe='')}&type={qtype}"
     last_error: Exception | None = None
-    for bootstrap_ip in CLOUDFLARE_BOOTSTRAP_IPS:
+    # Automatic mode is latency-sensitive: two independent Cloudflare IPv4
+    # bootstrap endpoints at 1.5 s each bound the ordinary failover near 3 s.
+    # Strict Cloudflare mode still tries every published bootstrap address.
+    bootstrap_ips = (
+        CLOUDFLARE_BOOTSTRAP_IPS[:2]
+        if current_dns_mode() == DNS_MODE_AUTO
+        else CLOUDFLARE_BOOTSTRAP_IPS
+    )
+    for bootstrap_ip in bootstrap_ips:
         conn = None
         try:
             conn = _BootstrapHTTPSConnection(bootstrap_ip, timeout=timeout)
@@ -206,6 +330,9 @@ def _resolve(host: str, family: int) -> tuple[str, ...]:
             return cached[1]
 
     addresses, ttl, bootstrap = _query_cloudflare_json(normalized, record_type)
+    # Only a live DoH transaction proves recovery. A cached answer must not
+    # clear a fallback/circuit state created by a recent Cloudflare failure.
+    _record_cloudflare_success()
     with _CACHE_LOCK:
         # Keep the long-running tray application's DNS cache bounded.  Expired
         # entries are removed first; oldest insertion-order entries are evicted
@@ -227,24 +354,56 @@ def _resolve(host: str, family: int) -> tuple[str, ...]:
     return tuple(addresses)
 
 
+
+def _system_addresses(host: str, family: int) -> tuple[str, ...]:
+    requested_family = int(family or socket.AF_UNSPEC)
+    rows = _ORIGINAL_GETADDRINFO(host, 0, requested_family, socket.SOCK_STREAM, 0, 0)
+    values: list[str] = []
+    for row in rows:
+        try:
+            address = str(row[4][0])
+        except Exception:
+            continue
+        if address and address not in values:
+            values.append(address)
+    return tuple(values)
+
+
+def _resolve_with_policy(host: str, family: int) -> tuple[str, ...]:
+    mode = current_dns_mode()
+    if mode == DNS_MODE_SYSTEM:
+        return _system_addresses(host, family)
+    if mode == DNS_MODE_AUTO and _circuit_is_open():
+        app_logger.debug(
+            "NETWORK DNS | provider=system | reason=cloudflare_circuit_open | host=%s", host
+        )
+        return _system_addresses(host, family)
+    try:
+        addresses = _resolve(host, family)
+    except OSError as exc:
+        if mode != DNS_MODE_AUTO or "CNAME loop" in str(exc):
+            raise
+        _record_cloudflare_failure(exc)
+        return _system_addresses(host, family)
+    return addresses
+
+
 def cloudflare_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    """socket.getaddrinfo replacement using strict Cloudflare DoH for public names."""
-    if _bypass_cloudflare(host):
+    """socket.getaddrinfo replacement honoring the configured DNS policy."""
+    if _bypass_cloudflare(host) or current_dns_mode() == DNS_MODE_SYSTEM:
         return _ORIGINAL_GETADDRINFO(host, port, family, type, proto, flags)
 
     host_text = host.decode("ascii") if isinstance(host, bytes) else str(host)
     requested_family = int(family or socket.AF_UNSPEC)
     if requested_family == socket.AF_INET6:
-        addresses = _resolve(host_text, socket.AF_INET6)
+        addresses = _resolve_with_policy(host_text, socket.AF_INET6)
     else:
-        # Prefer IPv4 for Windows compatibility.  If the name is IPv6-only,
-        # fall back to an AAAA query while still remaining entirely on Cloudflare.
-        addresses = _resolve(host_text, socket.AF_INET)
+        addresses = _resolve_with_policy(host_text, socket.AF_INET)
         if not addresses and requested_family == socket.AF_UNSPEC:
-            addresses = _resolve(host_text, socket.AF_INET6)
+            addresses = _resolve_with_policy(host_text, socket.AF_INET6)
 
     if not addresses:
-        raise socket.gaierror(socket.EAI_NONAME, f"Cloudflare DNS returned no address for {host_text}")
+        raise socket.gaierror(socket.EAI_NONAME, f"DNS returned no address for {host_text}")
 
     results = []
     seen = set()
@@ -258,28 +417,31 @@ def cloudflare_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
                 results.append(item)
                 seen.add(key)
     if not results:
-        raise socket.gaierror(socket.EAI_NONAME, f"Cloudflare DNS returned no usable address for {host_text}")
+        raise socket.gaierror(socket.EAI_NONAME, f"DNS returned no usable address for {host_text}")
     return results
 
 
-def install_cloudflare_dns(*, force: bool = False) -> bool:
-    """Install strict Cloudflare DoH resolution for Python networking.
-
-    On Windows this is enabled by default. ``force`` exists for deterministic
-    tests on non-Windows hosts.
-    """
+def install_cloudflare_dns(*, force: bool = False, mode: str | None = None) -> bool:
+    """Apply DNS policy to Python networking."""
     global _INSTALLED
+    configured = configure_dns_mode(mode if mode is not None else current_dns_mode())
     if os.name != "nt" and not force:
         return False
     with _INSTALL_LOCK:
-        if socket.getaddrinfo is cloudflare_getaddrinfo:
+        if configured == DNS_MODE_SYSTEM:
+            if socket.getaddrinfo is cloudflare_getaddrinfo:
+                socket.getaddrinfo = _ORIGINAL_GETADDRINFO
+            _INSTALLED = False
+        else:
+            socket.getaddrinfo = cloudflare_getaddrinfo
             _INSTALLED = True
-            return True
-        socket.getaddrinfo = cloudflare_getaddrinfo
-        _INSTALLED = True
     app_logger.info(
-        "NETWORK DNS | provider=Cloudflare 1.1.1.1 | mode=DoH-secure | active=True | bootstrap=%s | system_fallback=False",
-        ",".join(CLOUDFLARE_BOOTSTRAP_IPS),
+        "NETWORK DNS | mode=%s | provider=%s | active=%s | bootstrap=%s | system_fallback=%s",
+        configured,
+        "system" if configured == DNS_MODE_SYSTEM else "Cloudflare 1.1.1.1",
+        configured != DNS_MODE_SYSTEM,
+        ",".join(CLOUDFLARE_BOOTSTRAP_IPS) if configured != DNS_MODE_SYSTEM else "none",
+        configured == DNS_MODE_AUTO,
     )
     return True
 
@@ -289,19 +451,20 @@ def cloudflare_dns_active() -> bool:
 
 
 def cloudflare_dns_diagnostic() -> str:
+    status = dns_runtime_status()
     return (
-        "provider=Cloudflare 1.1.1.1 | mode=DoH-secure | "
-        f"active={cloudflare_dns_active()} | system_fallback=False"
+        f"mode={status['mode']} | provider="
+        + ("system" if status["mode"] == DNS_MODE_SYSTEM else "Cloudflare 1.1.1.1")
+        + f" | active={cloudflare_dns_active()} | system_fallback={status['mode'] == DNS_MODE_AUTO}"
+        + f" | fallback_active={status['fallback_active']} | circuit_open={status['circuit_open']}"
     )
 
 
-def cloudflare_chromium_args() -> list[str]:
-    """Secure-DNS configuration for Chromium used by Playwright.
-
-    Chromium documents secure/automatic/off DoH modes and custom URI templates.
-    The child browser is additionally logged by the caller because these options
-    are independent from Python's socket resolver.
-    """
+def cloudflare_chromium_args(mode: str | None = None) -> list[str]:
+    """Return Chromium DNS flags matching the configured application policy."""
+    policy = normalize_dns_mode(mode if mode is not None else current_dns_mode())
+    if policy == DNS_MODE_SYSTEM:
+        return ["--dns-over-https-mode=off"]
     return [
         "--dns-over-https-mode=secure",
         f"--dns-over-https-templates={CLOUDFLARE_DOH_TEMPLATE}",
@@ -353,21 +516,21 @@ def _parse_proxy_authority(value: str, default_port: int) -> tuple[str, int]:
 
 
 def _connect_target(host: str, port: int, timeout: float = 12.0):
-    if _bypass_cloudflare(host):
+    if _bypass_cloudflare(host) or current_dns_mode() == DNS_MODE_SYSTEM:
         return _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
     if _is_numeric_host(host):
         addresses = (host.strip("[]"),)
     else:
-        addresses = _resolve(host, socket.AF_INET)
+        addresses = _resolve_with_policy(host, socket.AF_INET)
         if not addresses:
-            addresses = _resolve(host, socket.AF_INET6)
+            addresses = _resolve_with_policy(host, socket.AF_INET6)
     last_error = None
     for address in addresses:
         try:
             return _ORIGINAL_CREATE_CONNECTION((address, int(port)), timeout=timeout)
         except Exception as exc:
             last_error = exc
-    raise OSError(f"Cloudflare proxy could not connect to {host}:{port}: {last_error}")
+    raise OSError(f"DNS proxy could not connect to {host}:{port}: {last_error}")
 
 
 def _relay_bidirectional(
@@ -490,7 +653,7 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
             if method.upper() == "CONNECT":
                 host, port = _parse_proxy_authority(target, 443)
                 upstream = _connect_target(host, port)
-                app_logger.debug("NETWORK DNS | client=Chromium-proxy | host=%s | port=%s | via=Cloudflare", host, port)
+                app_logger.debug("NETWORK DNS | client=Chromium-proxy | host=%s | port=%s | via=%s", host, port, current_dns_mode())
                 client.sendall(b"HTTP/1.1 200 Connection Established\r\nProxy-Agent: AudioKnigi-Cloudflare\r\n\r\n")
                 if remainder:
                     upstream.sendall(remainder)
@@ -537,7 +700,7 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
             path = quote(path, safe="/:?#[]@!$&'()*+,;=%")
 
             upstream = _connect_target(host, port)
-            app_logger.debug("NETWORK DNS | client=Chromium-proxy | host=%s | port=%s | via=Cloudflare", host, port)
+            app_logger.debug("NETWORK DNS | client=Chromium-proxy | host=%s | port=%s | via=%s", host, port, current_dns_mode())
             filtered = []
             for line in lines[1:]:
                 if not line.strip():
@@ -556,7 +719,7 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
             upstream.settimeout(None)
             _relay_bidirectional(client, upstream, return_when_right_closes=True)
         except Exception as exc:
-            app_logger.debug("NETWORK DNS | Cloudflare proxy request failed | %s: %s", type(exc).__name__, exc)
+            app_logger.debug("NETWORK DNS | DNS proxy request failed | %s: %s", type(exc).__name__, exc)
             try:
                 client.sendall(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
             except Exception:
@@ -592,8 +755,8 @@ def ensure_cloudflare_playwright_proxy() -> str:
         host, port = server.server_address[:2]
         url = f"http://{host}:{port}"
         app_logger.info(
-            "NETWORK DNS | client=Playwright/Chromium | proxy=%s | provider=Cloudflare | mode=DoH-secure | system_fallback=False",
-            url,
+            "NETWORK DNS | client=Playwright/Chromium | proxy=%s | mode=%s | system_fallback=%s",
+            url, current_dns_mode(), current_dns_mode() == DNS_MODE_AUTO,
         )
         return url
 
@@ -622,30 +785,23 @@ def shutdown_cloudflare_playwright_proxy() -> None:
 
 
 def cloudflare_ffmpeg_input_args() -> list[str]:
-    """FFmpeg/FFprobe input options that keep remote URL DNS behind Cloudflare.
-
-    FFmpeg's HTTP/TLS protocols support the ``http_proxy`` input option,
-    including CONNECT tunnelling for HTTPS.  The localhost proxy resolves the
-    destination host exclusively with the same Cloudflare DoH resolver used by
-    Python and Playwright.
-    """
+    """Return FFmpeg/FFprobe DNS routing arguments for the current policy."""
+    if current_dns_mode() == DNS_MODE_SYSTEM:
+        return []
     return ["-http_proxy", ensure_cloudflare_playwright_proxy()]
 
 
 def cloudflare_playwright_launch_kwargs() -> dict:
-    """Launch Microsoft Edge without bundling Playwright's Chromium.
-
-    Playwright's Python driver remains embedded in the application, but the
-    browser itself is the stable Microsoft Edge installation already present
-    on supported Windows systems.  This keeps the one-file build much smaller
-    while preserving the same Cloudflare-resolving local proxy.
-    """
-    return {
+    """Launch Edge with DNS behavior aligned to Python/FFmpeg policy."""
+    policy = current_dns_mode()
+    options = {
         "channel": "msedge",
         "headless": True,
-        "proxy": {"server": ensure_cloudflare_playwright_proxy()},
-        "args": cloudflare_chromium_args() + ["--disable-quic"],
+        "args": cloudflare_chromium_args(policy) + ["--disable-quic"],
     }
+    if policy != DNS_MODE_SYSTEM:
+        options["proxy"] = {"server": ensure_cloudflare_playwright_proxy()}
+    return options
 
 
 def launch_playwright_chromium(browser_type):

@@ -11,7 +11,7 @@ from ..core import (
     safe_normalization_mode,
 )
 
-CURRENT_SETTINGS_VERSION = 2
+CURRENT_SETTINGS_VERSION = 3
 
 def _safe_bool(value: Any, default: bool = False) -> bool:
     if value is None:
@@ -48,6 +48,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "save_sidecars": True,
     "delete_source": True,
     "playwright_fallback_enabled": True,
+    "dns_mode": "auto",
     "parallel_single_source": False,
     "segment_count": "auto",
     "segment_threshold_mb": 16,
@@ -136,6 +137,8 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
         segment_count = str(segment_number) if 1 <= segment_number <= 8 else "auto"
     raw["segment_count"] = segment_count
     raw["normalization_mode"] = safe_normalization_mode(raw.get("normalization_mode"))
+    dns_mode = str(raw.get("dns_mode") or "auto").strip().lower()
+    raw["dns_mode"] = dns_mode if dns_mode in {"auto", "cloudflare", "system"} else "auto"
     raw["folder_template"] = str(raw.get("folder_template") or "{Book_Title}")
     raw["track_template"] = str(raw.get("track_template") or "{Track_Number}.mp3")
     raw["output_dir"] = str(raw.get("output_dir") or DEFAULT_OUTPUT)

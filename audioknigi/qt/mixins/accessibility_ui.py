@@ -12,6 +12,7 @@ from ...metadata import APP_VERSION
 from ...core import CRASH_REPORT_FILE, DEFAULT_OUTPUT, resolve_executable
 from ...i18n import tr
 from ...logging_utils import ERROR_LOG_FILE, app_logger, tail_error_log
+from ...network_dns import DNS_MODE_CLOUDFLARE, dns_runtime_status
 from ...diagnostics import create_support_bundle
 from ...services.source_health_service import check_source_health
 from ..accessibility import announce, configure_accessible, focus_table_row
@@ -59,6 +60,23 @@ class AccessibilityUiMixin:
         else:
             text = self._guidance_for_tab(self.tabs.currentIndex())
         self._set_guidance(text, announce_now=announce_now)
+
+    def _poll_dns_runtime_status(self) -> None:
+        status = dns_runtime_status()
+        fallback_event = int(status.get("fallback_event", 0) or 0)
+        recovery_event = int(status.get("recovery_event", 0) or 0)
+        if fallback_event > int(getattr(self, "_dns_fallback_event_seen", 0) or 0):
+            self._dns_fallback_event_seen = fallback_event
+            message = self._l(
+                "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически."
+            )
+            self.set_status(message, assertive=True)
+            self._set_guidance(message, announce_now=True, assertive=True)
+        if recovery_event > int(getattr(self, "_dns_recovery_event_seen", 0) or 0):
+            self._dns_recovery_event_seen = recovery_event
+            message = self._l("Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.")
+            self.set_status(message)
+            self._set_guidance(message, announce_now=True)
 
     def _start_source_health_check(self) -> None:
         # Offscreen/self-test windows are never shown. Do not start network I/O
@@ -115,8 +133,15 @@ class AccessibilityUiMixin:
                 details.append(f"{getattr(item, 'source', '')}: HTTP {status}")
             else:
                 details.append(f"{getattr(item, 'source', '')}: {getattr(item, 'error', '') or self._l('нет соединения')}")
+        dns_status = dns_runtime_status()
+        dns_advice = ""
+        if str(dns_status.get("mode") or "") == DNS_MODE_CLOUDFLARE:
+            dns_advice = self._l(
+                " В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS."
+            )
         message = self._l(
-            "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.\n\nИсточники: {details}",
+            "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.{dns_advice}\n\nИсточники: {details}",
+            dns_advice=dns_advice,
             details="; ".join(details),
         )
         self.set_status(self._l("Источники недоступны. Проверьте интернет или VPN."), assertive=True)

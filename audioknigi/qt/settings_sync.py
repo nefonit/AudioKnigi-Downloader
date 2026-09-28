@@ -23,6 +23,7 @@ class SettingsSyncMixin:
             ("segment_count_combo", str(data.get("segment_count") or "auto")),
             ("segment_threshold_combo", safe_int(data.get("segment_threshold_mb", 16), 16)),
             ("auto_chunk_combo", safe_int(data.get("auto_chunk_min_kbytes_per_sec", 256), 256)),
+            ("dns_mode_combo", data.get("dns_mode", "auto")),
         )
         for attr, value in mappings:
             self._set_combo_data(getattr(self, attr, None), value)

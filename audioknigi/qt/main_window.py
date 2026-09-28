@@ -12,6 +12,7 @@ from ..models import Book, SearchResult
 from ..config.settings import load_app_settings, save_app_settings
 from ..i18n import LANGUAGES, localize_runtime_text, tr, ui_text
 from ..logging_utils import app_logger
+from ..network_dns import dns_runtime_status
 from ..services.queue_service import QueueStore, QueueTask
 from .accessibility import AccessibleAnnouncer, configure_accessible, ensure_accessibility_tree, install_keyboard_focus_frame
 from .event_sounds import QtEventSoundManager
@@ -64,6 +65,9 @@ class AudioKnigiQtWindow(
         self._search_worker: _SearchWorker | None = None
         self._search_cancel: threading.Event | None = None
         self._source_health_running = False
+        dns_status = dns_runtime_status()
+        self._dns_fallback_event_seen = int(dns_status.get("fallback_event", 0) or 0)
+        self._dns_recovery_event_seen = int(dns_status.get("recovery_event", 0) or 0)
         self._abs_thread: QThread | None = None
         self._abs_worker: _AudiobookshelfWorker | None = None
         self._history_rows: list[dict] = []
@@ -157,6 +161,10 @@ class AudioKnigiQtWindow(
         tray_text = self._rt(" Системный трей активен." if tray_started else " Системный трей недоступен.")
         self.set_status(ready_text + tray_text)
         self._refresh_context_guidance(announce_now=True)
+        self._dns_status_timer = QTimer(self)
+        self._dns_status_timer.setInterval(1000)
+        self._dns_status_timer.timeout.connect(self._poll_dns_runtime_status)
+        self._dns_status_timer.start()
         # Source availability is checked after the window is usable. The
         # background daemon cannot block startup or application shutdown.
         self._single_shot_if_alive(900, "_start_source_health_check")

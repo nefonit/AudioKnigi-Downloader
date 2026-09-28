@@ -478,6 +478,27 @@ class MainWindowPagesMixin:
         basic_layout.addStretch(1)
     
         network = group(network_layout, self._l("Сеть и Range-загрузка"))
+        add_combo(
+            network,
+            self._l("DNS:"),
+            "dns_mode_combo",
+            [
+                (self._l("Автоматически — Cloudflare с резервным системным DNS"), "auto"),
+                (self._l("Только Cloudflare"), "cloudflare"),
+                (self._l("Системный DNS"), "system"),
+            ],
+            "dns_mode",
+            "auto",
+            self._l("Режим DNS"),
+            "dns_mode",
+        )
+        dns_description = self._l("Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.")
+        self.dns_mode_combo.setAccessibleDescription(dns_description)
+        self.dns_mode_combo.setToolTip(dns_description)
+        dns_hint = QLabel(dns_description)
+        dns_hint.setWordWrap(True)
+        configure_accessible(dns_hint, name=self._l("Описание режима DNS"), identifier="dns_mode_hint")
+        network.addRow("", dns_hint)
         add_combo(network, self._l("Соединений:"), "segment_count_combo", [(self._l("Автоматически"), "auto"), ("1", "1"), ("2", "2"), ("4", "4"), ("8", "8")], "segment_count", "auto", "Количество параллельных соединений", "segment_count")
         add_combo(network, self._l("Range от размера:"), "segment_threshold_combo", [(f"{x} MB", x) for x in (4, 8, 16, 32, 64)], "segment_threshold_mb", 16, "Минимальный размер для Range-загрузки", "segment_threshold")
         add_combo(network, self._l("Порог медленного соединения:"), "auto_chunk_combo", [(f"{x} KB/s", x) for x in (128, 256, 512, 1024)], "auto_chunk_min_kbytes_per_sec", 256, "Порог медленного соединения", "auto_chunk_threshold")

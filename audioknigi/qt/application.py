@@ -82,8 +82,8 @@ def run_qt(argv=None) -> int:
         except Exception:
             pass
         return 2
-    install_cloudflare_dns()
     settings = load_app_settings().to_dict()
+    install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))
     app = create_application(clean_argv, settings=settings)
     original_excepthook = sys.excepthook
     original_thread_excepthook = getattr(threading, "excepthook", None)
