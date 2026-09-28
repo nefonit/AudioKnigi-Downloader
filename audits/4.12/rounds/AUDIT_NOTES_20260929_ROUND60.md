@@ -16,4 +16,4 @@ Python requests does not provide a safe mechanism for forcibly killing a thread 
 
 ## Regression coverage
 
-tests/integration/test_round60_residual_audit_hardening_20260929.py covers post-migration scale clamping, exact queue template round-trips, missing-vs-explicit resume template semantics, concurrent ffprobe stop ownership, bounded AudioKnigi search timeouts, prompt cooperative multi-source cancellation, and the Qt recovery merge contract.
+tests/integration/test_persistence_cancellation_hardening_20260929.py covers post-migration scale clamping, exact queue template round-trips, missing-vs-explicit resume template semantics, concurrent ffprobe stop ownership, bounded AudioKnigi search timeouts, prompt cooperative multi-source cancellation, and the Qt recovery merge contract.
