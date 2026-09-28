@@ -101,8 +101,6 @@
   "audioknigi/services/book_analysis_service.py:_analyze_audioknigi_playwright:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/services/book_analysis_service.py:_analyze_audioknigi_playwright:Exception#2": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/services/book_analysis_service.py:_probe_remote_duration:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
-  "audioknigi/services/book_analysis_service.py:_probe_remote_duration:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
-  "audioknigi/services/book_analysis_service.py:_probe_remote_duration:Exception#3": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/services/book_analysis_service.py:_remote_size:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/services/book_analysis_service.py:on_request:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/services/library_service.py:restore_backup:Exception#1": "best-effort rollback: cleanup failure must not mask the original restore error"
