@@ -142,10 +142,16 @@ class AnalysisDownloadUiMixin:
         current = normalize_supported_url(str(getattr(self.current_book, "url", "") or ""))
         if not url or url == current:
             return
-        # Re-analysis creates a fresh Book/Track list. Preserve the user's
-        # explicit chapter selection across a narration switch instead of
-        # silently reverting to every chapter selected.
-        self._pending_narration_selected_indices = list(self.track_model.selected_indices())
+        # Re-analysis creates a fresh Book/Track list. Preserve "all selected"
+        # as intent, and preserve explicit indices only when the new narration
+        # has the same chapter geometry.
+        selected_indices = list(self.track_model.selected_indices())
+        old_track_count = self.track_model.rowCount()
+        self._pending_narration_selected_indices = selected_indices
+        self._pending_narration_selected_all = bool(
+            old_track_count > 0 and len(selected_indices) == old_track_count
+        )
+        self._pending_narration_track_count = old_track_count
         self._pending_narration_switch = True
         self.book_url_edit.setText(url)
         self._pending_narration_switch = False
@@ -271,6 +277,8 @@ class AnalysisDownloadUiMixin:
         if kind == "cancelled":
             self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
+            self._pending_narration_selected_all = False
+            self._pending_narration_track_count = 0
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
             self._download_after_analysis = False
@@ -289,6 +297,8 @@ class AnalysisDownloadUiMixin:
         if kind == "error":
             self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
+            self._pending_narration_selected_all = False
+            self._pending_narration_track_count = 0
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
             self._download_after_analysis = False
@@ -313,6 +323,8 @@ class AnalysisDownloadUiMixin:
         if not isinstance(book, Book):
             self._focus_download_after_analysis = False
             self._pending_narration_selected_indices = None
+            self._pending_narration_selected_all = False
+            self._pending_narration_track_count = 0
             self._queue_after_analysis = False
             self._queue_reanalyze_task_id = None
             self._download_after_analysis = False
@@ -339,22 +351,44 @@ class AnalysisDownloadUiMixin:
         else:
             self._known_narration_variants = None
         pending_narration_selection = getattr(self, "_pending_narration_selected_indices", None)
+        narration_selection_needs_review = False
         if self._resume_selected_indices is not None:
             wanted = set(self._resume_selected_indices)
             for track in book.tracks:
                 track.selected = int(track.index) in wanted
             self._resume_selected_indices = None
         elif pending_narration_selection is not None:
-            wanted = {int(value) for value in pending_narration_selection}
-            for track in book.tracks:
-                track.selected = int(track.index) in wanted
+            old_count = int(getattr(self, "_pending_narration_track_count", 0) or 0)
+            selected_all = bool(getattr(self, "_pending_narration_selected_all", False))
+            if selected_all:
+                for track in book.tracks:
+                    track.selected = True
+            elif old_count == len(book.tracks):
+                wanted = {int(value) for value in pending_narration_selection}
+                for track in book.tracks:
+                    track.selected = int(track.index) in wanted
+            else:
+                # Different narrations/providers can split the same book into
+                # completely different chapter counts. Raw indices are not
+                # equivalent in that case, so require an explicit new choice.
+                for track in book.tracks:
+                    track.selected = False
+                narration_selection_needs_review = True
         self._pending_narration_selected_indices = None
+        self._pending_narration_selected_all = False
+        self._pending_narration_track_count = 0
         self._book_url_is_stale = False
         self.current_book = book
         self.book_empty_state.setVisible(False)
         self.book_details_panel.setVisible(True)
         self.track_model.set_book(book)
         self._update_selected_track_player_button()
+        if narration_selection_needs_review:
+            message = self._l(
+                "В новой озвучке другое количество частей. Выберите нужные части заново перед скачиванием."
+            )
+            self.set_status(message, assertive=True)
+            self._set_guidance(message, announce_now=True, assertive=True)
         # Keep the Advanced table geometry stable. The header already owns the
         # responsive policy: compact metadata columns use ResizeToContents, the
         # title stretches, and the raw source URL stays at its bounded interactive
