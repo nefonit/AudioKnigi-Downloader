@@ -227,7 +227,15 @@ def _query_cloudflare_json(host: str, record_type: int, timeout: float = CLOUDFL
     seen.add(folded_host)
     path = f"{CLOUDFLARE_DOH_PATH}?name={quote(dns_host, safe='')}&type={qtype}"
     last_error: Exception | None = None
-    for bootstrap_ip in CLOUDFLARE_BOOTSTRAP_IPS:
+    # Automatic mode is latency-sensitive: two independent Cloudflare IPv4
+    # bootstrap endpoints at 1.5 s each bound the ordinary failover near 3 s.
+    # Strict Cloudflare mode still tries every published bootstrap address.
+    bootstrap_ips = (
+        CLOUDFLARE_BOOTSTRAP_IPS[:2]
+        if current_dns_mode() == DNS_MODE_AUTO
+        else CLOUDFLARE_BOOTSTRAP_IPS
+    )
+    for bootstrap_ip in bootstrap_ips:
         conn = None
         try:
             conn = _BootstrapHTTPSConnection(bootstrap_ip, timeout=timeout)
@@ -322,6 +330,9 @@ def _resolve(host: str, family: int) -> tuple[str, ...]:
             return cached[1]
 
     addresses, ttl, bootstrap = _query_cloudflare_json(normalized, record_type)
+    # Only a live DoH transaction proves recovery. A cached answer must not
+    # clear a fallback/circuit state created by a recent Cloudflare failure.
+    _record_cloudflare_success()
     with _CACHE_LOCK:
         # Keep the long-running tray application's DNS cache bounded.  Expired
         # entries are removed first; oldest insertion-order entries are evicted
@@ -374,7 +385,6 @@ def _resolve_with_policy(host: str, family: int) -> tuple[str, ...]:
             raise
         _record_cloudflare_failure(exc)
         return _system_addresses(host, family)
-    _record_cloudflare_success()
     return addresses
 
 
