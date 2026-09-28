@@ -207,6 +207,20 @@ def _normalize_queue_download_mode(value: Any) -> str:
     return "full_mp3" if str(value or "selected").strip().casefold() == "full_mp3" else "selected"
 
 
+def _optional_persisted_bool(data: dict[str, Any], key: str) -> bool | None:
+    if key not in data or data.get(key) is None:
+        return None
+    return bool(data.get(key))
+
+
+def _optional_persisted_text(data: dict[str, Any], key: str) -> str | None:
+    if key not in data or data.get(key) is None:
+        return None
+    # Empty string is data, not "missing": preserving it makes queue
+    # serialization a true round-trip even for externally-created tasks.
+    return str(data.get(key))
+
+
 def task_from_dict(data: dict[str, Any]) -> QueueTask:
     if not isinstance(data, dict):
         raise TypeError("Queue task must be a mapping")
@@ -255,9 +269,9 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
                 if (data.get("normalization_mode") or bool(data.get("normalize_audio", False)))
                 else "off"
             ),
-            use_templates=(None if "use_templates" not in data else bool(data.get("use_templates"))),
-            folder_template=(None if "folder_template" not in data else str(data.get("folder_template") or "{Book_Title}")),
-            track_template=(None if "track_template" not in data else str(data.get("track_template") or "{Track_Number}.mp3")),
+            use_templates=_optional_persisted_bool(data, "use_templates"),
+            folder_template=_optional_persisted_text(data, "folder_template"),
+            track_template=_optional_persisted_text(data, "track_template"),
         )
         return QueueTask(
             id=str(data.get("id") or uuid.uuid4().hex),
@@ -286,9 +300,9 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
         naming_mode=str(req_data.get("naming_mode", "number") or "number"),
         audio_preset=str(req_data.get("audio_preset", "copy") or "copy"),
         normalization_mode=str(req_data.get("normalization_mode", "off") or "off"),
-        use_templates=(None if req_data.get("use_templates") is None else bool(req_data.get("use_templates"))),
-        folder_template=(None if req_data.get("folder_template") is None else str(req_data.get("folder_template") or "{Book_Title}")),
-        track_template=(None if req_data.get("track_template") is None else str(req_data.get("track_template") or "{Track_Number}.mp3")),
+        use_templates=_optional_persisted_bool(req_data, "use_templates"),
+        folder_template=_optional_persisted_text(req_data, "folder_template"),
+        track_template=_optional_persisted_text(req_data, "track_template"),
     )
     status_code = str(data.get("status_code", "pending") or "pending")
     stored_status = str(data.get("status", "Ожидает") or "Ожидает")
