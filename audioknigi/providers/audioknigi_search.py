@@ -76,9 +76,11 @@ def _looks_like_author_prefix(value: str) -> bool:
     candidate = _clean_text(value)
     if not (2 <= len(candidate) <= 90) or any(ch.isdigit() for ch in candidate):
         return False
-    # Reject acronym/series labels such as S.T.A.L.K.E.R. while retaining
-    # ordinary initials ("А. С. Пушкин").
-    if candidate.count(".") > 3:
+    # Reject pure dotted acronym/series labels such as S.T.A.L.K.E.R. without
+    # imposing an arbitrary maximum on ordinary names. This keeps forms such as
+    # "Дж. Р. Р. Толкин мл." valid while still rejecting acronym-only prefixes.
+    compact_dotted = re.sub(r"\s+", "", candidate)
+    if re.fullmatch(r"(?:[^\W\d_]\.){4,}", compact_dotted, re.UNICODE):
         return False
     words = re.findall(r"[^\W\d_]+", candidate, re.UNICODE)
     if not (1 <= len(words) <= 6):
@@ -623,7 +625,14 @@ def _same_author_identity(left: str, right: str) -> bool:
         if not initials or not short_words < full_words:
             return False
         expanded = full_words - short_words
-        return all(any(word.startswith(initial) for word in expanded) for initial in initials)
+        # A site can expand only the given name while retaining an omitted
+        # patronymic initial: "А. С. Пушкин" vs "Александр Пушкин". Require
+        # every newly expanded word to be explained by an initial, but do not
+        # require every short-form initial to have a corresponding full word.
+        return bool(expanded) and all(
+            any(word.startswith(initial) for initial in initials)
+            for word in expanded
+        )
 
     return initial_form_matches(left_words, left_initials, right_words) or initial_form_matches(
         right_words, right_initials, left_words
@@ -670,19 +679,24 @@ def _audioknigi_plain_narrator(html_text: str) -> str:
 def _audioknigi_page_metadata(
     result: SearchResult,
     *,
+    cancel_event=None,
     session_factory=get_http_session,
     metadata_extractor=extract_metadata_from_html,
     extended_metadata_extractor=extract_extended_metadata_from_html,
 ) -> SearchResult:
     try:
+        if cancel_event is not None and cancel_event.is_set():
+            raise Cancelled("Поиск отменён пользователем")
         session = session_factory()
         response = session.get(
             result.url,
             headers={"Referer": SEARCH_URL},
-            timeout=(7, 20),
+            timeout=(5, 10),
             allow_redirects=True,
         )
         response.raise_for_status()
+        if cancel_event is not None and cancel_event.is_set():
+            raise Cancelled("Поиск отменён пользователем")
         html_text = _response_html_text(response)
 
         title_match = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.I | re.S)
@@ -737,6 +751,8 @@ def _audioknigi_page_metadata(
             narration_variants=list(result.narration_variants or []),
             availability="available",
         )
+    except Cancelled:
+        raise
     except Exception:
         return result
 
@@ -748,7 +764,10 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
         pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="audioknigi-readers")
         futures = {}
         try:
-            futures = {pool.submit(_audioknigi_page_metadata, item): idx for idx, item in enumerate(source_items)}
+            futures = {
+                pool.submit(_audioknigi_page_metadata, item, cancel_event=cancel_event): idx
+                for idx, item in enumerate(source_items)
+            }
             for future in _iter_completed_cancellable(futures, cancel_event):
                 idx = futures[future]
                 try:
@@ -828,22 +847,15 @@ def search_audioknigi(query: str, cancel_event=None) -> list[SearchResult]:
     response = session.get(
         SEARCH_URL,
         params={"text": query_text},
-        timeout=(10, 30),
+        timeout=(6, 12),
         headers={"Referer": f"https://{AUDIOKNIGI_HOST}/"},
     )
     response.raise_for_status()
     if cancel_event is not None and cancel_event.is_set():
         raise Cancelled("Поиск отменён пользователем")
-    content = bytes(getattr(response, "content", b"") or b"")
-    declared_encoding = str(getattr(response, "encoding", "") or "").strip().casefold()
-    if declared_encoding and declared_encoding not in {"utf-8", "utf8", "utf-8-sig"}:
-        html_text = _response_html_text(response)
-    else:
-        # Preserve the site's normal UTF-8/BOM path while allowing explicitly
-        # declared legacy Cyrillic encodings to use the decoder above.
-        html_text = content.decode("utf-8-sig", errors="replace")
-        if not html_text:
-            html_text = str(getattr(response, "text", "") or "")
+    # Keep search-result and detail-page decoding on one code path so legacy
+    # encodings/BOM handling cannot drift between the two entry points.
+    html_text = _response_html_text(response)
     return _group_audioknigi_recordings(
         parse_audioknigi_results(html_text, response.url, query=query_text),
         cancel_event=cancel_event,
