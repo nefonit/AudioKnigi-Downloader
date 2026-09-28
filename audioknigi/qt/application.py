@@ -12,6 +12,7 @@ from ..core import resource_path, safe_int
 from ..metadata import APP_VERSION
 from ..config.settings import load_app_settings, normalize_settings, save_app_settings
 from ..crash_report import build_report
+from ..logging_utils import app_logger
 from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy
 from .main_window import AudioKnigiQtWindow
 from .onboarding import QtFirstRunWizard
