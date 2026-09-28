@@ -2,7 +2,9 @@
 
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)
 
-> Post-release audit updates through 2026-09-28 are recorded below; the published 4.12.42 release date remains 2026-09-18.
+> Post-release audit updates through 2026-09-29 are recorded below; the published 4.12.42 release date remains 2026-09-18.
+
+- Round 60 residual audit hardening (2026-09-29): clamp UI scale after legacy migration; make ffprobe cancellation single-owner; preserve queue template values exactly; let old resume manifests inherit current template settings when those fields were omitted; and bound AudioKnigi search/detail socket waits while preserving cooperative cancellation. Added focused regressions for all remaining confirmed cases.
 
 - Round 59 audit hardening (2026-09-28): redact POSIX paths from diagnostic bundles; harden cover sidecar normalization, adaptive Range sampling, AudioKnigi cancellation/author matching, numbered chapter titles, UTC player-position timestamps, Qt event-sound configuration, track-selection accessibility, single-track selection preservation, narration-switch selection semantics, queue focus restoration, crash hooks, invalid-audio auto-advance, proxy header parsing, and PySide self-test event flushing. Reviewed the remaining external-audit findings as already fixed, intentional contracts, or non-runtime/style observations.
 
