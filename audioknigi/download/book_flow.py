@@ -434,6 +434,7 @@ class BookFlowMixin:
                     pass
 
         mp3_needs_creation = []
+        tag_jobs = []
         if want_mp3:
             mp3_needs_creation = [
                 tr for tr in chosen if normalize_track_status(tr.local_status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT)
@@ -719,7 +720,6 @@ class BookFlowMixin:
                 "cover_state", book, available=bool(cover),
                 bytes=len(cover[0]) if cover and isinstance(cover, tuple) and cover else 0,
             )
-            tag_jobs = []
             for pos, tr in enumerate(chosen, 1):
                 self._check_cancel()
                 status, actual, out = self._verify_track_file(book, tr)
