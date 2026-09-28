@@ -616,7 +616,16 @@ def _relay_bidirectional(
 def _read_http_head(sock: socket.socket, limit: int = 131072, *, deadline_seconds: float = 20.0) -> tuple[bytes, bytes]:
     data = bytearray()
     deadline = time.monotonic() + max(0.1, float(deadline_seconds))
-    while b"\r\n\r\n" not in data:
+    marker = -1
+    marker_size = 0
+    while marker < 0:
+        marker = data.find(b"\r\n\r\n")
+        marker_size = 4
+        if marker < 0:
+            marker = data.find(b"\n\n")
+            marker_size = 2
+        if marker >= 0:
+            break
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("Proxy request header deadline exceeded")
@@ -627,10 +636,9 @@ def _read_http_head(sock: socket.socket, limit: int = 131072, *, deadline_second
         data.extend(chunk)
         if len(data) > limit:
             raise OSError("Proxy request headers too large")
-    marker = data.find(b"\r\n\r\n")
     if marker < 0:
         return bytes(data), b""
-    marker += 4
+    marker += marker_size
     return bytes(data[:marker]), bytes(data[marker:])
 
 
@@ -643,7 +651,7 @@ class _CloudflareProxyHandler(socketserver.BaseRequestHandler):
             head, remainder = _read_http_head(client)
             if not head:
                 return
-            lines = head.split(b"\r\n")
+            lines = head.replace(b"\r\n", b"\n").split(b"\n")
             request_line = lines[0].decode("iso-8859-1", "replace")
             parts = request_line.split(None, 2)
             if len(parts) != 3:
