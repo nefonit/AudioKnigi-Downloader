@@ -59,6 +59,7 @@ _MAX_CACHED_MEDIA_PLAYERS = 3
 class QtEventSoundManager(QObject):
     _queued_play = Signal(str, bool)
     _queued_media_only_play = Signal(str, bool)
+    _queued_configure = Signal(object, object, object)
 
     def __init__(self, parent=None, *, enabled=True, volume=1.0, language="ru"):
         super().__init__(parent)
@@ -67,6 +68,7 @@ class QtEventSoundManager(QObject):
         self.language = self._lang(language)
         self._queued_play.connect(self._play_queued, Qt.ConnectionType.QueuedConnection)
         self._queued_media_only_play.connect(self._play_media_only_queued, Qt.ConnectionType.QueuedConnection)
+        self._queued_configure.connect(self._configure_queued, Qt.ConnectionType.QueuedConnection)
         # Keep one player per cue. QMediaPlayer.setSource() is asynchronous on
         # Windows; rapidly swapping a single player's source can poison the
         # multimedia pipeline when two UI events arrive close together.
@@ -97,6 +99,16 @@ class QtEventSoundManager(QObject):
         return raw.split("-", 1)[0] or "ru"
 
     def configure(self, *, enabled=None, volume=None, language=None):
+        if QThread.currentThread() != self.thread():
+            self._queued_configure.emit(enabled, volume, language)
+            return
+        self._apply_configuration(enabled=enabled, volume=volume, language=language)
+
+    @Slot(object, object, object)
+    def _configure_queued(self, enabled=None, volume=None, language=None) -> None:
+        self._apply_configuration(enabled=enabled, volume=volume, language=language)
+
+    def _apply_configuration(self, *, enabled=None, volume=None, language=None) -> None:
         if enabled is not None:
             self.enabled = bool(enabled)
         if volume is not None:
