@@ -84,15 +84,22 @@ class SettingsSyncMixin:
         inferred_quality = "phone" if audio == "64k_mono" else ("normalize" if norm == "two_pass" else "standard")
         explicit_quality = str(data.get("quality_preset", "") or "").strip()
         quality = explicit_quality if explicit_quality in {"standard", "phone", "normalize"} else inferred_quality
-        for attr in ("quality_combo", "easy_quality_combo"):
-            combo = getattr(self, attr, None)
-            if combo is None:
-                continue
-            previous = combo.blockSignals(True)
+        if hasattr(self, "quality_combo"):
+            blocker = getattr(self.quality_combo, "blockSignals", None)
+            previous = blocker(True) if callable(blocker) else None
             try:
-                self._set_combo_data(combo, quality)
+                self._set_combo_data(self.quality_combo, quality)
             finally:
-                combo.blockSignals(previous)
+                if callable(blocker):
+                    blocker(previous)
+        if hasattr(self, "easy_quality_combo"):
+            blocker = getattr(self.easy_quality_combo, "blockSignals", None)
+            previous = blocker(True) if callable(blocker) else None
+            try:
+                self._set_combo_data(self.easy_quality_combo, quality)
+            finally:
+                if callable(blocker):
+                    blocker(previous)
         self._apply_large_mode()
         self._apply_source_visibility()
 
