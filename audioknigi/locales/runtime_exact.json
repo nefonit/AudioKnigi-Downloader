@@ -525,48 +525,48 @@
     "uk": "Не вдалося проаналізувати книгу."
   },
   "Проверить звук события": {
-    "uk": "Перевірити звук події",
     "de": "Ereigniston testen",
-    "en": "Test event sound"
+    "en": "Test event sound",
+    "uk": "Перевірити звук події"
   },
   "Проверить системный звук": {
-    "uk": "Перевірити системний звук",
     "de": "Systemton testen",
-    "en": "Test system sound"
+    "en": "Test system sound",
+    "uk": "Перевірити системний звук"
   },
   "Проверить встроенный звук события": {
-    "uk": "Перевірити вбудований звук події",
     "de": "Integrierten Ereigniston testen",
-    "en": "Test built-in event sound"
+    "en": "Test built-in event sound",
+    "uk": "Перевірити вбудований звук події"
   },
   "Проверить системный звук Windows": {
-    "uk": "Перевірити системний звук Windows",
     "de": "Windows-Systemton testen",
-    "en": "Test Windows system sound"
+    "en": "Test Windows system sound",
+    "uk": "Перевірити системний звук Windows"
   },
   "Проверка встроенного звука события.": {
-    "uk": "Перевірка вбудованого звуку події.",
     "de": "Integrierter Ereigniston wird getestet.",
-    "en": "Testing built-in event sound."
+    "en": "Testing built-in event sound.",
+    "uk": "Перевірка вбудованого звуку події."
   },
   "Не удалось воспроизвести встроенный звук события.": {
-    "uk": "Не вдалося відтворити вбудований звук події.",
     "de": "Der integrierte Ereigniston konnte nicht wiedergegeben werden.",
-    "en": "The built-in event sound could not be played."
+    "en": "The built-in event sound could not be played.",
+    "uk": "Не вдалося відтворити вбудований звук події."
   },
   "Проверка системного звука Windows.": {
-    "uk": "Перевірка системного звуку Windows.",
     "de": "Windows-Systemton wird getestet.",
-    "en": "Testing Windows system sound."
+    "en": "Testing Windows system sound.",
+    "uk": "Перевірка системного звуку Windows."
   },
   "Системный звук Windows недоступен.": {
-    "uk": "Системний звук Windows недоступний.",
     "de": "Der Windows-Systemton ist nicht verfügbar.",
-    "en": "Windows system sound is unavailable."
+    "en": "Windows system sound is unavailable.",
+    "uk": "Системний звук Windows недоступний."
   },
   "Не удалось освободить старый файл для повторного скачивания.": {
-    "uk": "Не вдалося звільнити старий файл для повторного завантаження.",
     "de": "Die alte Datei konnte für den erneuten Download nicht freigegeben werden.",
-    "en": "Could not release the old file for re-download."
+    "en": "Could not release the old file for re-download.",
+    "uk": "Не вдалося звільнити старий файл для повторного завантаження."
   }
 }
