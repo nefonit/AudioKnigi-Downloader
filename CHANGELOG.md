@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 66
+
+- Hardened segmented-worker queue handling, removed duplicate support-bundle path redaction, added an unknown-size disk reserve, treated HTTP 403 as reachable-but-blocked in source health, reused Playwright-fetched playlist bodies before requests fallback, restored legacy wrapped queue backups, logged missing PoleKnig author pages, and explicitly released transient message boxes.
+
 ## 4.12.42 Round 65
 
 - Tightened PoleKnig search relevance: exact and strong title matches are ranked ahead of broad site hits, unrelated single-word matches are filtered when title intent is clear, author-catalog searches remain intact, and legacy multi-term title searches keep their established fallback behavior.

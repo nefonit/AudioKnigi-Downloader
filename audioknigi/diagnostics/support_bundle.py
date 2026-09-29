@@ -135,23 +135,9 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
     ):
         return "<configured-path>"
 
-    # Error/status strings can contain an absolute path in the middle rather
-    # than being a path themselves. Mask those too so another Windows username,
-    # drive, or UNC share cannot leak into a support archive. Avoid matching the
-    # ``s://`` portion of ordinary URLs. Paths can contain spaces, so stop only
-    # at strong log-field delimiters rather than at whitespace.
-    text = _EMBEDDED_DRIVE_FILE_RE.sub("<configured-path>", text)
-    text = _EMBEDDED_UNC_FILE_RE.sub("<configured-path>", text)
-    text = _EMBEDDED_DRIVE_PATH_RE.sub("<configured-path>", text)
-    text = _EMBEDDED_UNC_PATH_RE.sub("<configured-path>", text)
-    text = _EMBEDDED_POSIX_FILE_RE.sub(
-        lambda match: match.group("prefix") + "<configured-path>",
-        text,
-    )
-    text = _EMBEDDED_POSIX_PATH_RE.sub(
-        lambda match: match.group("prefix") + "<configured-path>",
-        text,
-    )
+    # Embedded absolute paths were already masked before home-directory
+    # placeholder substitution above. A second six-regex pass here cannot
+    # reveal additional paths and only doubles work on large diagnostic logs.
     return text
 
 

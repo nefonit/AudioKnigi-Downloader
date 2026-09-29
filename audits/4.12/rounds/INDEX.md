@@ -67,3 +67,4 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20260929_ROUND63.md` — Round 62 follow-up: privacy, live settings normalization, bounded search hydration, and contract verification.
 - `AUDIT_NOTES_20260929_ROUND64.md` — Qt offscreen font-directory hardening for Windows build/self-tests.
 - `AUDIT_NOTES_20260929_ROUND65.md` — PoleKnig title/author intent detection and search relevance hardening.
+- `AUDIT_NOTES_20260929_ROUND66.md` — network/disk/privacy/Playwright/backup hardening follow-up.

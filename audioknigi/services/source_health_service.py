@@ -64,9 +64,11 @@ def _probe_source(host: str, *, timeout: float) -> SourceHealthItem:
             finally:
                 response.close()
         blocked = status in {401, 403, 451}
-        # 404/405/429 still prove that the host is reachable. Search/book
-        # endpoints can remain usable even when the homepage rejects the probe.
-        reachable = bool(200 <= status < 400 or status in {404, 405, 429})
+        # 403 frequently means a browser challenge rather than a dead host.
+        # Playwright-backed source operations can still succeed, so count it as
+        # network-reachable while retaining blocked=True for diagnostics.
+        # 404/405/429 likewise prove that the host answered the probe.
+        reachable = bool(200 <= status < 400 or status in {403, 404, 405, 429})
         return SourceHealthItem(
             source=source,
             url=url,

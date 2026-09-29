@@ -607,8 +607,14 @@ class ProbeMixin:
         bitrate_map = {"64k_mono": 64_000, "96k_mono": 96_000, "128k_stereo": 128_000}
         fallback_bitrate = 128_000
         estimated_missing_bytes = int(missing_duration * fallback_bitrate / 8) if missing_duration > 0 else 0
-        if need_source and remote_size <= 0 and estimated_missing_bytes > 0:
-            source_remaining = estimated_missing_bytes
+        if need_source and remote_size <= 0:
+            if estimated_missing_bytes > 0:
+                source_remaining = estimated_missing_bytes
+            else:
+                # With neither Content-Length nor usable duration metadata we
+                # cannot estimate the book size. Still require a small reserve
+                # so a completely full volume is rejected before writing begins.
+                source_remaining = 30 * 1024 * 1024
 
         if want_mp3:
             if preset in bitrate_map:

@@ -171,8 +171,13 @@ def _validated_backup_payloads(path: Path) -> dict[str, Any]:
                 data = _history_rows(data, strict=True)
             if member == "player_positions.json" and not isinstance(data, dict):
                 raise ValueError("player_positions.json должен содержать объект")
-            if member == "qt_queue.json" and not isinstance(data, list):
-                raise ValueError("qt_queue.json должен содержать список")
+            if member == "qt_queue.json":
+                if isinstance(data, dict):
+                    # Older/support formats wrapped queue rows in an object.
+                    # Restore into the current canonical on-disk list format.
+                    data = data.get("items", data.get("queue", []))
+                if not isinstance(data, list):
+                    raise ValueError("qt_queue.json должен содержать список или объект очереди")
             payloads[member] = data
     return payloads
 

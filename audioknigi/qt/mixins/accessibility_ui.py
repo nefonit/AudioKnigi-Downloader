@@ -385,7 +385,9 @@ class AccessibilityUiMixin:
         if ok_button is not None:
             configure_accessible(ok_button, name=self._l("Закрыть сообщение"), identifier="modal_ok")
         box.exec()
-        return box.standardButton(box.clickedButton())
+        result = box.standardButton(box.clickedButton())
+        box.deleteLater()
+        return result
 
     def _ask_yes_no(self, title: str, text: str, *, default_yes: bool = False) -> QMessageBox.StandardButton:
         title = self._rt(str(title or ""))
@@ -408,7 +410,9 @@ class AccessibilityUiMixin:
         if no_button is not None:
             configure_accessible(no_button, name=self._l("Нет, безопасное действие"), identifier="modal_no")
         box.exec()
-        return box.standardButton(box.clickedButton())
+        result = box.standardButton(box.clickedButton())
+        box.deleteLater()
+        return result
 
     @Slot(bool)
     def _toggle_session_log(self, visible: bool):

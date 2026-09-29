@@ -1558,8 +1558,12 @@ def _fetch_author_catalog(author_url: str, cancel_event=None) -> list[SearchResu
                     pages[page] = parse_search_results(
                         response.text or "", response.url or f"{author_url}?p={page}"
                     )
-                except Exception:
+                except Exception as exc:
                     pages[page] = []
+                    app_logger.warning(
+                        "PoleKnig author catalogue page %s failed for %s: %s",
+                        page, author_url, exc,
+                    )
         finally:
             _shutdown_pool_now(pool, futures)
 

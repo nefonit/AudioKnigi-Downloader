@@ -779,8 +779,6 @@ class NetworkDownloadMixin:
                 with errors_lock:
                     if errors:
                         return
-                if jobs.empty():
-                    return
                 if worker_id >= controller.current_workers():
                     # Adaptive workers are parked rather than destroyed. If the
                     # link recovers, the controller can raise the target again

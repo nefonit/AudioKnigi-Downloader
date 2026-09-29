@@ -712,7 +712,7 @@ class BookAnalysisService:
             html_text = ""
             page_title = ""
             playlist_url = ""
-            playlist_response = None
+            playlist_text = ""
             try:
                 persisted_headers, persisted_cookies = load_browser_context_profile()
                 context_options = {"locale": "ru-RU"}
@@ -732,6 +732,7 @@ class BookAnalysisService:
                             app_logger.debug("Failed to restore audioknigi cookie into Playwright context", exc_info=True)
                 page = context.new_page()
                 captured: list[str] = []
+                captured_responses = []
                 browser_request_headers: dict[str, str] = {}
 
                 def on_request(request):
@@ -744,7 +745,13 @@ class BookAnalysisService:
                         except Exception:
                             pass
 
+                def on_response(response):
+                    response_url = str(getattr(response, "url", "") or "").replace("\\/", "/")
+                    if ".pl.txt" in response_url:
+                        captured_responses.append(response)
+
                 page.on("request", on_request)
+                page.on("response", on_response)
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 # Player initialization can happen after DOMContentLoaded,
                 # especially while Cloudflare/Turnstile finishes a managed
@@ -763,6 +770,19 @@ class BookAnalysisService:
                 if not playlist_url:
                     extra = f"; HTTP fast-path: {primary_error}" if primary_error else ""
                     raise SiteStructureChanged("Playwright также не нашёл плейлист" + extra)
+
+                # If Chromium already fetched the playlist successfully, read
+                # that exact browser response while the context is still alive.
+                # Re-fetching only through requests can fail again on strict
+                # Cloudflare/CDN TLS fingerprinting even after cookies persist.
+                for browser_response in reversed(captured_responses):
+                    try:
+                        body = browser_response.body()
+                    except Exception:
+                        continue
+                    if body:
+                        playlist_text = bytes(body).decode("utf-8-sig", errors="replace")
+                        break
                 try:
                     browser_cookies = context.cookies()
                     if not browser_request_headers:
@@ -789,20 +809,22 @@ class BookAnalysisService:
                 except Exception:
                     pass
         self._check_cancel()
-        session = get_http_session()
-        playlist_response = session.get(playlist_url, headers={"Referer": url}, timeout=(10, 30))
-        playlist_response.raise_for_status()
+        if not playlist_text:
+            session = get_http_session()
+            playlist_response = session.get(playlist_url, headers={"Referer": url}, timeout=(10, 30))
+            playlist_response.raise_for_status()
+            playlist_text = (
+                playlist_response.content.decode("utf-8-sig", errors="replace")
+                if getattr(playlist_response, "content", None) is not None
+                else playlist_response.text
+            )
         self._check_cancel()
         return self._parse_playlist_data(
             url=url,
             html_text=html_text,
             page_title=page_title,
             playlist_url=playlist_url,
-            playlist_text=(
-                playlist_response.content.decode("utf-8-sig", errors="replace")
-                if getattr(playlist_response, "content", None) is not None
-                else playlist_response.text
-            ),
+            playlist_text=playlist_text,
         )
 
     def _remote_size(self, url: str, referer: str) -> int:
