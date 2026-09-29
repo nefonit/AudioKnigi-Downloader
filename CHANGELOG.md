@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 68
+
+- Added creator/contact information to an accessible About dialog and generated Windows EXE version metadata for author/developer Едуард Саратовцев, including email, GitHub profile, project repository, copyright, and accessibility statement.
+
 ## 4.12.42 Round 67
 
 - Fixed parked segmented-worker termination, preserved zero-valued shared-source boundaries, removed unreachable support-bundle path logic, restored comma/space selected-index parsing for unfinished manifests, preserved zero queue timestamps, and made empty DNS resolution errors explicit.

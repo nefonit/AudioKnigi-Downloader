@@ -185,12 +185,20 @@ Write-Host "PyInstaller bootstrap preflight..."
 & $PythonExe $pyinstallerBootstrap "--bootstrap-selftest"
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller bootstrap self-test failed." }
 
+$versionInfoFile = Join-Path $PSScriptRoot "build\windows_version_info.txt"
+Write-Host "Generating Windows EXE version metadata..."
+& $PythonExe "tools\windows_version_info.py" $versionInfoFile
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $versionInfoFile -PathType Leaf)) {
+    throw "Windows EXE version metadata could not be generated."
+}
+
 $arguments = @(
     "--noconfirm",
     "--clean",
     "--onefile",
     "--windowed",
     "--name", "AudioKnigiDownloader_Qt",
+    "--version-file", $versionInfoFile,
     "--collect-all", "playwright",
     "--copy-metadata", "playwright",
     "--copy-metadata", "PySide6",

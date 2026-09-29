@@ -99,7 +99,20 @@
     "wizard_step": "Schritt {current} von {total}",
     "stage_full_mp3_download": "Vollständige MP3 wird heruntergeladen",
     "stage_full_mp3_processing": "Vollständige MP3 wird verarbeitet",
-    "stage_full_mp3_tags": "ID3-Tags für vollständige MP3"
+    "stage_full_mp3_tags": "ID3-Tags für vollständige MP3",
+    "about_window_title": "Über das Programm",
+    "about_summary": "Hörbuch-Downloader mit Suche, Warteschlange, Verlauf, integriertem Player und Screenreader-Unterstützung.",
+    "about_author_role": "Autor und Entwickler",
+    "about_accessibility_note": "Das Programm wurde von einem blinden Entwickler mit besonderem Augenmerk auf Barrierefreiheit, Tastaturbedienung und die vollständige Nutzung mit den Screenreadern NVDA und JAWS entwickelt.",
+    "about_email_label": "E-Mail",
+    "about_github_label": "GitHub",
+    "about_project_label": "Quellcode des Projekts",
+    "about_write_email": "E-Mail schreiben",
+    "about_copy_email": "E-Mail kopieren",
+    "about_open_github": "GitHub öffnen",
+    "about_open_project": "Repository öffnen",
+    "about_email_copied": "E-Mail-Adresse wurde in die Zwischenablage kopiert.",
+    "about_info_accessible": "Informationen über das Programm, den Autor, Kontakte und den Quellcode."
   },
   "en": {
     "add_another": "Download another book",
@@ -201,7 +214,20 @@
     "wizard_step": "Step {current} of {total}",
     "stage_full_mp3_download": "Downloading full MP3",
     "stage_full_mp3_processing": "Processing full MP3",
-    "stage_full_mp3_tags": "Tagging full MP3"
+    "stage_full_mp3_tags": "Tagging full MP3",
+    "about_window_title": "About",
+    "about_summary": "Audiobook downloader with search, queue, history, built-in player, and screen reader support.",
+    "about_author_role": "Author and developer",
+    "about_accessibility_note": "The program was created by a blind developer with special attention to accessibility, keyboard operation, and full use with NVDA and JAWS screen readers.",
+    "about_email_label": "Email",
+    "about_github_label": "GitHub",
+    "about_project_label": "Project source code",
+    "about_write_email": "Write email",
+    "about_copy_email": "Copy email",
+    "about_open_github": "Open GitHub",
+    "about_open_project": "Open repository",
+    "about_email_copied": "Email copied to the clipboard.",
+    "about_info_accessible": "Information about the program, author, contacts, and source code."
   },
   "ru": {
     "add_another": "Скачать следующую книгу",
@@ -303,7 +329,20 @@
     "wizard_step": "Шаг {current} из {total}",
     "stage_full_mp3_download": "Скачивание полного MP3",
     "stage_full_mp3_processing": "Обработка полного MP3",
-    "stage_full_mp3_tags": "ID3-теги полного MP3"
+    "stage_full_mp3_tags": "ID3-теги полного MP3",
+    "about_window_title": "О программе",
+    "about_summary": "Загрузчик аудиокниг с поиском, очередью, историей, встроенным плеером и поддержкой экранных дикторов.",
+    "about_author_role": "Автор и разработчик",
+    "about_accessibility_note": "Программа создана незрячим разработчиком с особым вниманием к доступности, управлению с клавиатуры и полноценной работе со скринридерами NVDA и JAWS.",
+    "about_email_label": "Email",
+    "about_github_label": "GitHub",
+    "about_project_label": "Исходный код проекта",
+    "about_write_email": "Написать email",
+    "about_copy_email": "Скопировать email",
+    "about_open_github": "Открыть GitHub",
+    "about_open_project": "Открыть репозиторий",
+    "about_email_copied": "Email скопирован в буфер обмена.",
+    "about_info_accessible": "Информация о программе, авторе, контактах и исходном коде."
   },
   "uk": {
     "add_another": "Завантажити наступну книгу",
@@ -405,6 +444,19 @@
     "wizard_step": "Крок {current} із {total}",
     "stage_full_mp3_download": "Завантаження повного MP3",
     "stage_full_mp3_processing": "Обробка повного MP3",
-    "stage_full_mp3_tags": "ID3-теги повного MP3"
+    "stage_full_mp3_tags": "ID3-теги повного MP3",
+    "about_window_title": "Про програму",
+    "about_summary": "Завантажувач аудіокниг із пошуком, чергою, історією, вбудованим плеєром і підтримкою екранних дикторів.",
+    "about_author_role": "Автор і розробник",
+    "about_accessibility_note": "Програму створено незрячим розробником з особливою увагою до доступності, керування з клавіатури та повноцінної роботи зі скринридерами NVDA і JAWS.",
+    "about_email_label": "Email",
+    "about_github_label": "GitHub",
+    "about_project_label": "Вихідний код проєкту",
+    "about_write_email": "Написати email",
+    "about_copy_email": "Скопіювати email",
+    "about_open_github": "Відкрити GitHub",
+    "about_open_project": "Відкрити репозиторій",
+    "about_email_copied": "Email скопійовано до буфера обміну.",
+    "about_info_accessible": "Інформація про програму, автора, контакти та вихідний код."
   }
 }

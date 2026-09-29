@@ -1,9 +1,16 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QThread, QTimer, Slot, Qt
-from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
-from ...brand import DISPLAY_NAME
+from PySide6.QtCore import QThread, QTimer, Slot, Qt, QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (
+    QApplication, QDialog, QFileDialog, QHBoxLayout, QMessageBox, QPushButton,
+    QTextBrowser, QVBoxLayout,
+)
+from ...brand import (
+    AUTHOR_EMAIL, AUTHOR_GITHUB_URL, AUTHOR_NAME, COPYRIGHT_YEAR, DISPLAY_NAME, PROJECT_URL,
+)
 from ...metadata import APP_VERSION
+from ...i18n import tr
 from ...core import DEFAULT_OUTPUT, safe_int
 from ...config.settings import normalize_settings, save_app_settings
 from ...network_dns import install_cloudflare_dns
@@ -290,14 +297,65 @@ class SettingsUiMixin:
             self.abs_test_button.setEnabled(True)
 
     def _show_about(self):
-        self._show_message(
-            QMessageBox.Icon.Information,
-            "О программе",
+        dialog = QDialog(self)
+        dialog.setWindowTitle(tr(self.language, "about_window_title"))
+        dialog.setModal(True)
+        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dialog.resize(680, 480)
+
+        copyright_text = f"© {COPYRIGHT_YEAR} {AUTHOR_NAME}"
+        plain_text = (
             f"{DISPLAY_NAME} {APP_VERSION}\n\n"
-            + self._l("Загрузчик аудиокниг с поиском, очередью, историей, встроенным плеером и поддержкой экранных дикторов.")
-            + "\n\n"
-            + self._l("Поддерживаемые источники: audioknigi.com.ua, knigavuhe.org и poleknig.com."),
+            f"{tr(self.language, 'about_summary')}\n\n"
+            f"{tr(self.language, 'about_author_role')}: {AUTHOR_NAME}\n"
+            f"{tr(self.language, 'about_email_label')}: {AUTHOR_EMAIL}\n"
+            f"{tr(self.language, 'about_github_label')}: {AUTHOR_GITHUB_URL}\n"
+            f"{tr(self.language, 'about_project_label')}: {PROJECT_URL}\n\n"
+            f"{tr(self.language, 'about_accessibility_note')}\n\n"
+            f"{copyright_text}"
         )
+
+        text = QTextBrowser(dialog)
+        text.setOpenExternalLinks(True)
+        text.setReadOnly(True)
+        text.setPlainText(plain_text)
+        text.setAccessibleName(tr(self.language, "about_window_title"))
+        text.setAccessibleDescription(tr(self.language, "about_info_accessible"))
+
+        write_email = QPushButton(tr(self.language, "about_write_email"), dialog)
+        copy_email = QPushButton(tr(self.language, "about_copy_email"), dialog)
+        open_github = QPushButton(tr(self.language, "about_open_github"), dialog)
+        open_project = QPushButton(tr(self.language, "about_open_project"), dialog)
+        close_button = QPushButton(tr(self.language, "close"), dialog)
+
+        write_email.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"mailto:{AUTHOR_EMAIL}")))
+        copy_email.clicked.connect(self._copy_about_email)
+        open_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(AUTHOR_GITHUB_URL)))
+        open_project.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(PROJECT_URL)))
+        close_button.clicked.connect(dialog.accept)
+        close_button.setDefault(True)
+        close_button.setAutoDefault(True)
+
+        buttons = QHBoxLayout()
+        for button in (write_email, copy_email, open_github, open_project):
+            buttons.addWidget(button)
+        buttons.addStretch(1)
+        buttons.addWidget(close_button)
+
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(text)
+        layout.addLayout(buttons)
+
+        dialog.setAccessibleName(tr(self.language, "about_window_title"))
+        dialog.setAccessibleDescription(plain_text)
+        text.setFocus(Qt.FocusReason.OtherFocusReason)
+        dialog.exec()
+        dialog.deleteLater()
+
+    @Slot()
+    def _copy_about_email(self) -> None:
+        QApplication.clipboard().setText(AUTHOR_EMAIL)
+        self.set_status(tr(self.language, "about_email_copied"), assertive=True)
 
 
 __all__ = ["SettingsUiMixin"]

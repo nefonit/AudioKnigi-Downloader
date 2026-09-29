@@ -69,3 +69,4 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20260929_ROUND65.md` — PoleKnig title/author intent detection and search relevance hardening.
 - `AUDIT_NOTES_20260929_ROUND66.md` — network/disk/privacy/Playwright/backup hardening follow-up.
 - `AUDIT_NOTES_20260929_ROUND67.md` — segmented-worker liveness, resume-index parsing, timestamp and DNS edge-case hardening.
+- `AUDIT_NOTES_20260929_ROUND68.md` — creator/About identity and Windows EXE release metadata.
