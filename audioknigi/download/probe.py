@@ -21,6 +21,7 @@ from ..sources import normalize_supported_url, source_key
 from ..network_dns import cloudflare_ffmpeg_input_args
 from ..core import USER_AGENT, DEFAULT_OUTPUT, Cancelled, fmt_size, safe_int, safe_name, resolve_executable, parse_time_seconds, effective_track_duration, hidden_subprocess_kwargs
 from .common import close_subprocess_pipes as _close_subprocess_pipes
+from .network import _segment_files
 
 _DURATION_CACHE = {}
 _DURATION_CACHE_LOCK = threading.Lock()
@@ -587,6 +588,13 @@ class ProbeMixin:
                     all_complete = False
                     if part_target.is_file() and part_target.stat().st_size > 0:
                         locally_present += int(part_target.stat().st_size)
+                    else:
+                        for segment_path in _segment_files(part_target):
+                            try:
+                                if segment_path.is_file() and segment_path.stat().st_size > 0:
+                                    locally_present += int(segment_path.stat().st_size)
+                            except OSError:
+                                continue
                 except OSError:
                     all_complete = False
             source_remaining = 0 if all_complete else max(0, remote_size - locally_present)
@@ -717,9 +725,19 @@ class ProbeMixin:
                 for track in tracks
             ]
             ends = [float(value) for value in ends if value is not None and float(value) > 0]
-            if not ends:
-                continue
-            expected_end = max(ends)
+            if ends:
+                expected_end = max(ends)
+            else:
+                # Some shared-source playlists expose only chapter starts. The
+                # last start is still a hard lower bound for source duration.
+                starts = [
+                    parse_time_seconds(getattr(track, "start", None))
+                    for track in tracks
+                ]
+                starts = [float(value) for value in starts if value is not None and float(value) > 0]
+                if not starts:
+                    continue
+                expected_end = max(starts)
             actual = None
             local_path = None
             if local_map is not None:

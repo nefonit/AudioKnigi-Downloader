@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 import base64
@@ -90,6 +90,11 @@ def _item_to_dict(value: Any) -> dict[str, Any] | None:
             data = serializer()
             return dict(data) if isinstance(data, dict) else None
         except Exception:
+            return None
+    if is_dataclass(value) and not isinstance(value, type):
+        try:
+            return {item.name: getattr(value, item.name) for item in fields(value)}
+        except (AttributeError, TypeError):
             return None
     return None
 

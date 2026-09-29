@@ -18,9 +18,9 @@ from ..metadata import APP_VERSION
 from ..logging_utils import APP_LOG_FILE, ERROR_LOG_FILE
 from ..services.queue_service import QT_QUEUE_FILE
 
-_SECRET_KEYS = {"abs_api_key", "api_key", "authorization", "token", "password", "secret", "cookie", "cookies"}
-_SECRET_SUFFIXES = ("_api_key", "_authorization", "_token", "_password", "_secret", "_cookie", "_cookies")
-_SECRET_COMPACT_SUFFIXES = ("apikey", "authorization", "authtoken", "token", "password", "secret", "cookie", "cookies")
+_SECRET_KEYS = {"abs_api_key", "api_key", "secret_key", "authorization", "token", "password", "secret", "cookie", "cookies"}
+_SECRET_SUFFIXES = ("_api_key", "_secret_key", "_authorization", "_token", "_password", "_secret", "_cookie", "_cookies")
+_SECRET_COMPACT_SUFFIXES = ("apikey", "secretkey", "authorization", "authtoken", "token", "password", "secret", "cookie", "cookies")
 
 _LOG_AUTH_HEADER_RE = re.compile(r"(?im)\b(authorization|proxy-authorization|cookie|set-cookie)\s*:\s*[^\r\n]*")
 _LOG_BEARER_RE = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+\-/=]+")
@@ -34,9 +34,9 @@ _LOG_SECRET_VALUE_RE = re.compile(
 # thousands of times. File-like paths get a first pass whose final component
 # may contain spaces; this prevents names such as ``01. Введение.mp3`` from
 # leaking while the ordinary fallback keeps concise trailing log text intact.
-_WINDOWS_PATH_SEGMENT_RE = r"[^\\/|;\r\n\"']+"
-_WINDOWS_PATH_FINAL_RE = r"[^\\/\s|;\r\n\"']+"
-_WINDOWS_FILE_FINAL_RE = r"[^\\/|;\r\n\"']+\.[A-Za-z0-9]{1,16}"
+_WINDOWS_PATH_SEGMENT_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*"
+_WINDOWS_PATH_FINAL_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*"
+_WINDOWS_FILE_FINAL_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*\.[A-Za-z0-9]{1,16}"
 _EMBEDDED_DRIVE_FILE_RE = re.compile(
     rf"(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/])(?:{_WINDOWS_PATH_SEGMENT_RE}[\\/])*{_WINDOWS_FILE_FINAL_RE}"
 )
@@ -81,6 +81,13 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
         return value
     if not text:
         return text
+    original_text = text
+    was_absolute_path = bool(
+        re.match(r"^[A-Za-z]:[\\/]", original_text)
+        or original_text.startswith("\\\\")
+        or re.match(r"^//[^/\s\"']+/[^/\s\"']+", original_text)
+        or (original_text.startswith("/") and not original_text.startswith("//"))
+    )
     try:
         home_path = Path.home()
         home = str(home_path)
@@ -310,7 +317,7 @@ def create_support_bundle(destination: str | Path, *, settings: Mapping[str, Any
                     continue
                 request = item.get("request") if isinstance(item.get("request"), dict) else {}
                 book = request.get("book") if isinstance(request.get("book"), dict) else {}
-                raw_url = str(item.get("url") or book.get("url") or "")
+                raw_url = str(item.get("url") or request.get("url") or book.get("url") or "")
                 opaque_id = hashlib.sha256(raw_url.encode("utf-8", "replace")).hexdigest()[:12] if raw_url else f"row-{position}"
                 summary.append({
                     "id": opaque_id,

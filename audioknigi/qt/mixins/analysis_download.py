@@ -312,11 +312,10 @@ class AnalysisDownloadUiMixin:
             batch_pending = bool(getattr(self, "_pending_queue_urls", None))
             if batch_pending:
                 self._append_log("Ошибка анализа при пакетном добавлении: " + str(payload))
+                self._pending_queue_urls = []
             else:
                 self._show_message(QMessageBox.Icon.Critical, "Ошибка анализа", str(payload))
             self._play_event_sound("book_not_found")
-            if batch_pending:
-                QTimer.singleShot(0, self._queue_next_dropped_url)
             return
 
         book = payload
@@ -333,7 +332,7 @@ class AnalysisDownloadUiMixin:
             self.book_summary.setText(self._l("Получен неизвестный результат анализа."))
             self.set_status("Некорректный результат анализа.", assertive=True)
             if getattr(self, "_pending_queue_urls", None):
-                QTimer.singleShot(0, self._queue_next_dropped_url)
+                self._pending_queue_urls = []
             return
         pending = self._pending_search_result
         pending_url = normalize_supported_url(str(getattr(pending, "url", "") or "")) if pending is not None else ""

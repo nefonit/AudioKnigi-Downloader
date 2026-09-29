@@ -65,7 +65,7 @@
     "uk": "У буфері знайдено підтримуване посилання на аудіокнигу. Вставити його в поле книги?"
   },
   "Введите минимум 3 символа для поиска.": {
-    "de": "Gib mindestens 3 Zeichen für die Suche ein.",
+    "de": "Geben Sie mindestens 3 Zeichen für die Suche ein.",
     "en": "Enter at least 3 characters to search.",
     "uk": "Введіть мінімум 3 символи для пошуку."
   },
@@ -206,7 +206,7 @@
   },
   "Озвучка {index}": {
     "de": "Sprecherfassung {index}",
-    "en": "Recording {index}",
+    "en": "Narration {index}",
     "uk": "Озвучення {index}"
   },
   "Останавливается…": {

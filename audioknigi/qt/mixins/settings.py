@@ -225,6 +225,9 @@ class SettingsUiMixin:
                 language=self.language,
             )
             self.set_ui_mode(str(updated.get("ui_mode", self.current_ui_mode()) or "easy"), persist=False)
+            refresh_guidance = getattr(self, "_refresh_context_guidance", None)
+            if callable(refresh_guidance):
+                refresh_guidance(announce_now=False)
             self._apply_large_mode()
             self._apply_source_visibility()
             self._refresh_unfinished()

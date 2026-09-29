@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 61
+
+- Applied confirmed 2026-09-29 external-audit fixes across settings, privacy diagnostics, fallback selection, resume accounting, search, queue persistence, Playwright identity, accessibility, player state, and localization.
+
 ## 4.12.42 — Acceptance parser, cancellation and diagnostics hardening (2026-09-18)
 
 > Post-release audit updates through 2026-09-29 are recorded below; the published 4.12.42 release date remains 2026-09-18.

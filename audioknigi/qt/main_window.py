@@ -436,7 +436,7 @@ class AudioKnigiQtWindow(
             identifier="easy_narration_variant",
         )
         self.easy_narration_label.setBuddy(self.easy_narration_combo)
-        self.easy_narration_combo.currentIndexChanged.connect(self._easy_narration_selected)
+        self.easy_narration_combo.activated.connect(self._easy_narration_selected)
         self.easy_narration_label.setVisible(False)
         self.easy_narration_combo.setVisible(False)
         easy_narration_row.addWidget(self.easy_narration_label)

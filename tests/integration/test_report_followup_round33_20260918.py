@@ -102,7 +102,8 @@ def test_audioknigi_search_normalizes_query_and_decodes_bom() -> None:
 
 def test_book_analysis_bounds_fallback_and_always_cancels_probe_children() -> None:
     source = src("audioknigi/services/book_analysis_service.py")
-    assert "for _score, candidate_url in sorted(candidates, reverse=True)[:8]:" in source
+    assert "best_by_url: dict[str, float] = {}" in source
+    assert "sorted(best_by_url.items(), key=lambda item: item[1], reverse=True)[:8]" in source
     finally_block = source[source.index("finally:", source.index("def _populate_missing_track_durations")):
                            source.index("@staticmethod", source.index("def _populate_missing_track_durations"))]
     assert "self._cancel_duration_probe_processes()" in finally_block

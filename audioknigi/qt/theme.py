@@ -67,7 +67,12 @@ def _ensure_system_scheme_listener(app: QApplication) -> None:
     if _SYSTEM_SCHEME_SIGNAL_CONNECTED:
         return
     try:
-        app.styleHints().colorSchemeChanged.connect(lambda scheme: _refresh_system_theme(app, scheme))
+        def _on_color_scheme_changed(scheme):
+            current_app = QApplication.instance()
+            if current_app is not None:
+                _refresh_system_theme(current_app, scheme)
+
+        app.styleHints().colorSchemeChanged.connect(_on_color_scheme_changed)
         _SYSTEM_SCHEME_SIGNAL_CONNECTED = True
     except (AttributeError, RuntimeError, TypeError):
         pass

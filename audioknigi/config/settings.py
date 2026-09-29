@@ -172,10 +172,9 @@ class AppSettings(MutableMapping[str, Any]):
         payload = dict(original)
         payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
         normalized = normalize_settings(payload)
-        # The migration marker is persistence metadata, not part of the public
-        # direct-construction schema unless the caller supplied it explicitly.
-        if UI_SCALE_MIGRATION_KEY not in original:
-            normalized.pop(UI_SCALE_MIGRATION_KEY, None)
+        # The migration marker is persistence metadata only. Never expose it
+        # through the public MutableMapping, even when loading a persisted file.
+        normalized.pop(UI_SCALE_MIGRATION_KEY, None)
         # Likewise, merely constructing a partial in-memory mapping must not be
         # mistaken for loading an already-used legacy settings profile.
         if "first_run_complete" not in original:
@@ -184,7 +183,10 @@ class AppSettings(MutableMapping[str, Any]):
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any] | None) -> "AppSettings":
-        return cls(normalize_settings(payload))
+        # Keep the same semantics as direct construction. __post_init__ is the
+        # single normalization boundary; normalizing here first would make a
+        # partial in-memory mapping look like a migrated legacy profile.
+        return cls(dict(payload or {}))
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self._data)

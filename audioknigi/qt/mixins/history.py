@@ -256,6 +256,8 @@ class HistoryUiMixin:
         if self._history_rows:
             next_row = min(row, len(self._history_rows) - 1)
             focus_table_row(self.history_table, next_row, column=2, focus=table_had_focus)
+        elif table_had_focus:
+            self._history_action_buttons.get("refresh_history", self.history_table).setFocus()
         self._update_history_action_states()
         self.set_status("Запись истории удалена.", assertive=True)
 

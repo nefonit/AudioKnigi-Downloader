@@ -923,7 +923,11 @@ def _fetch_book_playwright(url: str, cancel_event=None) -> Book | None:
             try:
                 persisted_headers, persisted_cookies = load_browser_context_profile()
                 context_options = {"locale": "ru-RU"}
-                context_options["user_agent"] = str(persisted_headers.pop("User-Agent", "") or USER_AGENT)
+                user_agent = next(
+                    (persisted_headers.pop(key) for key in list(persisted_headers) if key.casefold() == "user-agent"),
+                    None,
+                )
+                context_options["user_agent"] = str(user_agent or USER_AGENT)
                 if persisted_headers:
                     context_options["extra_http_headers"] = persisted_headers
                 context = browser.new_context(**context_options)

@@ -335,6 +335,15 @@ class BookFlowMixin:
                         if action == "skip" and available_after_skip:
                             active_selected = available_after_skip
                             self._record_skipped_media_parts(missing_indices)
+                            req = getattr(self, "request", None)
+                            if req is not None:
+                                req.selected_indices = sorted(active_selected)
+                                callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
+                                if callback is not None:
+                                    try:
+                                        callback(req)
+                                    except Exception:
+                                        app_logger.debug("Request-change callback failed", exc_info=True)
                             # Keep already completed fresh source downloads. A broad
                             # _source*.mp3 cleanup here would force unaffected parts
                             # to download again after the user skips one missing part.
@@ -365,6 +374,15 @@ class BookFlowMixin:
                     if action == "skip" and available_after_skip:
                         active_selected = available_after_skip
                         self._record_skipped_media_parts(missing_indices)
+                        req = getattr(self, "request", None)
+                        if req is not None:
+                            req.selected_indices = sorted(active_selected)
+                            callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
+                            if callback is not None:
+                                try:
+                                    callback(req)
+                                except Exception:
+                                    app_logger.debug("Request-change callback failed", exc_info=True)
                         refreshed_after_not_found = True
                         continue
                     raise RuntimeError(

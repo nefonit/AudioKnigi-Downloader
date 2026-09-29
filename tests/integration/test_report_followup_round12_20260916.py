@@ -114,7 +114,8 @@ def test_parallel_ffmpeg_failure_and_drop_queue_contracts_are_present():
     end = analysis.index("pending = self._pending_search_result", start)
     block = analysis[start:end]
     assert 'getattr(self, "_pending_queue_urls", None)' in block
-    assert "QTimer.singleShot(0, self._queue_next_dropped_url)" in block
+    assert 'self._pending_queue_urls = []' in block
+    assert "QTimer.singleShot(0, self._queue_next_dropped_url)" not in block
 
 
 def test_shortcut_parser_only_adopts_supported_url():

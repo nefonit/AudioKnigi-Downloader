@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..core import DEFAULT_OUTPUT, fmt_time, load_json, safe_int
+from ..config.settings import save_app_settings
 from ..models import Book, cover_cache_bytes
 from .accessibility import announce, configure_accessible
 from .player_controller import QtPlayerController
@@ -232,7 +233,13 @@ class PlayerUiMixin:
                         if current == path:
                             return
                 files = list(getattr(self, "_player_book_files", []) or [])
-                if path in files:
+                try:
+                    wanted_path = path.resolve()
+                    known_paths = {Path(candidate).expanduser().resolve() for candidate in files}
+                    in_open_book = wanted_path in known_paths
+                except OSError:
+                    in_open_book = path in files
+                if in_open_book:
                     self._load_player_file(
                         path, autoplay=True, preserve_folder_context=True, activate_ui=False
                     )
@@ -658,6 +665,7 @@ class PlayerUiMixin:
         rate = float(self.player_rate_combo.currentData() or 1.0)
         if isinstance(getattr(self, "settings", None), MutableMapping):
             self.settings["player_rate"] = rate
+            save_app_settings(self.settings)
         if self.player_controller is not None:
             self.player_controller.set_rate(rate)
             self.player_status_label.setText(self._l("Скорость воспроизведения: {rate}×", rate=f"{rate:g}"))

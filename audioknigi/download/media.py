@@ -722,19 +722,26 @@ class MediaProcessingMixin:
 
             chapter_rows = []
             cursor = 0.0
+            timeline_known = True
             for t in tracks:
-                dur = float(effective_track_duration(t) or 0)
+                duration_value = effective_track_duration(t)
+                dur = float(duration_value) if duration_value is not None and float(duration_value) > 0 else None
                 chapter_title = str(t.title or "").strip() or f"Часть {int(t.index):02d}"
+                timeline_start = cursor if timeline_known else None
+                timeline_end = (cursor + dur) if timeline_known and dur is not None else None
                 chapter_rows.append({
                     "index": int(t.index),
                     "title": chapter_title,
                     "start": t.start,
                     "end": t.end,
-                    "duration": dur if dur > 0 else None,
-                    "timeline_start": cursor,
-                    "timeline_end": cursor + dur,
+                    "duration": dur,
+                    "timeline_start": timeline_start,
+                    "timeline_end": timeline_end,
                 })
-                cursor += dur
+                if timeline_known and dur is not None:
+                    cursor += dur
+                elif dur is None:
+                    timeline_known = False
 
             # Keep the original friendly keys, plus Audiobookshelf-compatible aliases.
             payload = {
@@ -751,7 +758,7 @@ class MediaProcessingMixin:
                 "source_url": source_url,
                 "cover_url": cover_url,
                 "playlist_url": playlist_url,
-                "durationSeconds": cursor,
+                "durationSeconds": cursor if timeline_known else None,
                 "tracks": chapter_rows,
             }
             # metadata.json participates in duplicate detection, so never

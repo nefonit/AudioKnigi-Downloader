@@ -395,7 +395,7 @@
     "^Озвучка (\\d+)$",
     {
       "de": "Sprecherfassung {0}",
-      "en": "Recording {0}",
+      "en": "Narration {0}",
       "uk": "Озвучення {0}"
     }
   ],

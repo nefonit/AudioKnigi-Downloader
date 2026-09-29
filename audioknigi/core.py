@@ -22,7 +22,24 @@ from .metadata import APP_VERSION as _APP_VERSION, DISPLAY_NAME
 # import version metadata from audioknigi.metadata directly.
 APP_VERSION = _APP_VERSION
 APP_TITLE = DISPLAY_NAME
-DEFAULT_OUTPUT = Path.home() / "Documents" / "AudioKnigi"
+
+
+def _default_documents_dir() -> Path:
+    """Return the OS-known Documents folder, including Windows redirection."""
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            buffer = ctypes.create_unicode_buffer(32768)
+            # CSIDL_PERSONAL (Documents) follows localized/OneDrive redirection.
+            if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buffer) == 0 and buffer.value:
+                return Path(buffer.value)
+        except (AttributeError, OSError, TypeError, ValueError):
+            pass
+    return Path.home() / "Documents"
+
+
+DEFAULT_OUTPUT = _default_documents_dir() / "AudioKnigi"
 DEFAULT_UI_SCALE = 100
 UI_SCALE_MIGRATION_KEY = "ui_scale_default_100_migrated"
 LEGACY_AUTOMATIC_UI_SCALE = 125
@@ -567,7 +584,7 @@ def extract_extended_metadata_from_html(html):
         m = re.search(
             r'(?:Диктор|Читает|Исполнитель)\s*[:—-]\s*'
             r'([^<\n\r]{1,160}?)'
-            r'(?=\s*(?:,\s*)?(?:Жанр|Серия|Добавлено|Автор|Год|Краткое содержание|Описание)\s*:|[<\n\r]|$)',
+            r'(?=\s*(?:,\s*)?(?:Жанр|Серия|Добавлено|Автор|Год|Краткое содержание|Описание|Время звучания|Размер|Качество)\s*:|[<\n\r]|$)',
             html or "",
             re.I,
         )
@@ -575,7 +592,7 @@ def extract_extended_metadata_from_html(html):
             narrator = re.sub(r"\s+", " ", html_lib.unescape(m.group(1))).strip(" \t,;:–—-")
     if narrator:
         narrator = re.split(
-            r"\s*,?\s*(?:Жанр|Серия|Добавлено|Автор|Год|Краткое содержание|Описание)\s*:",
+            r"\s*,?\s*(?:Жанр|Серия|Добавлено|Автор|Год|Краткое содержание|Описание|Время звучания|Размер|Качество)\s*:",
             str(narrator),
             maxsplit=1,
             flags=re.I,

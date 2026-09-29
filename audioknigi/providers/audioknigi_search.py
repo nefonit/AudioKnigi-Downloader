@@ -203,6 +203,7 @@ def _matches_query(title: str, query: str, author: str = "", narrator: str = "")
     if not full_matches:
         return False
 
+    title_tokens = set(_TOKEN_RE.findall(_normalize_text(title)))
     person_haystack = _normalize_text(" ".join(part for part in (author, narrator) if part))
     person_tokens = _TOKEN_RE.findall(person_haystack)
     person_initials = {token for token in person_tokens if len(token) == 1}
@@ -210,7 +211,7 @@ def _matches_query(title: str, query: str, author: str = "", narrator: str = "")
         if token in full_matches:
             continue
         if len(token) == 1:
-            if token in person_initials or any(
+            if token in title_tokens or token in person_initials or any(
                 len(candidate) > 1 and candidate.startswith(token)
                 for candidate in person_tokens
             ):
@@ -642,7 +643,7 @@ def _same_author_identity(left: str, right: str) -> bool:
 
 def _author_detail_score(value: str) -> tuple[int, int, int]:
     words, initials = _author_name_tokens(value)
-    return (len(words), -len(initials), len(_clean_text(value)))
+    return (len(words), len(initials), len(_clean_text(value)))
 
 
 def _merge_author_names(*values: str) -> str:

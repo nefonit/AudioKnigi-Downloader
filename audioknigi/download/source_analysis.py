@@ -64,13 +64,12 @@ class SourceAnalysisMixin:
                         candidate_score -= 2.0
                 candidates.append((candidate_score, candidate_url))
 
-        seen_urls = set()
+        best_by_url: dict[str, float] = {}
+        for candidate_score, candidate_url in candidates:
+            best_by_url[candidate_url] = max(candidate_score, best_by_url.get(candidate_url, float("-inf")))
         unknown_narrator_choice = None
         unknown_narrator_identity = None
-        for _score, candidate_url in sorted(candidates, reverse=True)[:8]:
-            if candidate_url in seen_urls:
-                continue
-            seen_urls.add(candidate_url)
+        for candidate_url, _score in sorted(best_by_url.items(), key=lambda item: item[1], reverse=True)[:8]:
             self._check_cancel()
             try:
                 fallback = provider_for_key("knigavuhe").fetch_book(candidate_url, cancel_event=cancel_event)

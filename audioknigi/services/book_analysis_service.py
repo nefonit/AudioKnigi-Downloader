@@ -302,7 +302,7 @@ class BookAnalysisService:
     @staticmethod
     def _identity_tokens(value: str) -> set[str]:
         normalized = str(value or "").casefold().replace("ё", "е")
-        return {token for token in re.findall(r"[\wІіЇїЄє]+", normalized, re.UNICODE) if len(token) > 1}
+        return set(re.findall(r"[\wІіЇїЄє]+", normalized, re.UNICODE))
 
     @staticmethod
     def _book_identity_hints(book: Book) -> tuple[str, str, str]:
@@ -360,13 +360,12 @@ class BookAnalysisService:
                     narrator_overlap = len(narrator_tokens & ns) / max(1, len(narrator_tokens | ns))
                     candidate_score += 5.0 * narrator_overlap if narrator_overlap >= 0.50 else -2.0
                 candidates.append((candidate_score, candidate_url))
-        seen: set[str] = set()
+        best_by_url: dict[str, float] = {}
+        for candidate_score, candidate_url in candidates:
+            best_by_url[candidate_url] = max(candidate_score, best_by_url.get(candidate_url, float("-inf")))
         unknown_narrator_choice = None
         unknown_narrator_identity = None
-        for _score, candidate_url in sorted(candidates, reverse=True)[:8]:
-            if candidate_url in seen:
-                continue
-            seen.add(candidate_url)
+        for candidate_url, _score in sorted(best_by_url.items(), key=lambda item: item[1], reverse=True)[:8]:
             self._check_cancel()
             try:
                 fallback = fetch_knigavuhe_book(candidate_url, cancel_event=self.cancel_event)
@@ -717,7 +716,11 @@ class BookAnalysisService:
             try:
                 persisted_headers, persisted_cookies = load_browser_context_profile()
                 context_options = {"locale": "ru-RU"}
-                context_options["user_agent"] = str(persisted_headers.pop("User-Agent", "") or USER_AGENT)
+                user_agent = next(
+                    (persisted_headers.pop(key) for key in list(persisted_headers) if key.casefold() == "user-agent"),
+                    None,
+                )
+                context_options["user_agent"] = str(user_agent or USER_AGENT)
                 if persisted_headers:
                     context_options["extra_http_headers"] = persisted_headers
                 context = browser.new_context(**context_options)

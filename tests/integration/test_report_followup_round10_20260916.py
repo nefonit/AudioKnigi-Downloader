@@ -70,7 +70,7 @@ def test_audioknigi_narrator_parser_stops_before_comma_metadata_field():
 
 
 def test_ui_text_can_reuse_exact_runtime_catalog_for_static_qt_labels():
-    assert ui_text("en", "Озвучка {index}", index=2) == "Recording 2"
+    assert ui_text("en", "Озвучка {index}", index=2) == "Narration 2"
     assert ui_text("de", "доступно") == "verfügbar"
     assert ui_text("uk", "недоступно") == "недоступно"
 
