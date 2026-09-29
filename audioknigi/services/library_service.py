@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import time
 import threading
 import zipfile
@@ -284,7 +285,13 @@ def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDown
             else:
                 indices = []
                 if isinstance(selected_payload, (str, bytes, bytearray)):
-                    selected_values = [selected_payload]
+                    if isinstance(selected_payload, (bytes, bytearray)):
+                        text_value = bytes(selected_payload).decode("utf-8", errors="replace")
+                    else:
+                        text_value = selected_payload
+                    selected_values = [
+                        part for part in re.split(r"[,;\s]+", str(text_value).strip()) if part
+                    ]
                 else:
                     try:
                         selected_values = list(selected_payload)

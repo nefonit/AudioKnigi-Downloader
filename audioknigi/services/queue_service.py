@@ -218,6 +218,15 @@ def _optional_persisted_bool(data: dict[str, Any], key: str) -> bool | None:
     return bool(data.get(key))
 
 
+def _parse_created_at(value: Any) -> float:
+    if value is None or str(value).strip() == "":
+        return time.time()
+    try:
+        return float(value)
+    except (TypeError, ValueError, OverflowError):
+        return time.time()
+
+
 def _optional_persisted_text(data: dict[str, Any], key: str) -> str | None:
     if key not in data or data.get(key) is None:
         return None
@@ -290,7 +299,7 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
             last_error="Очередь импортирована из старого формата; выберите задачу и нажмите «Повторить» для автоматического анализа.",
             output_folder=str(data.get("output_folder", "") or ""),
             download_mode=_normalize_queue_download_mode(data.get("download_mode", "selected")),
-            created_at=float(data.get("created_at", time.time()) or time.time()),
+            created_at=_parse_created_at(data.get("created_at")),
         )
 
     book_data = req_data.get("book")
@@ -328,7 +337,7 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
         last_error=str(data.get("last_error", "") or ""),
         output_folder=str(data.get("output_folder", "") or ""),
         download_mode=_normalize_queue_download_mode(data.get("download_mode", "selected")),
-        created_at=float(data.get("created_at", time.time()) or time.time()),
+        created_at=_parse_created_at(data.get("created_at")),
     )
 
 

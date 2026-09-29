@@ -524,6 +524,8 @@ def _connect_target(host: str, port: int, timeout: float = 12.0):
         addresses = _resolve_with_policy(host, socket.AF_INET)
         if not addresses:
             addresses = _resolve_with_policy(host, socket.AF_INET6)
+        if not addresses:
+            raise socket.gaierror(socket.EAI_NONAME, f"No DNS records for {host}")
     last_error = None
     for address in addresses:
         try:

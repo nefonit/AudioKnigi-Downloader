@@ -124,16 +124,8 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
         # sanitizing drive/UNC paths below instead of returning the raw value.
         home_path = None
 
-    # Configured absolute paths can live outside the user's home directory on
-    # Windows, Linux or macOS. A support archive must never disclose those
-    # mount points, server/share names or folder structures.
-    if collapse_whole_path and "\n" not in text and "\r" not in text and (
-        re.match(r"^[A-Za-z]:[\\/]", text)
-        or text.startswith("\\\\")
-        or re.match(r"^//[^/\s\"']+/[^/\s\"']+", text)
-        or (text.startswith("/") and not text.startswith("//"))
-    ):
-        return "<configured-path>"
+    # Whole configured absolute paths already returned before embedded-path
+    # masking. At this point only sanitized/relative diagnostic text remains.
 
     # Embedded absolute paths were already masked before home-directory
     # placeholder substitution above. A second six-regex pass here cannot

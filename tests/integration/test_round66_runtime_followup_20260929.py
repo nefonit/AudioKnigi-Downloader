@@ -11,10 +11,14 @@ from audioknigi.services import library_service, source_health_service
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_segmented_workers_rely_on_atomic_queue_get_not_empty_precheck():
+def test_segmented_workers_use_atomic_get_and_only_check_empty_when_parked():
     source = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
     block = source[source.index("def worker(worker_id)"):source.index("self.log(", source.index("def worker(worker_id)"))]
-    assert "jobs.empty()" not in block
+    parked_marker = "if worker_id >= controller.current_workers():"
+    before_parked, parked_and_after = block.split(parked_marker, 1)
+    parked_block = parked_and_after.split("try:", 1)[0]
+    assert "jobs.empty()" not in before_parked
+    assert "if jobs.empty():" in parked_block
     assert "jobs.get_nowait()" in block
     assert "except queue.Empty:" in block
 

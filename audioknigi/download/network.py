@@ -780,9 +780,15 @@ class NetworkDownloadMixin:
                     if errors:
                         return
                 if worker_id >= controller.current_workers():
-                    # Adaptive workers are parked rather than destroyed. If the
-                    # link recovers, the controller can raise the target again
-                    # and these workers immediately resume taking Range jobs.
+                    # The Range job queue is populated once and never receives
+                    # new items. Once it is empty, a parked worker can terminate
+                    # safely; otherwise reduced workers could sleep forever after
+                    # active peers consume the final jobs.
+                    if jobs.empty():
+                        return
+                    # Adaptive workers are parked rather than destroyed while
+                    # queued work remains. If the link recovers, the controller
+                    # can raise the target again and they resume taking jobs.
                     if cancel_event is not None:
                         if cancel_event.wait(0.10):
                             return

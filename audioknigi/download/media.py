@@ -629,7 +629,7 @@ class MediaProcessingMixin:
                                 "track_index": safe_int(getattr(track, "index", None), current_pos + 1),
                                 "start": float(start),
                                 "next_start": float(next_start) if next_start is not None else None,
-                                "expected_end": float(next_start or start),
+                                "expected_end": float(next_start if next_start is not None else start),
                                 "actual_duration": 0.0,
                             })
 

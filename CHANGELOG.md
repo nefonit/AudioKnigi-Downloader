@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 67
+
+- Fixed parked segmented-worker termination, preserved zero-valued shared-source boundaries, removed unreachable support-bundle path logic, restored comma/space selected-index parsing for unfinished manifests, preserved zero queue timestamps, and made empty DNS resolution errors explicit.
+
 ## 4.12.42 Round 66
 
 - Hardened segmented-worker queue handling, removed duplicate support-bundle path redaction, added an unknown-size disk reserve, treated HTTP 403 as reachable-but-blocked in source health, reused Playwright-fetched playlist bodies before requests fallback, restored legacy wrapped queue backups, logged missing PoleKnig author pages, and explicitly released transient message boxes.
