@@ -1258,6 +1258,83 @@ def _query_matches_metadata(query: str, title: str, author: str, narrator: str =
     return all(token.replace("ё", "е") in haystack for token in tokens)
 
 
+_SEARCH_TITLE_STOPWORDS = {
+    "а", "без", "в", "во", "для", "до", "и", "из", "или", "к", "ко", "на",
+    "но", "о", "об", "от", "по", "про", "с", "со", "у", "за",
+}
+_SEARCH_TITLE_NOISE = {
+    "аудиокнига", "аудиокниги", "книга", "книги", "слушать", "скачать",
+    "онлайн", "бесплатно", "mp3",
+}
+
+
+def _contains_token_sequence(haystack: list[str], needle: list[str]) -> bool:
+    if not needle or len(needle) > len(haystack):
+        return False
+    width = len(needle)
+    return any(haystack[index:index + width] == needle for index in range(len(haystack) - width + 1))
+
+
+def _poleknig_title_query_rank(query: str, title: str) -> tuple[int, int, int] | None:
+    """Rank a PoleKnig row by title relevance; lower tuples are better.
+
+    The site's generic search is deliberately broad.  We keep useful fuzzy
+    queries such as ``гарри поттер аудиокнига росмэн`` by accepting a stable
+    two-word title prefix, while rejecting rows that merely contain one common
+    query word such as ``порядок`` for ``закон и порядок``.
+    """
+    query_key = _logical_title_key(query)
+    title_key = _logical_title_key(title)
+    if not query_key or not title_key:
+        return None
+    if title_key == query_key:
+        return (0, 0, len(title_key))
+
+    query_words = query_key.split()
+    title_words = title_key.split()
+    if len(query_words) >= 2 and _contains_token_sequence(title_words, query_words):
+        return (1, max(0, len(title_words) - len(query_words)), len(title_key))
+
+    significant_query = [
+        word for word in query_words
+        if word not in _SEARCH_TITLE_STOPWORDS and word not in _SEARCH_TITLE_NOISE
+    ]
+    significant_title = [word for word in title_words if word not in _SEARCH_TITLE_STOPWORDS]
+    if not significant_query:
+        return None
+
+    if len(significant_query) == 1:
+        if significant_query[0] in significant_title:
+            return (2, significant_title.index(significant_query[0]), len(title_key))
+        return None
+
+    # All meaningful query words in title order is a strong partial title hit.
+    positions: list[int] = []
+    cursor = 0
+    for word in significant_query:
+        try:
+            position = significant_title.index(word, cursor)
+        except ValueError:
+            positions = []
+            break
+        positions.append(position)
+        cursor = position + 1
+    if positions:
+        spread = positions[-1] - positions[0] + 1
+        return (2, spread - len(significant_query), len(title_key))
+
+    # Preserve established useful searches with extra catalogue/publisher terms
+    # when at least the first two meaningful query words form a title phrase.
+    prefix_length = 0
+    for length in range(min(len(significant_query), len(significant_title)), 1, -1):
+        if _contains_token_sequence(significant_title, significant_query[:length]):
+            prefix_length = length
+            break
+    if prefix_length >= 2:
+        return (3, len(significant_query) - prefix_length, len(title_key))
+    return None
+
+
 def _candidate_detail_variant(result: SearchResult, expected_title_key: str, expected_author_key: str) -> NarrationVariant | None:
     # Each executor worker receives its own thread-local requests.Session.
     session = get_http_session()
@@ -1635,11 +1712,33 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
         finally:
             _shutdown_pool_now(pool, futures)
 
-    # PoleKnig already ranked these rows for the user's query.  Do not
-    # second-guess that ranking with an ``all(tokens)`` metadata filter: words
-    # such as "аудиокнига" or publisher/series terms can be present in the
-    # site's index without appearing in title/author/narrator metadata.
-    filtered = list(hydrated)
+    # PoleKnig's generic search is intentionally broad. Prefer our own title
+    # relevance when there are credible title hits; this removes rows that only
+    # share one common word with a multi-word query. If there are no credible
+    # title hits, retain author matching so surname/full-name searches still
+    # expand to the author's complete catalogue. As a final compatibility
+    # fallback, keep the site's ranking when neither intent can be established.
+    title_ranked = [
+        (rank, index, item)
+        for index, item in enumerate(hydrated)
+        if (rank := _poleknig_title_query_rank(query_text, item.title)) is not None
+    ]
+    author_matches = [item for item in hydrated if _author_name_matches_query(query_text, item.author)]
+    has_exact_title = any(rank[0] == 0 for rank, _index, _item in title_ranked)
+    strong_author_evidence = (
+        len(author_matches) >= 2
+        or any(_person_key(item.author) == _person_key(query_text) for item in author_matches)
+    )
+    if title_ranked and (has_exact_title or not strong_author_evidence):
+        title_ranked.sort(key=lambda row: (row[0], row[1]))
+        filtered = [item for _rank, _index, item in title_ranked]
+        search_intent = "title"
+    elif author_matches:
+        filtered = author_matches
+        search_intent = "author"
+    else:
+        filtered = list(hydrated)
+        search_intent = "site"
 
     # Generic PoleKnig search is not guaranteed to enumerate every book by an
     # author.  When the query actually matches an author, supplement it from the
@@ -1657,7 +1756,7 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
 
     author_expanded = _expand_matching_author_catalogs(
         query_text, hydrated, hydrated_author_links, seed_author_links, cancel_event=cancel_event
-    )
+    ) if search_intent != "title" else []
     merged_filtered: list[SearchResult] = []
     seen_filtered: set[str] = set()
     for item in [*author_expanded, *filtered]:

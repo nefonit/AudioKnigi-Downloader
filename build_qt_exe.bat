@@ -9,6 +9,10 @@ set "REQUIRED_PYTHON=3.14.7"
 set "VENV_DIR=%CD%\.venv-qt"
 set "VENV_PYTHON=%VENV_DIR%\Scripts\python.exe"
 
+rem Qt 6 no longer bundles fonts. Give offscreen accessibility self-tests the
+rem native Windows font directory, while preserving an explicit caller override.
+if not defined QT_QPA_FONTDIR if exist "%WINDIR%\Fonts" set "QT_QPA_FONTDIR=%WINDIR%\Fonts"
+
 echo ==================================================
 echo AudioKnigi Downloader Qt - clean standalone build
 echo Required build Python: %REQUIRED_PYTHON% x64

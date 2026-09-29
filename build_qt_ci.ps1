@@ -9,6 +9,25 @@ Set-Location -LiteralPath $PSScriptRoot
 $RequiredPythonVersion = "3.14.7"
 $RequiredArchitecture = 64
 
+function Initialize-QtFontDirectory {
+    # Qt 6 no longer bundles a fonts directory. The offscreen platform plugin
+    # still asks QFontDatabase for one during accessibility self-tests, so use
+    # the native Windows Fonts directory unless the caller already configured
+    # a custom QT_QPA_FONTDIR.
+    if (-not [string]::IsNullOrWhiteSpace($env:QT_QPA_FONTDIR)) {
+        Write-Host "Qt font directory: $env:QT_QPA_FONTDIR"
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($env:WINDIR)) { return }
+    $windowsFonts = Join-Path $env:WINDIR "Fonts"
+    if (Test-Path -LiteralPath $windowsFonts -PathType Container) {
+        $env:QT_QPA_FONTDIR = $windowsFonts
+        Write-Host "Qt font directory: $windowsFonts"
+    }
+}
+
+Initialize-QtFontDirectory
+
 function Resolve-BuildPython {
     param([string]$RequestedPython)
     if (-not [string]::IsNullOrWhiteSpace($RequestedPython)) {

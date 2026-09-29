@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 65
+
+- Tightened PoleKnig search relevance: exact and strong title matches are ranked ahead of broad site hits, unrelated single-word matches are filtered when title intent is clear, author-catalog searches remain intact, and legacy multi-term title searches keep their established fallback behavior.
+
+## 4.12.42 Round 64
+
+- Configure Qt offscreen accessibility self-tests to use the native Windows Fonts directory via `QT_QPA_FONTDIR`, removing the PySide6 `lib/fonts` warning without bundling third-party font files.
+
 ## 4.12.42 Round 63
 
 - Fixed support-bundle home-path collapse after username masking, normalized live AppSettings assignments, bounded AudioKnigi detail hydration, removed unreachable retry code, and added regressions clarifying intentionally unchanged template/localization contracts.

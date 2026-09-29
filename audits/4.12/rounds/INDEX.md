@@ -65,3 +65,5 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20260929_ROUND61.md` — external audit follow-up and regression hardening.
 - `AUDIT_NOTES_20260929_ROUND62.md` — Round 61 follow-up fixes for localization, decoding, path identity and persistence locking.
 - `AUDIT_NOTES_20260929_ROUND63.md` — Round 62 follow-up: privacy, live settings normalization, bounded search hydration, and contract verification.
+- `AUDIT_NOTES_20260929_ROUND64.md` — Qt offscreen font-directory hardening for Windows build/self-tests.
+- `AUDIT_NOTES_20260929_ROUND65.md` — PoleKnig title/author intent detection and search relevance hardening.
