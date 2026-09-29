@@ -216,7 +216,11 @@ def restore_backup(path: Path) -> list[str]:
                     else:
                         save_json(target, previous, raise_errors=True)
                 elif not existed:
-                    target.unlink(missing_ok=True)
+                    if target == HISTORY_FILE:
+                        with HISTORY_LOCK:
+                            target.unlink(missing_ok=True)
+                    else:
+                        target.unlink(missing_ok=True)
             except Exception:
                 # Preserve the original restore exception; callers can retry from
                 # the still-valid ZIP and the UI keeps persistence suspended.

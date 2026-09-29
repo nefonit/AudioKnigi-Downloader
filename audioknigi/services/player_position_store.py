@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,9 +56,12 @@ class PlayerPositionStore:
         if not raw:
             return ""
         try:
-            return str(Path(raw).resolve()).lower()
+            resolved = str(Path(raw).resolve())
         except Exception:
-            return raw.lower()
+            resolved = raw
+        # Windows paths are case-insensitive; POSIX paths may differ only by
+        # case, so lowering them would merge distinct audio files on Linux.
+        return os.path.normcase(resolved) if os.name == "nt" else resolved
 
     @staticmethod
     def _resume_guard_seconds(duration: float) -> float:

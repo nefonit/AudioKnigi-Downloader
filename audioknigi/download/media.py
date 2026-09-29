@@ -289,6 +289,8 @@ class MediaProcessingMixin:
                     self._audio_info_cache = cache
                 cached = cache.get(key)
                 if cached is not None:
+                    # Refresh insertion order so eviction below is LRU, not FIFO.
+                    cache[key] = cache.pop(key)
                     return dict(cached)
                 inflight = getattr(self, "_audio_info_inflight", None)
                 if inflight is None:
@@ -311,7 +313,10 @@ class MediaProcessingMixin:
                 if callable(checker):
                     checker()
             with lock:
-                cached = getattr(self, "_audio_info_cache", {}).get(key)
+                cache = getattr(self, "_audio_info_cache", {})
+                cached = cache.get(key)
+                if cached is not None:
+                    cache[key] = cache.pop(key)
             if cached is not None:
                 return dict(cached)
             # The owner failed before publishing. Re-evaluate and compete for
@@ -396,9 +401,14 @@ class MediaProcessingMixin:
         if filter_complex:
             if not str(map_label or "").strip():
                 raise ValueError("filter_complex требует явный map_label для измерения loudnorm")
-            cmd = [ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-y", "-i", str(source_path)]
+            cmd = [ffmpeg, "-hide_banner", "-nostdin", "-nostats", "-y"]
+            if start is not None:
+                cmd += ["-ss", str(start)]
+            cmd += ["-i", str(source_path)]
             for path in (extra_inputs or []):
                 cmd += ["-i", str(path)]
+            if duration is not None:
+                cmd += ["-t", str(duration)]
             input_label = str(map_label).strip()
             input_label = f"[{input_label.strip('[]')}]"
             output_label = "[audioknigi_loudnorm_measure]"

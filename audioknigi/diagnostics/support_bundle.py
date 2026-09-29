@@ -81,13 +81,32 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
         return value
     if not text:
         return text
-    original_text = text
-    was_absolute_path = bool(
-        re.match(r"^[A-Za-z]:[\\/]", original_text)
-        or original_text.startswith("\\\\")
-        or re.match(r"^//[^/\s\"']+/[^/\s\"']+", original_text)
-        or (original_text.startswith("/") and not original_text.startswith("//"))
+    original_was_absolute_path = bool(
+        re.match(r"^[A-Za-z]:[\\/]", text)
+        or text.startswith("\\\\")
+        or re.match(r"^//[^/\s\"']+/[^/\s\"']+", text)
+        or (text.startswith("/") and not text.startswith("//"))
     )
+    if collapse_whole_path and original_was_absolute_path and "\n" not in text and "\r" not in text:
+        return "<configured-path>"
+
+    # Mask embedded absolute paths before replacing the home directory with a
+    # placeholder; otherwise C:\Users\Name\Books or /home/name/Books becomes
+    # %USERPROFILE%\Books / ~/Books and no longer looks absolute to the path
+    # redactors below.
+    text = _EMBEDDED_DRIVE_FILE_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_UNC_FILE_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_DRIVE_PATH_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_UNC_PATH_RE.sub("<configured-path>", text)
+    text = _EMBEDDED_POSIX_FILE_RE.sub(
+        lambda match: match.group("prefix") + "<configured-path>",
+        text,
+    )
+    text = _EMBEDDED_POSIX_PATH_RE.sub(
+        lambda match: match.group("prefix") + "<configured-path>",
+        text,
+    )
+
     try:
         home_path = Path.home()
         home = str(home_path)

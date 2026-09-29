@@ -82,9 +82,8 @@ def test_track_status_is_language_neutral_and_legacy_value_normalizes():
 
 def test_support_bundle_path_privacy_handles_both_windows_slash_styles(monkeypatch):
     monkeypatch.setattr(support_bundle.Path, "home", classmethod(lambda cls: cls("C:/Users/Alice")))
-    placeholder = "%USERPROFILE%" if os.name == "nt" else "~"
-    assert support_bundle._privacy_path(r"C:\Users\Alice\Books") == placeholder + r"\Books"
-    assert support_bundle._privacy_path("C:/Users/Alice/Books") == placeholder + "/Books"
+    assert support_bundle._privacy_path(r"C:\Users\Alice\Books") == "<configured-path>"
+    assert support_bundle._privacy_path("C:/Users/Alice/Books") == "<configured-path>"
 
 
 def test_support_bundle_tail_starts_at_clean_utf8_line_boundary(tmp_path):

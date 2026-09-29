@@ -49,7 +49,6 @@ def unlink_with_retry(path, *, missing_ok=True, attempts=5):
             if attempt >= max(1, int(attempts)) - 1 or not _is_transient_windows_file_error(exc):
                 raise
             time.sleep(0.025 * (2**attempt))
-    return False
 
 def atomic_write_text(path, text, *, encoding="utf-8"):
     target = Path(path)

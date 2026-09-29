@@ -29,8 +29,7 @@ def test_sanitized_settings_hides_urls_and_shortens_paths(tmp_path, monkeypatch)
         "output_dir": str(tmp_path / "Books"),
     })
     assert result["abs_url"] == "<configured-url>"
-    placeholder = "%USERPROFILE%" if os.name == "nt" else "~"
-    assert result["output_dir"].startswith(placeholder)
+    assert result["output_dir"] == "<configured-path>"
 
 
 def test_support_bundle_does_not_include_queue_titles(tmp_path, monkeypatch):

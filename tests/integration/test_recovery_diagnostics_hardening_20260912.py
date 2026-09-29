@@ -38,8 +38,7 @@ def test_support_bundle_home_placeholder_matches_platform(monkeypatch, tmp_path)
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     value = str(tmp_path / "Books")
     redacted = support_bundle._privacy_path(value)
-    expected = "%USERPROFILE%" if os.name == "nt" else "~"
-    assert redacted.startswith(expected)
+    assert redacted == "<configured-path>"
 
 
 def test_ui_text_does_not_format_literal_braces_without_kwargs(monkeypatch):

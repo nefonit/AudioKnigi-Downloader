@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 63
+
+- Fixed support-bundle home-path collapse after username masking, normalized live AppSettings assignments, bounded AudioKnigi detail hydration, removed unreachable retry code, and added regressions clarifying intentionally unchanged template/localization contracts.
+
+## 4.12.42 Round 62
+
+- Fixed Round 61 localization regressions, Track-index disk preflight, legacy Cyrillic response decoding, history locking, POSIX player-position keys, LRU audio probing, and loudnorm range handling.
+
 ## 4.12.42 Round 61
 
 - Applied confirmed 2026-09-29 external-audit fixes across settings, privacy diagnostics, fallback selection, resume accounting, search, queue persistence, Playwright identity, accessibility, player state, and localization.

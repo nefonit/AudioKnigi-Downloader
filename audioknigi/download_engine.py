@@ -332,7 +332,8 @@ class _DownloadEngine(DownloaderMixin):
         # change without changing the actual audiobook. Identity is anchored by
         # normalized source URL, folder, part count and stable bibliographic fields.
         fields = ("title", "author", "narrator")
-        history = load_json(HISTORY_FILE, [])
+        with HISTORY_LOCK:
+            history = load_json(HISTORY_FILE, [])
         for record in history if isinstance(history, list) else []:
             if not isinstance(record, dict):
                 continue

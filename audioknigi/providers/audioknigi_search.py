@@ -141,6 +141,7 @@ def _normalize_text(value) -> str:
 
 
 _QUERY_NOISE_TOKENS = {"аудиокнига", "аудиокнигу", "аудиокниги", "слушать", "онлайн", "и", "в", "во", "на"}
+_MAX_HYDRATED_SEARCH_RESULTS = 30
 
 
 def _query_tokens(query) -> list[str]:
@@ -159,7 +160,12 @@ def _response_html_text(response) -> str:
 
     encodings: list[str] = ["utf-8-sig"]
     declared = str(getattr(response, "encoding", "") or "").strip()
-    if declared:
+    declared_folded = declared.casefold().replace("_", "-")
+    latin1_aliases = {"iso-8859-1", "iso8859-1", "latin-1", "latin1"}
+    # requests may assign ISO-8859-1 as an HTTP default when no charset was
+    # declared. Because latin-1 decodes every byte, trying it before the
+    # detected encoding would silently turn Cyrillic into mojibake.
+    if declared and declared_folded not in latin1_aliases:
         encodings.append(declared)
     try:
         apparent = str(getattr(response, "apparent_encoding", "") or "").strip()
@@ -167,6 +173,8 @@ def _response_html_text(response) -> str:
         apparent = ""
     if apparent:
         encodings.append(apparent)
+    if declared and declared_folded in latin1_aliases:
+        encodings.append(declared)
 
     seen: set[str] = set()
     for encoding in encodings:
@@ -762,13 +770,18 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
     source_items = list(results or [])
     hydrated: list[SearchResult] = list(source_items)
     if source_items:
-        workers = min(8, len(source_items))
+        # Detail-page hydration is useful for narrator grouping, but fetching up
+        # to 100 result pages per search is slow and can trigger host rate
+        # limiting. Results are already relevance-sorted, so hydrate only the
+        # leading window and keep the remaining cards in their parsed form.
+        hydrate_count = min(len(source_items), _MAX_HYDRATED_SEARCH_RESULTS)
+        workers = min(8, hydrate_count)
         pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="audioknigi-readers")
         futures = {}
         try:
             futures = {
                 pool.submit(_audioknigi_page_metadata, item, cancel_event=cancel_event): idx
-                for idx, item in enumerate(source_items)
+                for idx, item in enumerate(source_items[:hydrate_count])
             }
             for future in _iter_completed_cancellable(futures, cancel_event):
                 idx = futures[future]

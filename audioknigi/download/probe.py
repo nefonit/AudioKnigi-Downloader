@@ -545,14 +545,17 @@ class ProbeMixin:
             wanted = set()
             select_all = False
             for value in values:
-                if isinstance(value, str) and value.strip().lower() in {"all", "*"}:
+                # Primitive values (notably str) also expose attributes named
+                # ``index``; only Track-like objects should use their .index.
+                raw_value = value if isinstance(value, (str, int, float, bool)) else getattr(value, "index", value)
+                if isinstance(raw_value, str) and raw_value.strip().lower() in {"all", "*"}:
                     select_all = True
                     continue
-                if isinstance(value, bool):
+                if isinstance(raw_value, bool):
                     raise ValueError(f"Invalid selected track index: {value!r}")
-                if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
+                if isinstance(raw_value, float) and (not math.isfinite(raw_value) or not raw_value.is_integer()):
                     raise ValueError(f"Invalid selected track index: {value!r}")
-                number = safe_int(value, -1)
+                number = safe_int(raw_value, -1)
                 if number < 0:
                     raise ValueError(f"Invalid selected track index: {value!r}")
                 wanted.add(number)

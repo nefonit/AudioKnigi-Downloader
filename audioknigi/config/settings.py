@@ -195,7 +195,16 @@ class AppSettings(MutableMapping[str, Any]):
         return self._data[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self._data[key] = value
+        # Keep the MutableMapping contract type-safe at runtime too. Callers
+        # frequently mutate the live settings object before persistence; using
+        # the same normalization boundary here prevents transient string
+        # numerics/booleans or out-of-range values from leaking into UI logic.
+        payload = dict(self._data)
+        payload[str(key)] = value
+        payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
+        normalized = normalize_settings(payload)
+        normalized.pop(UI_SCALE_MIGRATION_KEY, None)
+        self._data = normalized
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]
