@@ -34,7 +34,7 @@
     "help_settings_body": "Für den normalen Gebrauch reichen Speicherordner und Audioqualität. Namensvorlagen, Audiobookshelf und andere technische Optionen sind optional und befinden sich in den erweiterten Einstellungen.",
     "help_settings_title": "Einstellungen einfach erklärt",
     "help_short_intro": "Ausführliche integrierte Anleitung zu Suche, Download, Warteschlange, Player, Einstellungen und Diagnose",
-    "help_shortcuts_body": "Tab / Shift+Tab — nächstes / vorheriges Element.\nEnter — fokussierte Schaltfläche drücken oder ausgewähltes Buch öffnen. Leertaste — Schaltfläche/Option umschalten.\nStrg+L — zum Hauptfeld. Strg+D — Buch herunterladen.\nStrg+1…6 — Buch / Suche / Warteschlange / Verlauf / Einstellungen / Player. Strg+Tab / Strg+Umschalt+Tab — nächste / vorherige Registerkarte.\nUmschalt+F10 — Kontextmenü des ausgewählten Buchs. F4 oder Alt+↓ — Auswahlliste öffnen.\nStrg+F — Suche. Strg+Q — Warteschlange. Strg+H — Verlauf. F1 — Hilfe. Strg+Umschalt+F12 — NVDA/JAWS-Verbindung prüfen. Esc — Liste/Fenster schließen oder Vorgang abbrechen.",
+    "help_shortcuts_body": "Tab / Umschalt+Tab — nächstes / vorheriges Element.\nEnter — fokussierte Schaltfläche drücken oder ausgewähltes Buch öffnen. Leertaste — Schaltfläche/Option umschalten.\nStrg+L — zum Hauptfeld. Strg+D — Buch herunterladen.\nStrg+1…6 — Buch / Suche / Warteschlange / Verlauf / Einstellungen / Player. Strg+Tab / Strg+Umschalt+Tab — nächste / vorherige Registerkarte.\nUmschalt+F10 — Kontextmenü des ausgewählten Buchs. F4 oder Alt+↓ — Auswahlliste öffnen.\nStrg+F — Suche. Strg+Q — Warteschlange. Strg+H — Verlauf. F1 — Hilfe. Strg+Umschalt+F12 — NVDA/JAWS-Verbindung prüfen. Esc — Liste/Fenster schließen oder Vorgang abbrechen.",
     "help_shortcuts_hint": "F1 — Hilfe • Esc — aktuellen Vorgang abbrechen",
     "help_shortcuts_title": "Tastenkürzel",
     "help_text_accessible": "Hilfetext",
@@ -112,7 +112,8 @@
     "about_open_github": "GitHub öffnen",
     "about_open_project": "Repository öffnen",
     "about_email_copied": "E-Mail-Adresse wurde in die Zwischenablage kopiert.",
-    "about_info_accessible": "Informationen über das Programm, den Autor, Kontakte und den Quellcode."
+    "about_info_accessible": "Informationen über das Programm, den Autor, Kontakte und den Quellcode.",
+    "cancel_operation": "Abbrechen"
   },
   "en": {
     "add_another": "Download another book",
@@ -227,7 +228,8 @@
     "about_open_github": "Open GitHub",
     "about_open_project": "Open repository",
     "about_email_copied": "Email copied to the clipboard.",
-    "about_info_accessible": "Information about the program, author, contacts, and source code."
+    "about_info_accessible": "Information about the program, author, contacts, and source code.",
+    "cancel_operation": "Cancel"
   },
   "ru": {
     "add_another": "Скачать следующую книгу",
@@ -342,7 +344,8 @@
     "about_open_github": "Открыть GitHub",
     "about_open_project": "Открыть репозиторий",
     "about_email_copied": "Email скопирован в буфер обмена.",
-    "about_info_accessible": "Информация о программе, авторе, контактах и исходном коде."
+    "about_info_accessible": "Информация о программе, авторе, контактах и исходном коде.",
+    "cancel_operation": "Отменить"
   },
   "uk": {
     "add_another": "Завантажити наступну книгу",
@@ -457,6 +460,7 @@
     "about_open_github": "Відкрити GitHub",
     "about_open_project": "Відкрити репозиторій",
     "about_email_copied": "Email скопійовано до буфера обміну.",
-    "about_info_accessible": "Інформація про програму, автора, контакти та вихідний код."
+    "about_info_accessible": "Інформація про програму, автора, контакти та вихідний код.",
+    "cancel_operation": "Скасувати"
   }
 }

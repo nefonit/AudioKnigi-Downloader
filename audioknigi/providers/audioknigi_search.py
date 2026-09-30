@@ -787,6 +787,8 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
                 idx = futures[future]
                 try:
                     hydrated[idx] = future.result()
+                except Cancelled:
+                    raise
                 except Exception:
                     hydrated[idx] = source_items[idx]
         finally:

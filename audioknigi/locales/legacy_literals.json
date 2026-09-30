@@ -32,7 +32,7 @@
     "Адрес сервера Audiobookshelf": "Audiobookshelf-Serveradresse",
     "Адрес сервера:": "Serveradresse:",
     "Анализ выбранной озвучки завершён. Фокус на кнопке «Скачать книгу». Нажмите Enter или пробел, чтобы начать скачивание.": "Die Analyse der ausgewählten Aufnahme ist abgeschlossen. Der Fokus liegt auf „Buch herunterladen“. Drücken Sie Enter oder die Leertaste, um den Download zu starten.",
-    "Анализ завершён. Стрелками просмотрите части; пробел меняет выбор. Затем Tab до «Скачать книгу» или нажмите Ctrl+D.": "Die Analyse ist abgeschlossen. Prüfen Sie die Teile mit den Pfeiltasten; die Leertaste ändert die Auswahl. Wechseln Sie dann mit Tab zu „Buch herunterladen“ oder drücken Sie Ctrl+D.",
+    "Анализ завершён. Стрелками просмотрите части; пробел меняет выбор. Затем Tab до «Скачать книгу» или нажмите Ctrl+D.": "Die Analyse ist abgeschlossen. Prüfen Sie die Teile mit den Pfeiltasten; die Leertaste ändert die Auswahl. Wechseln Sie dann mit Tab zu „Buch herunterladen“ oder drücken Sie Strg+D.",
     "Анализ книги отменён.": "Buchanalyse abgebrochen.",
     "Анализ книги уже выполняется.": "Die Buchanalyse läuft bereits.",
     "Анализировать": "Analysieren",

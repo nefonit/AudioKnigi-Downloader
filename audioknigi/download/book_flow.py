@@ -28,6 +28,11 @@ class BookFlowMixin:
         seen = set()
         while current is not None and id(current) not in seen:
             seen.add(id(current))
+            # This domain exception is defined specifically for a 404/410 media
+            # source. Recognize it even when a caller reconstructed the error
+            # without preserving the original requests exception as __cause__.
+            if isinstance(current, MissingMediaSourceError):
+                return True
             response = getattr(current, "response", None)
             if getattr(response, "status_code", None) in (404, 410):
                 return True

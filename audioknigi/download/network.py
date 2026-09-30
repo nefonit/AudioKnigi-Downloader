@@ -936,10 +936,11 @@ class NetworkDownloadMixin:
                 pass
 
     def _download_source_with_fallback(self, primary_url, fallback_url, target, referer):
-        urls = [str(primary_url or "").strip()]
-        alternate = str(fallback_url or "").strip()
-        if alternate and alternate not in urls:
-            urls.append(alternate)
+        urls = []
+        for raw_url in (primary_url, fallback_url):
+            candidate = str(raw_url or "").strip()
+            if candidate and candidate not in urls:
+                urls.append(candidate)
         last_error = None
         for pos, url in enumerate(urls, 1):
             if not url:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 69
+
+- Hardened expired-media classification and search cancellation propagation, cleaned fallback URL selection, fixed context-specific Cancel vs Undo/Redo localization, and normalized German shortcut labels while preserving intentional privacy/history/network contracts.
+
 ## 4.12.42 Round 68
 
 - Added creator/contact information to an accessible About dialog and generated Windows EXE version metadata for author/developer Едуард Саратовцев, including email, GitHub profile, project repository, copyright, and accessibility statement.

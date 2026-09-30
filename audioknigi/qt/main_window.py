@@ -671,7 +671,7 @@ class AudioKnigiQtWindow(
             self,
             title=title,
             message=message,
-            cancel_text=self._l("Отменить"),
+            cancel_text=tr(self.language, "cancel_operation"),
             cancelling_text=self._l("Отмена…"),
             indeterminate=indeterminate,
         )
