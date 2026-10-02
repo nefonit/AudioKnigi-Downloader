@@ -25,7 +25,7 @@ def test_advanced_book_description_is_bounded_scrollable_text() -> None:
     assert "self.book_description = QTextEdit()" in pages
     assert "self.book_description.setReadOnly(True)" in pages
     assert "self.book_description.setTabChangesFocus(True)" in pages
-    assert "self.book_description.setMaximumHeight(86)" in pages
+    assert "self.book_description.setMaximumHeight(72)" in pages
     assert "self.book_summary.setMaximumHeight(58)" in pages
 
 

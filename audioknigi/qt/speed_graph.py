@@ -23,7 +23,7 @@ class SpeedGraphWidget(QWidget):
         super().__init__(parent)
         self._values = deque(maxlen=max(10, int(capacity)))
         self.setFixedHeight(40)
-        self._expanded_height = 72
+        self._expanded_height = 56
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setAccessibleName(ui_text(_language(), "График скорости загрузки"))
         self.setAccessibleDescription(ui_text(_language(), "История скорости скачивания во времени"))

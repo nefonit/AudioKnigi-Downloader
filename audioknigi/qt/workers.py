@@ -13,7 +13,7 @@ from ..integrations import audiobookshelf_get_libraries
 from ..logging_utils import app_logger
 from ..models import normalize_cover_cache
 from ..services.book_analysis_service import AnalysisOptions, BookAnalysisService
-from ..services.search_service import SearchOutcome, search_all_sources
+from ..services.search_service import SearchOutcome, downloadable_search_results, search_all_sources
 
 
 class SearchWorker(QObject):
@@ -41,10 +41,14 @@ class SearchWorker(QObject):
                 "SEARCH WORKER | event=service_return | query=%r | results=%d | errors=%d",
                 self.query, len(outcome.results), len(outcome.errors),
             )
+            # Restricted/unavailable catalogue rows cannot be downloaded, so
+            # they are never useful search results. Keep unknown status rows:
+            # a transient metadata failure must not hide a potentially usable book.
+            outcome.results = downloadable_search_results(outcome.results)
             if self.only_available:
                 outcome.results = [
                     item for item in outcome.results
-                    if str(getattr(item, "availability", "") or "").casefold() == "available"
+                    if str(getattr(item, "availability", "") or "").strip().casefold() == "available"
                 ]
             if self.cancel_event.is_set():
                 outcome = SearchOutcome(self.query, [], [])

@@ -8,6 +8,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QPushButton, QStackedWidget, QTableView, QToolButton, QVBoxLayout, QWidget
 from ...logging_utils import app_logger
 from ...models import SearchResult
+from ...i18n import tr
 from ...services.search_service import SearchOutcome
 from ...sources import normalize_supported_url
 from ..accessibility import configure_accessible, focus_table_row
@@ -53,19 +54,35 @@ class SearchUiMixin:
             action.setCheckable(True)
             action.setChecked(True)
             self._search_source_actions[source_name] = action
-        self.search_filter_menu.addSeparator()
-        self.search_only_available_action = self.search_filter_menu.addAction(self._l("Только доступные"))
-        self.search_only_available_action.setCheckable(True)
         self.search_filter_button.setMenu(self.search_filter_menu)
         configure_accessible(
             self.search_filter_button,
             name=self._l("Фильтры поиска"),
-            description=self._l("Выберите сайты поиска и при необходимости показывайте только доступные книги"),
+            description=self._l("Выберите сайты поиска"),
             identifier="search_filters",
         )
+        self.search_sort_button = QToolButton(page)
+        self.search_sort_button.setText(tr(self.language, "search_sort_button"))
+        self.search_sort_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        sort_menu = QMenu(self.search_sort_button)
+        sort_title = sort_menu.addAction(tr(self.language, "search_sort_title"))
+        sort_author = sort_menu.addAction(tr(self.language, "search_sort_author"))
+        sort_narrator = sort_menu.addAction(tr(self.language, "search_sort_narrator"))
+        sort_title.triggered.connect(lambda: self._sort_search_results("title"))
+        sort_author.triggered.connect(lambda: self._sort_search_results("author"))
+        sort_narrator.triggered.connect(lambda: self._sort_search_results("narrator"))
+        self.search_sort_button.setMenu(sort_menu)
+        configure_accessible(
+            self.search_sort_button,
+            name=tr(self.language, "search_sort_accessible"),
+            description=tr(self.language, "search_sort_description"),
+            identifier="search_sort",
+        )
+
         row.addWidget(label)
         row.addWidget(self.search_edit, 1)
         row.addWidget(self.search_filter_button)
+        row.addWidget(self.search_sort_button)
         row.addWidget(self.search_button)
         layout.addLayout(row)
 
@@ -107,11 +124,13 @@ class SearchUiMixin:
         self.search_table.setSortingEnabled(False)
         self.search_table.verticalHeader().setVisible(False)
         search_header = self.search_table.horizontalHeader()
+        search_header.setSectionsClickable(True)
+        search_header.sectionClicked.connect(self._sort_search_results_by_column)
         search_header.setResizeContentsPrecision(60)
         # Compact service columns stay as small as their content; the title gets
         # the elastic remainder while author/narrator keep comfortable desktop
         # widths so names do not collapse into ellipses on wide workspaces.
-        for column in (0, 4, 5, 6):
+        for column in (0, 4, 5):
             search_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
@@ -268,7 +287,7 @@ class SearchUiMixin:
         thread = QThread(self)
         worker = _SearchWorker(
             query, cancel_event, sources=sources,
-            only_available=bool(getattr(self, "search_only_available_action", None) and self.search_only_available_action.isChecked()),
+            only_available=False,
         )
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
@@ -316,7 +335,7 @@ class SearchUiMixin:
             "SEARCH UI | event=result_render_start | results=%d | errors=%d",
             len(outcome.results), len(outcome.errors),
         )
-        self.search_model.set_results(outcome.results)
+        self.search_model.set_results(outcome.results, query=outcome.query)
         app_logger.info("SEARCH UI | event=model_reset_complete")
         if outcome.results:
             self._set_search_results_active(True)
@@ -541,6 +560,38 @@ class SearchUiMixin:
         if hasattr(self, "easy_copy_url_button"):
             self.easy_copy_url_button.setEnabled(easy_selected)
 
+    def _sort_search_results_by_column(self, column: int) -> None:
+        mapping = {1: "title", 2: "author", 3: "narrator"}
+        field = mapping.get(int(column))
+        if field:
+            self._sort_search_results(field)
+
+    def _sort_search_results(self, field: str) -> None:
+        if getattr(self, "search_model", None) is None or self.search_model.rowCount() <= 1:
+            return
+        table = self.easy_search_table if self.current_ui_mode() == "easy" and hasattr(self, "easy_search_table") and self.easy_search_table.isVisible() else self.search_table
+        selected = self._selected_search_result(table)
+        selected_url = str(getattr(selected, "url", "") or "") if selected is not None else ""
+        self.search_model.sort_by(field)
+        labels = {
+            "title": tr(self.language, "search_sort_title"),
+            "author": tr(self.language, "search_sort_author"),
+            "narrator": tr(self.language, "search_sort_narrator"),
+        }
+        column = {"title": 1, "author": 2, "narrator": 3}.get(field, 1)
+        for view_name in ("search_table", "easy_search_table"):
+            view = getattr(self, view_name, None)
+            if view is not None:
+                header = view.horizontalHeader()
+                header.setSortIndicatorShown(True)
+                header.setSortIndicator(column, Qt.SortOrder.AscendingOrder)
+        row = self.search_model.row_for_url(selected_url) if selected_url else 0
+        if row < 0:
+            row = 0
+        focus_table_row(table, row, column=column, focus=True)
+        self._update_search_action_states()
+        self.set_status(tr(self.language, "search_sorted", field=labels.get(field, field)))
+
     def _show_search_context_menu(self, table, pos):
         if pos is not None and (index := table.indexAt(pos)).isValid():
             table.setCurrentIndex(index)
@@ -552,6 +603,10 @@ class SearchUiMixin:
         use = menu.addAction(self._l("Выбрать и проанализировать"))
         copy = menu.addAction(self._l("Копировать ссылку"))
         open_web = menu.addAction(self._l("Открыть страницу в браузере"))
+        menu.addSeparator()
+        sort_title = menu.addAction(tr(self.language, "search_sort_title"))
+        sort_author = menu.addAction(tr(self.language, "search_sort_author"))
+        sort_narrator = menu.addAction(tr(self.language, "search_sort_narrator"))
         if pos is None:
             current = table.currentIndex()
             rect = table.visualRect(current) if current.isValid() else table.rect()
@@ -565,6 +620,12 @@ class SearchUiMixin:
             self.copy_selected_url()
         elif action is open_web:
             QDesktopServices.openUrl(QUrl(result.url))
+        elif action is sort_title:
+            self._sort_search_results("title")
+        elif action is sort_author:
+            self._sort_search_results("author")
+        elif action is sort_narrator:
+            self._sort_search_results("narrator")
 
     def _selected_search_result(self, table=None) -> SearchResult | None:
         if table is None:

@@ -405,6 +405,8 @@ class AudioKnigiQtWindow(
         # service columns keep only the space their contents actually need.
         easy_header = self.easy_search_table.horizontalHeader()
         easy_header.setMinimumSectionSize(28)
+        easy_header.setSectionsClickable(True)
+        easy_header.sectionClicked.connect(self._sort_search_results_by_column)
         easy_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         for column, (_label, key) in enumerate(SearchResultsModel.COLUMNS):
             if key in {"index", "availability", "variants", "source"}:

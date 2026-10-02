@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 72
+
+- Added accessible search-result sorting by title/author/narrator, automatically removed explicitly restricted/unavailable books and the redundant Status column, and tightened Book-tab vertical geometry so the description card no longer crowds the expanded transfer-speed graph.
+
 ## 4.12.42 Round 71
 
 - Hardened playlist-duration fallback, zero-hydration worker setup, canonical clipboard URL suppression, empty-book download guarding, and Smart Format runtime localization while documenting intentionally preserved shared-source/privacy/search contracts.

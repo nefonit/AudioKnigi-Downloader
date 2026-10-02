@@ -113,7 +113,14 @@
     "about_open_project": "Repository öffnen",
     "about_email_copied": "E-Mail-Adresse wurde in die Zwischenablage kopiert.",
     "about_info_accessible": "Informationen über das Programm, den Autor, Kontakte und den Quellcode.",
-    "cancel_operation": "Abbrechen"
+    "cancel_operation": "Abbrechen",
+    "search_sort_button": "Sortierung ▾",
+    "search_sort_title": "Nach Titel",
+    "search_sort_author": "Nach Autor",
+    "search_sort_narrator": "Nach Sprecher",
+    "search_sort_accessible": "Suchergebnisse sortieren",
+    "search_sort_description": "Ergebnisse nach Titel, Autor oder Sprecher sortieren",
+    "search_sorted": "Ergebnisse sortiert: {field}."
   },
   "en": {
     "add_another": "Download another book",
@@ -229,7 +236,14 @@
     "about_open_project": "Open repository",
     "about_email_copied": "Email copied to the clipboard.",
     "about_info_accessible": "Information about the program, author, contacts, and source code.",
-    "cancel_operation": "Cancel"
+    "cancel_operation": "Cancel",
+    "search_sort_button": "Sort ▾",
+    "search_sort_title": "By title",
+    "search_sort_author": "By author",
+    "search_sort_narrator": "By narrator",
+    "search_sort_accessible": "Sort search results",
+    "search_sort_description": "Sort results by title, author, or narrator",
+    "search_sorted": "Results sorted: {field}."
   },
   "ru": {
     "add_another": "Скачать следующую книгу",
@@ -345,7 +359,14 @@
     "about_open_project": "Открыть репозиторий",
     "about_email_copied": "Email скопирован в буфер обмена.",
     "about_info_accessible": "Информация о программе, авторе, контактах и исходном коде.",
-    "cancel_operation": "Отменить"
+    "cancel_operation": "Отменить",
+    "search_sort_button": "Сортировка ▾",
+    "search_sort_title": "По названию",
+    "search_sort_author": "По автору",
+    "search_sort_narrator": "По чтецу",
+    "search_sort_accessible": "Сортировка результатов поиска",
+    "search_sort_description": "Сортировать результаты по названию, автору или чтецу",
+    "search_sorted": "Результаты отсортированы: {field}."
   },
   "uk": {
     "add_another": "Завантажити наступну книгу",
@@ -461,6 +482,13 @@
     "about_open_project": "Відкрити репозиторій",
     "about_email_copied": "Email скопійовано до буфера обміну.",
     "about_info_accessible": "Інформація про програму, автора, контакти та вихідний код.",
-    "cancel_operation": "Скасувати"
+    "cancel_operation": "Скасувати",
+    "search_sort_button": "Сортування ▾",
+    "search_sort_title": "За назвою",
+    "search_sort_author": "За автором",
+    "search_sort_narrator": "За читцем",
+    "search_sort_accessible": "Сортування результатів пошуку",
+    "search_sort_description": "Сортувати результати за назвою, автором або читцем",
+    "search_sorted": "Результати відсортовано: {field}."
   }
 }

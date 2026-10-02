@@ -30,7 +30,10 @@ QT_EVIDENCE = {
     "clipboard": [("audioknigi/qt/main_window.py", "_application_state_changed"), ("audioknigi/qt/main_window.py", "clipboard_auto_check")],
     "search": [("audioknigi/qt/workers.py", "search_all_sources"), ("audioknigi/qt/main_window.py", "def start_search")],
     "search_actions": [("audioknigi/qt/main_window.py", "_show_search_context_menu"), ("audioknigi/qt/main_window.py", "copy_selected_url")],
-    "search_availability": [("audioknigi/qt/search_model.py", '("Статус", "availability")')],
+    "search_availability": [
+        ("audioknigi/services/search_service.py", "def downloadable_search_results"),
+        ("audioknigi/qt/search_model.py", '("Озвучки", "variants")'),
+    ],
     "analysis": [("audioknigi/qt/workers.py", "BookAnalysisService"), ("audioknigi/qt/main_window.py", "def start_analysis")],
     "book_metadata": [("audioknigi/qt/main_window.py", "book_description"), ("audioknigi/qt/main_window.py", "effective_track_duration")],
     "cover": [("audioknigi/qt/main_window.py", "book_cover_label"), ("audioknigi/qt/main_window.py", "loadFromData")],

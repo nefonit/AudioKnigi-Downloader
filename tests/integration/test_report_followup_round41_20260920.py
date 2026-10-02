@@ -32,7 +32,7 @@ def test_settings_and_player_remain_centered_form_cards() -> None:
 
 def test_search_columns_prioritize_full_author_and_narrator_names() -> None:
     search = src("audioknigi/qt/mixins/search.py")
-    assert "for column in (0, 4, 5, 6):" in search
+    assert "for column in (0, 4, 5):" in search
     assert "search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)" in search
     assert "search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)" in search
     assert "search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)" in search

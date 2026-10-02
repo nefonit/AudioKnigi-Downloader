@@ -4,7 +4,8 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtWidgets import QApplication
 
 from ..models import SearchResult
-from ..i18n import localize_runtime_text, ui_text
+from ..i18n import ui_text
+from ..services.search_service import search_result_sort_key
 
 
 def _lang() -> str:
@@ -19,7 +20,6 @@ class SearchResultsModel(QAbstractTableModel):
         ("Название", "title"),
         ("Автор", "author"),
         ("Чтец", "narrator"),
-        ("Статус", "availability"),
         ("Озвучки", "variants"),
         ("Источник", "source"),
     )
@@ -27,6 +27,7 @@ class SearchResultsModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._items: list[SearchResult] = []
+        self._query = ""
 
     def rowCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self._items)
@@ -53,16 +54,6 @@ class SearchResultsModel(QAbstractTableModel):
             value = str(index.row() + 1)
         elif key == "variants":
             value = str(max(1, int(getattr(item, "variant_count", 1) or 1)))
-        elif key == "availability":
-            raw_status = str(getattr(item, "availability", "") or "").strip()
-            status_key = raw_status.casefold()
-            status_labels = {
-                "available": "Доступно",
-                "restricted": "Ограничено",
-                "unavailable": "Недоступно",
-            }
-            canonical = status_labels.get(status_key, "Статус не определён" if not raw_status else raw_status)
-            value = ui_text(_lang(), canonical) if canonical in status_labels.values() or not raw_status else localize_runtime_text(_lang(), canonical)
         else:
             value = str(getattr(item, key, "") or "")
         if role == Qt.ItemDataRole.AccessibleTextRole:
@@ -78,10 +69,26 @@ class SearchResultsModel(QAbstractTableModel):
             return str(section + 1)
         return None
 
-    def set_results(self, items: list[SearchResult]):
+    def set_results(self, items: list[SearchResult], *, query: str = ""):
         self.beginResetModel()
         self._items = list(items or [])
+        self._query = str(query or "").strip()
         self.endResetModel()
+
+    def sort_by(self, field: str) -> None:
+        field = str(field or "").strip().casefold()
+        if field not in {"title", "author", "narrator"}:
+            return
+        self.beginResetModel()
+        self._items.sort(key=lambda item: search_result_sort_key(item, field, query=self._query))
+        self.endResetModel()
+
+    def row_for_url(self, url: str) -> int:
+        wanted = str(url or "").strip()
+        for row, item in enumerate(self._items):
+            if str(getattr(item, "url", "") or "").strip() == wanted:
+                return row
+        return -1
 
     def result_at(self, row: int) -> SearchResult | None:
         return self._items[row] if 0 <= row < len(self._items) else None

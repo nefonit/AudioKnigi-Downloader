@@ -177,6 +177,7 @@ class MainWindowPagesMixin:
     
         self.download_activity_panel = QWidget(page)
         self.download_activity_panel.setObjectName("noticeCard")
+        self.download_activity_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         download_activity_layout = QVBoxLayout(self.download_activity_panel)
         download_activity_layout.setContentsMargins(10, 8, 10, 8)
         download_activity_layout.setSpacing(5)
@@ -211,6 +212,7 @@ class MainWindowPagesMixin:
     
         self.book_details_panel = QWidget(page)
         self.book_details_panel.setObjectName("bookCard")
+        self.book_details_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         details_row = QHBoxLayout(self.book_details_panel)
         details_row.setContentsMargins(12, 10, 12, 10)
         details_row.setSpacing(12)
@@ -237,8 +239,8 @@ class MainWindowPagesMixin:
         self.book_description.setReadOnly(True)
         self.book_description.setTabChangesFocus(True)
         self.book_description.setAcceptRichText(False)
-        self.book_description.setMaximumHeight(86)
-        self.book_description.setMinimumHeight(58)
+        self.book_description.setMaximumHeight(72)
+        self.book_description.setMinimumHeight(52)
         self.book_description.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         configure_accessible(self.book_description, name="Описание книги", identifier="book_description")
         details_text.addWidget(self.book_description)

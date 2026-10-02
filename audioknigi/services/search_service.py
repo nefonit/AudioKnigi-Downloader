@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
+import re
 
 from ..core import Cancelled, extract_extended_metadata_from_html, extract_metadata_from_html, get_http_session
 from ..logging_utils import app_logger
@@ -28,6 +29,39 @@ def _matches_query(title: str, query: str, author: str = "", narrator: str = "")
     """Compatibility wrapper for archived regression suites."""
     from ..providers.audioknigi_search import _matches_query as implementation
     return implementation(title, query, author=author, narrator=narrator)
+
+
+def _search_sort_text(value: str) -> str:
+    text = str(value or "").casefold().replace("ё", "е")
+    return " ".join(re.findall(r"[^\W_]+", text, re.UNICODE))
+
+
+def search_result_sort_key(item: SearchResult, field: str, *, query: str = ""):
+    """Stable user-facing sort key for searchable metadata columns."""
+    field = str(field or "").strip().casefold()
+    title = _search_sort_text(getattr(item, "title", ""))
+    if field == "title":
+        query_key = _search_sort_text(query)
+        return (
+            0 if query_key and title == query_key else 1,
+            len(title.split()) if title else 10_000,
+            title,
+            _search_sort_text(getattr(item, "author", "")),
+            _search_sort_text(getattr(item, "narrator", "")),
+        )
+    if field in {"author", "narrator"}:
+        value = _search_sort_text(getattr(item, field, ""))
+        return (0 if value else 1, value, len(title.split()) if title else 10_000, title)
+    return (title,)
+
+
+def downloadable_search_results(items):
+    """Drop catalogue rows explicitly known to be impossible to download."""
+    return [
+        item for item in list(items or [])
+        if str(getattr(item, "availability", "") or "").strip().casefold()
+        not in {"restricted", "unavailable"}
+    ]
 
 
 @dataclass(slots=True)
@@ -166,4 +200,6 @@ __all__ = [
     "parse_audioknigi_results",
     "search_audioknigi",
     "search_all_sources",
+    "search_result_sort_key",
+    "downloadable_search_results",
 ]
