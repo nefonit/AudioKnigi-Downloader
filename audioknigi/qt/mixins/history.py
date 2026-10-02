@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QSignalBlocker, Slot, Qt, QUrl
+from PySide6.QtCore import QSignalBlocker, QSize, Slot, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from ...core import valid_site_url
@@ -56,6 +56,9 @@ class HistoryUiMixin:
         page = QWidget()
         layout = QVBoxLayout(page)
         self.history_table = QTableWidget(0, 7)
+        icon_px = max(24, int(round(32 * (float(self.settings.get("scale", 100) or 100) / 100.0))))
+        self.history_table.setIconSize(QSize(icon_px, icon_px))
+        self.history_table.verticalHeader().setDefaultSectionSize(max(28, icon_px + 4))
         self.history_table.setHorizontalHeaderLabels([self._l(x) for x in ("Обложка", "Дата", "Название", "Автор", "Чтец", "Частей", "Папка")])
         self.history_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.history_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -282,6 +285,9 @@ class HistoryUiMixin:
 
     @Slot()
     def history_clear(self):
+        if self._long_operation_active():
+            self.set_status("Сначала завершите текущую загрузку или очередь.", assertive=True)
+            return
         if not self._history_rows:
             return
         answer = self._ask_yes_no(

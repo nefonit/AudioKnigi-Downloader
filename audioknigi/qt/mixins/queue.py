@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QSignalBlocker, Slot, Qt, QTimer
+from PySide6.QtCore import QSignalBlocker, QSize, Slot, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QInputDialog, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from ...core import valid_site_url
@@ -154,6 +154,9 @@ class QueueUiMixin:
         self.queue_actions_button.setMenu(actions_menu)
 
         self.queue_table = _QueueTableWidget(0, 10)
+        icon_px = max(24, int(round(32 * (float(self.settings.get("scale", 100) or 100) / 100.0))))
+        self.queue_table.setIconSize(QSize(icon_px, icon_px))
+        self.queue_table.verticalHeader().setDefaultSectionSize(max(28, icon_px + 4))
         self.queue_table.setHorizontalHeaderLabels([self._l(x) for x in ("Обложка", "№", "Книга", "Статус", "Пауза", "Попытки", "Приоритет", "Частей", "Ошибка", "URL")])
         self.queue_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.queue_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)

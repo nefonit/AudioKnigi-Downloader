@@ -20,7 +20,7 @@ from ..logging_utils import app_logger
 from ..sources import normalize_supported_url, source_key
 from ..network_dns import cloudflare_ffmpeg_input_args
 from ..core import USER_AGENT, DEFAULT_OUTPUT, Cancelled, fmt_size, safe_int, safe_name, resolve_executable, parse_time_seconds, effective_track_duration, hidden_subprocess_kwargs
-from .common import close_subprocess_pipes as _close_subprocess_pipes
+from .common import close_subprocess_pipes as _close_subprocess_pipes, source_target_assignments
 from .network import _segment_files
 
 _DURATION_CACHE = {}
@@ -578,7 +578,7 @@ class ProbeMixin:
                 for track in missing
                 if str(getattr(track, "file", "") or "")
             ))
-            assignments = self._source_target_assignments(book, source_urls, folder)
+            assignments = source_target_assignments(book, source_urls, folder)
             locally_present = 0
             all_complete = bool(assignments)
             for _slot, _url, source_target in assignments:
@@ -600,7 +600,33 @@ class ProbeMixin:
                                 continue
                 except OSError:
                     all_complete = False
-            source_remaining = 0 if all_complete else max(0, remote_size - locally_present)
+            if all_complete:
+                source_remaining = 0
+            else:
+                all_source_urls = list(dict.fromkeys(
+                    str(getattr(track, "file", "") or "")
+                    for track in tracks
+                    if str(getattr(track, "file", "") or "")
+                ))
+                if len(all_source_urls) <= 1:
+                    # A shared-source book must download the complete physical
+                    # file even when only one logical chapter is selected.
+                    source_budget = remote_size
+                elif total_duration > 0 and missing_duration > 0:
+                    # For multi-file books ``remote_size`` represents the whole
+                    # book. Estimate only the selected/missing share instead of
+                    # blocking a small chapter download on whole-book capacity.
+                    source_budget = max(
+                        1, int(remote_size * min(1.0, missing_duration / total_duration))
+                    )
+                else:
+                    # Duration metadata may be unavailable for direct chapter
+                    # files. Unique source count is the safest fallback ratio.
+                    source_budget = max(
+                        1,
+                        int(remote_size * min(1.0, len(source_urls) / max(1, len(all_source_urls)))),
+                    )
+                source_remaining = max(0, source_budget - locally_present)
 
         outputs = 0
         preset = str(getattr(self, "runtime_audio_preset", "copy") or "copy")

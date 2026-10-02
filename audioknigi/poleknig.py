@@ -950,7 +950,7 @@ def _fetch_book_playwright(url: str, cancel_event=None) -> Book | None:
                 page.on("request", on_request)
                 if cancel_event is not None and cancel_event.is_set():
                     raise Cancelled("Операция отменена пользователем")
-                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 if cancel_event is not None and cancel_event.is_set():
                     raise Cancelled("Операция отменена пользователем")
                 for _ in range(18):

@@ -775,7 +775,7 @@ def _group_audioknigi_recordings(results: list[SearchResult], cancel_event=None,
         # limiting. Results are already relevance-sorted, so hydrate only the
         # leading window and keep the remaining cards in their parsed form.
         hydrate_count = min(len(source_items), _MAX_HYDRATED_SEARCH_RESULTS)
-        workers = min(8, hydrate_count)
+        workers = max(1, min(8, hydrate_count))
         pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="audioknigi-readers")
         futures = {}
         try:

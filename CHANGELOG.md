@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 71
+
+- Hardened playlist-duration fallback, zero-hydration worker setup, canonical clipboard URL suppression, empty-book download guarding, and Smart Format runtime localization while documenting intentionally preserved shared-source/privacy/search contracts.
+
+## 4.12.42 Round 70
+
+- Fixed selected-chapter disk preflight, source-repair reuse, playlist-response validation, player-position reload locking, full-MP3 result metadata, WebP cover discovery, tiny progress painting, Advanced search/book input isolation, settings bulk replacement, history-clear races, scaled cover thumbnails, and missing runtime translations; also reduced blocking Playwright navigation timeouts.
+
 ## 4.12.42 Round 69
 
 - Hardened expired-media classification and search cancellation propagation, cleaned fallback URL selection, fixed context-specific Cancel vs Undo/Redo localization, and normalized German shortcut labels while preserving intentional privacy/history/network contracts.

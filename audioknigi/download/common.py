@@ -5,6 +5,31 @@ import threading
 import time
 from pathlib import Path
 
+
+def source_target_assignments(book, source_urls, folder):
+    """Return stable engine-owned source paths for a subset of book URLs.
+
+    Slots are based on the complete playlist, so partial retries keep the same
+    ``_source_XX.mp3`` names as the original download plan.
+    """
+    all_unique_files = []
+    seen = set()
+    for track in list(getattr(book, "tracks", []) or []):
+        url = str(getattr(track, "file", "") or "")
+        if url and url not in seen:
+            seen.add(url)
+            all_unique_files.append(url)
+
+    slot_by_url = {url: pos for pos, url in enumerate(all_unique_files, 1)}
+    total_slots = len(all_unique_files)
+    assignments = []
+    for subset_index, raw_url in enumerate(list(source_urls or []), 1):
+        url = str(raw_url or "")
+        slot = slot_by_url.get(url, subset_index)
+        name = "_source.mp3" if total_slots <= 1 else f"_source_{slot:02d}.mp3"
+        assignments.append((slot, url, Path(folder) / name))
+    return assignments
+
 def close_subprocess_pipes(proc) -> None:
     if proc is None:
         return
@@ -79,5 +104,5 @@ def atomic_write_bytes(path, data):
             pass
 
 __all__ = [
-    "close_subprocess_pipes", "atomic_write_bytes", "atomic_write_text", "replace_with_retry", "unlink_with_retry",
+    "source_target_assignments", "close_subprocess_pipes", "atomic_write_bytes", "atomic_write_text", "replace_with_retry", "unlink_with_retry",
 ]

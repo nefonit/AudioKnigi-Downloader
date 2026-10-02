@@ -430,7 +430,11 @@ class PlayerUiMixin:
         return payload if isinstance(payload, dict) else {}
 
     def _player_folder_cover(self, folder: Path) -> Path | None:
-        wanted = ("cover.jpg", "cover.jpeg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png")
+        wanted = (
+            "cover.jpg", "cover.jpeg", "cover.png", "cover.webp",
+            "folder.jpg", "folder.png", "folder.webp",
+            "front.jpg", "front.png", "front.webp",
+        )
         try:
             by_name = {item.name.casefold(): item for item in folder.iterdir() if item.is_file()}
         except OSError:

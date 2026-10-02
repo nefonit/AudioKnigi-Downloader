@@ -49,8 +49,8 @@ class AnalysisDownloadUiMixin:
         if self.current_book is None:
             return
         selected = self.track_model.selected_count()
-        total = len(self.current_book.tracks)
-        if selected <= 0:
+        total = len(list(getattr(self.current_book, "tracks", None) or []))
+        if total <= 0 or selected <= 0:
             self.set_status("Выберите хотя бы одну часть книги.", assertive=True)
             return
         if selected < total:

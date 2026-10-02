@@ -35,12 +35,11 @@ class SettingsUiMixin:
             edit.editingFinished.connect(self._schedule_unfinished_refresh)
 
     def _wire_book_input_sync(self):
-        """Keep Easy and Advanced query/link fields synchronized.
+        """Bridge Easy universal input without coupling Advanced Book and Search.
 
-        Easy mode exposes one universal field while Advanced mode has both the
-        Book field and a dedicated Search field.  They all address the same
-        shared query/book state, so switching modes must not make the text or
-        search context appear to disappear.
+        Easy mode exposes one universal field. Advanced mode deliberately keeps
+        the analyzed-book URL and free-form search query independent so typing a
+        search cannot invalidate an already analyzed book.
         """
         edits = [
             getattr(self, name, None)
@@ -56,8 +55,23 @@ class SettingsUiMixin:
             return
         self._syncing_book_inputs = True
         try:
-            for name in ("book_url_edit", "easy_input", "search_edit"):
-                edit = getattr(self, name, None)
+            book_edit = getattr(self, "book_url_edit", None)
+            easy_edit = getattr(self, "easy_input", None)
+            search_edit = getattr(self, "search_edit", None)
+
+            # Advanced mode has two independent concepts: the analyzed-book URL
+            # and a free-form search query. Editing one must never overwrite the
+            # other. The Easy universal field mirrors whichever Advanced field
+            # the user last edited. When Easy itself is edited, keep the historic
+            # universal behavior and seed both Advanced destinations.
+            if source is book_edit:
+                targets = (easy_edit,)
+            elif source is search_edit:
+                targets = (easy_edit,)
+            else:
+                targets = (book_edit, search_edit)
+
+            for edit in targets:
                 if edit is not None and edit is not source and edit.text() != text:
                     edit.setText(text)
         finally:
@@ -222,8 +236,12 @@ class SettingsUiMixin:
             # Keep object identity stable: other controllers can retain a
             # reference to self.settings. Replacing the object would leave
             # those consumers reading stale values after Save.
-            self.settings.clear()
-            self.settings.update(updated)
+            replace_all = getattr(self.settings, "replace_all", None)
+            if callable(replace_all):
+                replace_all(updated)
+            else:
+                self.settings.clear()
+                self.settings.update(updated)
             install_cloudflare_dns(mode=str(updated.get("dns_mode", "auto") or "auto"))
             self.language = str(updated.get("language", self.language) or self.language)
             self.event_sound_manager.configure(

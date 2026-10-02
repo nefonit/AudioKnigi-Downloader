@@ -220,7 +220,13 @@ class ClipboardUiMixin:
             self.book_url_edit.text().strip(),
             self.easy_input.text().strip() if hasattr(self, "easy_input") else "",
         }
-        if text in current_values:
+        normalized_clipboard = normalize_supported_url(text)
+        normalized_current_values = {
+            normalize_supported_url(value) if valid_site_url(value) else value
+            for value in current_values
+            if value
+        }
+        if normalized_clipboard in normalized_current_values:
             return
         self._last_clipboard_prompt = text
         answer = self._ask_yes_no(

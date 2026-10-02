@@ -601,8 +601,12 @@ class BookAnalysisService:
             end = parse_time_seconds(item.get("end"))
             duration = None
             for key in ("duration", "length", "time"):
-                duration = parse_time_seconds(item.get(key))
-                if duration is not None:
+                candidate_duration = parse_time_seconds(item.get(key))
+                # Zero is commonly a placeholder in exported PlayerJS data.
+                # Keep looking for a positive fallback (length/time) instead of
+                # freezing a usable track at an artificial 0-second duration.
+                if candidate_duration is not None and candidate_duration > 0:
+                    duration = candidate_duration
                     break
             # Explicit start/end markers are the most precise chapter boundary.
             # Prefer them over a rounded integer duration when both are present.
@@ -752,7 +756,7 @@ class BookAnalysisService:
 
                 page.on("request", on_request)
                 page.on("response", on_response)
-                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 # Player initialization can happen after DOMContentLoaded,
                 # especially while Cloudflare/Turnstile finishes a managed
                 # challenge. Poll the captured requests for up to eight seconds
@@ -777,6 +781,9 @@ class BookAnalysisService:
                 # Cloudflare/CDN TLS fingerprinting even after cookies persist.
                 for browser_response in reversed(captured_responses):
                     try:
+                        status = int(getattr(browser_response, "status", 0) or 0)
+                        if not 200 <= status < 300:
+                            continue
                         body = browser_response.body()
                     except Exception:
                         continue

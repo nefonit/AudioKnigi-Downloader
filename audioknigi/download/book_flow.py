@@ -12,6 +12,7 @@ from ..sources import source_key
 from ..core import Cancelled, fmt_size, fmt_time, resolve_executable, effective_track_duration, safe_normalization_mode
 from .errors import MissingMediaSourceError, MissingSelectedTracksError, SharedSourceTimelineError
 from .common import unlink_with_retry
+from .common import replace_with_retry, source_target_assignments
 
 class BookFlowMixin:
     """Book Flow subsystem for the downloader facade."""
@@ -48,29 +49,8 @@ class BookFlowMixin:
         return False
 
     def _source_target_assignments(self, book, source_urls, folder):
-        """Return stable temporary source paths for a subset of book URLs.
-
-        Slots are derived from the complete book playlist, so a retry of parts
-        2/3/5 keeps using _source_02/_source_03/_source_05 instead of renumbering
-        the subset to _source_01/_source_02/_source_03.
-        """
-        all_unique_files = []
-        seen = set()
-        for track in list(getattr(book, "tracks", []) or []):
-            url = str(getattr(track, "file", "") or "")
-            if url and url not in seen:
-                seen.add(url)
-                all_unique_files.append(url)
-
-        slot_by_url = {url: pos for pos, url in enumerate(all_unique_files, 1)}
-        total_slots = len(all_unique_files)
-        assignments = []
-        for subset_index, raw_url in enumerate(list(source_urls or []), 1):
-            url = str(raw_url or "")
-            slot = slot_by_url.get(url, subset_index)
-            name = "_source.mp3" if total_slots <= 1 else f"_source_{slot:02d}.mp3"
-            assignments.append((slot, url, Path(folder) / name))
-        return assignments
+        """Compatibility wrapper around the shared source-path helper."""
+        return source_target_assignments(book, source_urls, folder)
 
     def _clear_stale_source_downloads(self, book) -> int:
         folder = self._book_folder(book, create=False)
@@ -254,6 +234,11 @@ class BookFlowMixin:
                 raise
             except SharedSourceTimelineError as exc:
                 issue = dict(getattr(exc, "issue", {}) or {})
+                if issue.get("reason") == "non_increasing_middle_boundary":
+                    raise RuntimeError(
+                        "В плейлисте общей аудиодорожки отсутствует корректная граница "
+                        "следующей части. Повторите анализ книги или выберите другой источник."
+                    ) from exc
                 if source_key(getattr(book, "url", "")) != "audioknigi":
                     raise
                 if fallback_attempted:
@@ -778,8 +763,19 @@ class BookFlowMixin:
                                     track_indices=[int(tr.index)],
                                 ) from exc
                             raise
-                        repaired_sources[source_key_value] = src
                         cleanup_sources.add(src)
+                        if (
+                            original_source is not None
+                            and not bool(getattr(self, "runtime_delete_source", True))
+                        ):
+                            # When sources are retained, the stable canonical
+                            # _source*.mp3 path must contain the repaired bytes.
+                            # Otherwise the next run would discover and reuse the
+                            # stale damaged source instead of this fresh copy.
+                            replace_with_retry(src, original_source)
+                            cleanup_sources.discard(src)
+                            src = Path(original_source)
+                        repaired_sources[source_key_value] = src
                     local_map[source_key_value] = src
                     self._split_track(book, tr, src)
                     status, actual, out = self._verify_track_file(book, tr)

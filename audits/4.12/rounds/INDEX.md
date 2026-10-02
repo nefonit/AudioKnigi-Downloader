@@ -71,3 +71,5 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20260929_ROUND67.md` — segmented-worker liveness, resume-index parsing, timestamp and DNS edge-case hardening.
 - `AUDIT_NOTES_20260929_ROUND68.md` — creator/About identity and Windows EXE release metadata.
 - `AUDIT_NOTES_20260930_ROUND69.md` — cancellation/fallback/localization audit follow-up and contract verification.
+- `AUDIT_NOTES_20260930_ROUND70.md` — disk/source/player/full-MP3/search-state/runtime-localization hardening.
+- `AUDIT_NOTES_20260930_ROUND71.md` — playlist-duration/clipboard/empty-book/Smart-Format follow-up hardening.

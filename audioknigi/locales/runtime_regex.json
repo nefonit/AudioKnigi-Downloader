@@ -438,5 +438,133 @@
       "en": "Unavailable parts skipped: {0}. Continuing with the remaining selected parts.",
       "uk": "Пропущено недоступні частини: {0}. Продовжую завантаження решти вибраних частин."
     }
+  ],
+  [
+    "^Плейлист обновлён, но в нём отсутствуют выбранные части: (.+)\\. Ожидаю решения пользователя\\.$",
+    {
+      "de": "Wiedergabeliste aktualisiert, aber die ausgewählten Teile fehlen: {0}. Warte auf die Entscheidung des Benutzers.",
+      "en": "Playlist refreshed, but the selected parts are missing: {0}. Waiting for the user's decision.",
+      "uk": "Плейлист оновлено, але в ньому відсутні вибрані частини: {0}. Очікую рішення користувача."
+    }
+  ],
+  [
+    "^(.+): повреждён, создаю заново\\.$",
+    {
+      "de": "{0}: beschädigt, wird neu erstellt.",
+      "en": "{0}: damaged, recreating.",
+      "uk": "{0}: пошкоджено, створюю заново."
+    }
+  ],
+  [
+    "^Недоступны части: (.+)\\. Интерактивное решение не предоставлено; загрузка остановлена\\.$",
+    {
+      "de": "Nicht verfügbare Teile: {0}. Keine interaktive Entscheidung erhalten; Download gestoppt.",
+      "en": "Unavailable parts: {0}. No interactive decision was provided; download stopped.",
+      "uk": "Недоступні частини: {0}. Інтерактивного рішення не надано; завантаження зупинено."
+    }
+  ],
+  [
+    "^Auto-Chunker: снижаю активные Range-потоки (.+) → (.+) из-за низкой скорости на поток\\.$",
+    {
+      "de": "Auto-Chunker: aktive Range-Threads werden wegen niedriger Geschwindigkeit pro Thread von {0} auf {1} reduziert.",
+      "en": "Auto-Chunker: reducing active Range workers from {0} to {1} because per-worker speed is low.",
+      "uk": "Auto-Chunker: зменшую активні Range-потоки з {0} до {1} через низьку швидкість на потік."
+    }
+  ],
+  [
+    "^Auto-Chunker: увеличиваю активные Range-потоки (.+) → (.+): скорость восстановилась\\.$",
+    {
+      "de": "Auto-Chunker: aktive Range-Threads werden von {0} auf {1} erhöht: Geschwindigkeit hat sich erholt.",
+      "en": "Auto-Chunker: increasing active Range workers from {0} to {1}: speed recovered.",
+      "uk": "Auto-Chunker: збільшую активні Range-потоки з {0} до {1}: швидкість відновилася."
+    }
+  ],
+  [
+    "^Сегментированная загрузка: (.+) поток\\(а/ов\\), (.+) Range-задач\\.$",
+    {
+      "de": "Segmentierter Download: {0} Thread(s), {1} Range-Aufgaben.",
+      "en": "Segmented download: {0} worker(s), {1} Range tasks.",
+      "uk": "Сегментоване завантаження: {0} потік(и), {1} Range-завдань."
+    }
+  ],
+  [
+    "^Range-ответ оборвался после (.+); продолжаю сегмент с байта (.+)\\.$",
+    {
+      "de": "Range-Antwort brach nach {0} ab; Segment wird ab Byte {1} fortgesetzt.",
+      "en": "Range response ended after {0}; continuing the segment from byte {1}.",
+      "uk": "Range-відповідь обірвалася після {0}; продовжую сегмент з байта {1}."
+    }
+  ],
+  [
+    "^Сервер ограничил Range-ответ до (.+); автоматически продолжаю сегмент\\.$",
+    {
+      "de": "Server begrenzte die Range-Antwort auf {0}; Segment wird automatisch fortgesetzt.",
+      "en": "Server limited the Range response to {0}; automatically continuing the segment.",
+      "uk": "Сервер обмежив Range-відповідь до {0}; автоматично продовжую сегмент."
+    }
+  ],
+  [
+    "^Соединение прервалось, но (.+) сегмента уже сохранено; продолжаю с места остановки\\.$",
+    {
+      "de": "Verbindung wurde unterbrochen, aber {0} des Segments sind bereits gespeichert; Fortsetzung ab Unterbrechung.",
+      "en": "Connection was interrupted, but {0} of the segment is already saved; resuming from where it stopped.",
+      "uk": "З'єднання перервалося, але {0} сегмента вже збережено; продовжую з місця зупинки."
+    }
+  ],
+  [
+    "^Range-запрос временно не удался \\((.+)/5\\); повторяю с того же байта\\.$",
+    {
+      "de": "Range-Anfrage vorübergehend fehlgeschlagen ({0}/5); Wiederholung ab demselben Byte.",
+      "en": "Range request temporarily failed ({0}/5); retrying from the same byte.",
+      "uk": "Range-запит тимчасово не вдався ({0}/5); повторюю з того самого байта."
+    }
+  ],
+  [
+    "^Range недоступен, переключаюсь на обычную загрузку: (.+)$",
+    {
+      "de": "Range nicht verfügbar; Wechsel zum normalen Download: {0}",
+      "en": "Range is unavailable; switching to regular download: {0}",
+      "uk": "Range недоступний; перемикаюся на звичайне завантаження: {0}"
+    }
+  ],
+  [
+    "^Основной аудиоисточник недоступен: (.+)\\. Пробую резервный источник (.+)\\.$",
+    {
+      "de": "Primäre Audioquelle nicht verfügbar: {0}. Versuche Ersatzquelle {1}.",
+      "en": "Primary audio source unavailable: {0}. Trying backup source {1}.",
+      "uk": "Основне аудіоджерело недоступне: {0}. Пробую резервне джерело {1}."
+    }
+  ],
+  [
+    "^Резервный источник \\((.+)\\) недоступен: (.+)\\. Пробую резервный источник (.+)\\.$",
+    {
+      "de": "Ersatzquelle ({0}) nicht verfügbar: {1}. Versuche Ersatzquelle {2}.",
+      "en": "Backup source ({0}) unavailable: {1}. Trying backup source {2}.",
+      "uk": "Резервне джерело ({0}) недоступне: {1}. Пробую резервне джерело {2}."
+    }
+  ],
+  [
+    "^(.+): прямое копирование аудиопотока не удалось; повторяю с совместимым MP3-кодированием\\.$",
+    {
+      "de": "{0}: direktes Kopieren des Audiostreams fehlgeschlagen; Wiederholung mit kompatibler MP3-Kodierung.",
+      "en": "{0}: direct audio stream copy failed; retrying with compatible MP3 encoding.",
+      "uk": "{0}: пряме копіювання аудіопотоку не вдалося; повторюю із сумісним MP3-кодуванням."
+    }
+  ],
+  [
+    "^Оригинальный поток имеет кодек (.+); для MP3 выполняю совместимое перекодирование вместо stream-copy\\.$",
+    {
+      "de": "Originalstream verwendet Codec {0}; für MP3 wird kompatibel neu kodiert statt Stream-Copy.",
+      "en": "Original stream uses codec {0}; using compatible MP3 transcoding instead of stream copy.",
+      "uk": "Оригінальний потік має кодек {0}; для MP3 виконую сумісне перекодування замість stream-copy."
+    }
+  ],
+  [
+    "^Smart Format: источник уже MP3 (.+); повышать его до профиля (.+) перекодированием не имеет смысла — сохраняю исходный поток без потери качества\\.$",
+    {
+      "de": "Smart Format: Quelle ist bereits MP3 {0}; Hochrechnen auf Profil {1} ist nicht sinnvoll — Originalstream wird ohne Qualitätsverlust beibehalten.",
+      "en": "Smart Format: source is already MP3 {0}; transcoding up to profile {1} makes no sense — keeping the original stream without quality loss.",
+      "uk": "Smart Format: джерело вже MP3 {0}; підвищувати його до профілю {1} перекодуванням немає сенсу — зберігаю вихідний потік без втрати якості."
+    }
   ]
 ]

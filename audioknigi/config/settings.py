@@ -191,6 +191,14 @@ class AppSettings(MutableMapping[str, Any]):
     def to_dict(self) -> dict[str, Any]:
         return dict(self._data)
 
+    def replace_all(self, payload: Mapping[str, Any] | None) -> None:
+        """Replace live settings in one normalization pass while preserving identity."""
+        values = dict(payload or {})
+        values.setdefault(UI_SCALE_MIGRATION_KEY, True)
+        normalized = normalize_settings(values)
+        normalized.pop(UI_SCALE_MIGRATION_KEY, None)
+        self._data = normalized
+
     def __getitem__(self, key: str) -> Any:
         return self._data[key]
 

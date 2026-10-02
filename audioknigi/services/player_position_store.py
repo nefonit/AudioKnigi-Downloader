@@ -80,10 +80,13 @@ class PlayerPositionStore:
 
     def reload(self) -> None:
         """Reload persisted positions after backup restore or external replacement."""
-        data = load_json(self.path, {})
-        with self._lock:
-            self._positions = data if isinstance(data, dict) else {}
-            self._prune_locked()
+        # Serialize reload against an in-flight persistence snapshot. Keep the
+        # lock order identical to _persist_latest: persist lock, then memory lock.
+        with self._persist_lock:
+            data = load_json(self.path, {})
+            with self._lock:
+                self._positions = data if isinstance(data, dict) else {}
+                self._prune_locked()
 
     def saved_seconds(self, file_path: str | Path, *, duration: float = 0.0) -> float:
         key = self.key(file_path)

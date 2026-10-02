@@ -462,16 +462,22 @@ class _DownloadEngine(DownloaderMixin):
         except ValueError:
             return DuplicatePreflight(False, folder, "invalid-track-index")
         selected = set(self.request.resolved_selected_indices())
-        if not tracks or selected != all_indices:
+        if not tracks:
             return DuplicatePreflight(False, folder, "partial-selection")
         if full_mp3:
+            # Whole-book mode ignores a stale partial selection by design.
             target = self._full_mp3_target(book, folder)
-            if not target.is_file() or target.stat().st_size <= 0:
+            try:
+                if not target.is_file() or target.stat().st_size <= 0:
+                    return DuplicatePreflight(False, folder, "full-mp3-missing")
+            except OSError:
                 return DuplicatePreflight(False, folder, "full-mp3-missing")
             sidecar = self._sidecar_metadata_matches_book(book, folder)
             evidence = "metadata.json" if sidecar is not None else "history.json"
             matched = bool(sidecar if sidecar is not None else self._history_metadata_matches_book(book, folder, expected_parts=1))
             return DuplicatePreflight(matched, folder, evidence)
+        if selected != all_indices:
+            return DuplicatePreflight(False, folder, "partial-selection")
         if probe_durations:
             scan = self._scan_book_files(book, create_folder=False)
         else:
@@ -554,6 +560,15 @@ class _DownloadEngine(DownloaderMixin):
 
         source_url, fallback_url = shared_source_urls()
         full_indices = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
+        # Whole-book mode always processes every track, regardless of a stale
+        # partial selection that may have been present on the incoming request.
+        self.request.selected_indices = list(full_indices)
+        callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
+        if callback is not None:
+            try:
+                callback(self.request)
+            except Exception:
+                app_logger.debug("Request-change callback failed", exc_info=True)
         self._write_resume_manifest(book, full_indices, download_mode="full_mp3")
         folder = Path(self._book_folder(book))
         title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
@@ -734,7 +749,7 @@ class _DownloadEngine(DownloaderMixin):
         self.set_status("Полный MP3 готов.")
         return DownloadResult(
             folder=folder,
-            selected_indices=self.request.resolved_selected_indices(),
+            selected_indices=list(full_indices),
             skipped_indices=[],
             target_file=target,
             book=self.request.book,

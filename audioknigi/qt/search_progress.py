@@ -79,10 +79,13 @@ class CircularSearchProgress(QWidget):
             self._timer.start()
 
     def paintEvent(self, _event) -> None:
+        side = min(self.width(), self.height())
+        if side < 16:
+            return
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        side = min(self.width(), self.height())
         scale = max(1.0, side / 76.0)
         margin = 7.0 * scale
         rect = QRectF(

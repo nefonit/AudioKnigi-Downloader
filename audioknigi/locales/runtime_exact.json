@@ -568,5 +568,10 @@
     "de": "Die alte Datei konnte für den erneuten Download nicht freigegeben werden.",
     "en": "Could not release the old file for re-download.",
     "uk": "Не вдалося звільнити старий файл для повторного завантаження."
+  },
+  "Загрузка остановлена: выбранная часть отсутствует в обновлённом плейлисте.": {
+    "de": "Download gestoppt: Der ausgewählte Teil fehlt in der aktualisierten Wiedergabeliste.",
+    "en": "Download stopped: the selected part is missing from the refreshed playlist.",
+    "uk": "Завантаження зупинено: вибрана частина відсутня в оновленому плейлисті."
   }
 }
