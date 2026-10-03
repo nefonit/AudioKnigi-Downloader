@@ -91,9 +91,10 @@ def _playlist_track_title(raw_title, file_url: str, index: int, book_title: str,
     )
     if not text or matches_file_stem or slug_like:
         clean_book = re.sub(r"\s+", " ", str(book_title or "")).strip()
+        width = max(2, len(str(max(1, int(total or 0)))))
         if clean_book:
-            return clean_book if total <= 1 else f"{clean_book} — {index:02d}"
-        return f"{index:02d}"
+            return clean_book if total <= 1 else f"{clean_book} — {index:0{width}d}"
+        return f"{index:0{width}d}"
     return text
 
 
@@ -302,7 +303,7 @@ class BookAnalysisService:
     @staticmethod
     def _identity_tokens(value: str) -> set[str]:
         normalized = str(value or "").casefold().replace("ё", "е")
-        return set(re.findall(r"[\wІіЇїЄє]+", normalized, re.UNICODE))
+        return set(re.findall(r"[^\W_]+", normalized, re.UNICODE))
 
     @staticmethod
     def _book_identity_hints(book: Book) -> tuple[str, str, str]:
@@ -409,9 +410,19 @@ class BookAnalysisService:
             for track in tracks
             if (parsed := parse_time_seconds(getattr(track, "end", None))) is not None
         ]
-        if len(sources) != 1 or not ends:
+        if len(sources) != 1:
             return book
-        expected_end = max(ends)
+        if ends:
+            expected_end = max(ends)
+        else:
+            starts = [
+                parsed
+                for track in tracks
+                if (parsed := parse_time_seconds(getattr(track, "start", None))) is not None
+            ]
+            if not starts:
+                return book
+            expected_end = max(starts)
         if expected_end <= 0:
             return book
         actual = self._probe_remote_duration(sources[0], str(getattr(book, "url", "") or ""))
@@ -431,6 +442,17 @@ class BookAnalysisService:
                 "Аудиофайл audioknigi.com.ua оказался неполным, а исправный резервный источник knigavuhe.org не найден."
             )
         self._populate_missing_track_durations(fallback)
+        self._check_cancel()
+        if self.options.fetch_cover and not normalize_cover_cache(getattr(fallback, "cover_cache", None)):
+            fallback_cover_url = str(getattr(fallback, "cover_url", "") or "").strip()
+            if fallback_cover_url:
+                fallback.cover_cache = normalize_cover_cache(
+                    self._fetch_cover_bytes(fallback_cover_url, fallback.url)
+                )
+            elif normalize_cover_cache(getattr(book, "cover_cache", None)):
+                fallback.cover_url = str(getattr(book, "cover_url", "") or "")
+                fallback.cover_cache = normalize_cover_cache(getattr(book, "cover_cache", None))
+        self._check_cancel()
         self._emit("Найден исправный резервный источник knigavuhe.org.")
         return fallback
 

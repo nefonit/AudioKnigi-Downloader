@@ -172,7 +172,11 @@ class TrackTableModel(QAbstractTableModel):
         return self._tracks[row] if 0 <= row < len(self._tracks) else None
 
     def selected_indices(self) -> list[int]:
-        return [int(track.index) for track in self._tracks if bool(track.selected)]
+        return [
+            self._safe_track_index(track, row)
+            for row, track in enumerate(self._tracks)
+            if bool(track.selected)
+        ]
 
     def selected_count(self) -> int:
         return sum(1 for track in self._tracks if bool(track.selected))

@@ -721,7 +721,7 @@ class ProbeMixin:
     @staticmethod
     def _identity_tokens(value):
         text = str(value or "").casefold().replace("ё", "е")
-        return tuple(re.findall(r"[0-9a-zа-я]+", text, re.I))
+        return tuple(re.findall(r"[^\W_]+", text, re.UNICODE))
 
     def _book_identity_hints(self, book):
         raw_title = str(getattr(book, "title", "") or "").strip()
@@ -775,11 +775,10 @@ class ProbeMixin:
                 expected_end = max(starts)
             actual = None
             local_path = None
-            if local_map is not None:
-                path = local_map.get(source)
-                if path is not None and Path(path).exists():
-                    local_path = Path(path)
-                    actual = self._probe_duration(local_path)
+            path = local_map.get(source) if local_map is not None else None
+            if path is not None and Path(path).exists():
+                local_path = Path(path)
+                actual = self._probe_duration(local_path)
             else:
                 actual = self._probe_remote_duration(source, getattr(book, "url", ""))
             tolerance = max(15.0, expected_end * 0.001)

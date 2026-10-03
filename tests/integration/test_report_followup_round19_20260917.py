@@ -68,7 +68,7 @@ def test_round19_windows_file_retry_contracts_are_used() -> None:
     network = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
     flow = (ROOT / "audioknigi/download/book_flow.py").read_text(encoding="utf-8")
     assert "replace_with_retry(part, target)" in network
-    assert "from .common import unlink_with_retry" in flow
+    assert "from .common import replace_with_retry, source_target_assignments, unlink_with_retry" in flow
     assert "unlink_with_retry(path, missing_ok=False)" in flow
 
 

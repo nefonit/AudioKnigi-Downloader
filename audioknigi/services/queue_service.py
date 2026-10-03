@@ -124,8 +124,8 @@ def _book_to_dict(book: Book) -> dict[str, Any]:
 
 
 def _book_from_dict(data: dict[str, Any]) -> Book:
-    fields = Book.__dataclass_fields__
-    kwargs = {k: data.get(k) for k in fields if k in data and k not in {"tracks", "narration_variants", "cover_cache"}}
+    book_fields = Book.__dataclass_fields__
+    kwargs = {k: data.get(k) for k in book_fields if k in data and k not in {"tracks", "narration_variants", "cover_cache"}}
     kwargs.setdefault("url", "")
     kwargs.setdefault("title", "—")
     kwargs["tracks"] = [_track_from_dict(x) for x in data.get("tracks", []) if isinstance(x, dict)]
@@ -215,7 +215,17 @@ def _normalize_queue_download_mode(value: Any) -> str:
 def _optional_persisted_bool(data: dict[str, Any], key: str) -> bool | None:
     if key not in data or data.get(key) is None:
         return None
-    return bool(data.get(key))
+    value = data.get(key)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().casefold()
+    if text in {"1", "true", "yes", "on", "да", "так"}:
+        return True
+    if text in {"0", "false", "no", "off", "нет", "ні"}:
+        return False
+    return False
 
 
 def _parse_created_at(value: Any) -> float:

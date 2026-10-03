@@ -169,7 +169,7 @@ def _validated_backup_payloads(path: Path) -> dict[str, Any]:
             if member == "settings.json" and not isinstance(data, dict):
                 raise ValueError("settings.json должен содержать объект")
             if member == "history.json":
-                data = _history_rows(data, strict=True)
+                data = _history_rows(data, strict=True, limit=None)
             if member == "player_positions.json" and not isinstance(data, dict):
                 raise ValueError("player_positions.json должен содержать объект")
             if member == "qt_queue.json":

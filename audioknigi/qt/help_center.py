@@ -968,6 +968,71 @@ ROUND55_TOPIC_DETAILS_RU = {
     "troubleshooting": "При запуске программа в фоне проверяет доступность всех источников. DNS по умолчанию работает в автоматическом режиме: сначала Cloudflare DoH, при его транспортном сбое — системный DNS Windows, а после нескольких сбоев Cloudflare временно отключается и проверяется снова через несколько минут. Такое переключение видно на экране и объявляется NVDA/JAWS. Если ни один источник всё равно недоступен, проверьте интернет. При DNS/сетевой фильтрации может помочь Cloudflare WARP; если нужен выход через другую страну, используйте VPN с выбором страны, например Proton VPN или Mullvad VPN, затем повторите поиск.",
 }
 
+ROUND55_TOPIC_DETAILS_EN = {
+    "start": "Practical guide: the app always shows a ‘Current step hint’ above the workspace. NVDA/JAWS receives the same instruction as an announcement. If you lose context, press Shift+F1 to open Help directly on the current section.",
+    "modes": "Both modes are fully keyboard accessible. Easy mode keeps fewer controls in the Tab order. In Advanced mode, Ctrl+1…Ctrl+6 or Alt+1…Alt+6 opens a specific tab immediately and announces its purpose.",
+    "book": "After choosing another narration, re-analysis starts automatically. When it finishes, focus moves to ‘Download book’ and the screen reader announces that Enter or Space starts the download. For individual parts, use the arrow keys in the table and Space to toggle selection.",
+    "search": "Sources are queried in parallel, so one slow site should not delay the others. If a result has several narrations, choose a reader; in Easy mode the selected narration is analyzed automatically. If some sites are unavailable, search continues on the remaining sources.",
+    "download": "After download starts, no extra confirmation is required: status, stage and result are announced by the screen reader and shown on screen. Esc requests cancellation of the current operation. After successful completion you can open the folder or switch to the player.",
+    "quality": "If you are unsure, leave ‘Standard’. Change encoding or normalization only for a specific goal such as reducing file size or evening out loudness. Before a large batch, it is useful to test the selected profile on one book.",
+    "queue": "Prepare tasks first, then start the queue. On a task row, Shift+F10 opens actions. After an error, fix the cause (for example network/VPN) and then retry the selected task or all failed tasks.",
+    "history": "Use the arrow keys to choose an entry. Shift+F10 opens actions without a mouse. If a book was moved manually and its saved path is stale, re-analysis or re-downloading is safer than editing service files by hand.",
+    "player": "All player controls are reachable with Tab/Shift+Tab. Enter and Space activate play, pause, seek, stop and jump-to-start buttons. Arrow keys change position/volume; the chapter list uses arrows and Enter. After a file opens, focus moves to Play/Pause and the next step is announced.",
+    "settings": "Move through controls with Tab and Shift+Tab. Every interactive control has a name and description for NVDA/JAWS. After changing options, activate ‘Save settings’ and then check the status message.",
+    "files": "Do not delete .part files or service segments while a download is unfinished: they are needed for resume. If you change naming templates, test them on one short book first and make sure the resulting path remains valid on Windows.",
+    "backup": "Before restoring a backup, stop analysis, search and downloads. A backup stores settings and application state, but it does not replace a backup of the MP3 files themselves. Copy audiobook files separately when moving to another computer.",
+    "accessibility": "The main hint line always contains the current next step and is mirrored through Qt Accessibility announcements. Buttons should announce their purpose and activation method; the built-in accessibility check also verifies labels for all visible buttons.",
+    "shortcuts": "Global shortcuts are registered on the main window and work regardless of the active tab while the app window is active. Ctrl+1…Ctrl+6 and Alt+1…Alt+6 open specific tabs. In the player, Enter/Space acts on the focused button.",
+    "diagnostics": "If an error repeats, reproduce it once and then create a diagnostic bundle. Do not manually add MP3 files to a support request unless needed: the standard bundle already contains sanitized technical information and cleaned log tails.",
+    "troubleshooting": "At startup the app checks all sources in the background. DNS uses automatic mode by default: Cloudflare DoH first, then the Windows system resolver after a transport failure, with temporary Cloudflare cooldown after repeated failures. The switch is shown on screen and announced by NVDA/JAWS. If all sources remain unavailable, check the internet connection. Cloudflare WARP can help with DNS/network filtering; when you need another country, use a VPN with country selection such as Proton VPN or Mullvad VPN and retry the search.",
+}
+
+ROUND55_TOPIC_DETAILS_DE = {
+    "start": "Praktischer Hinweis: Über dem Arbeitsbereich zeigt die App immer den ‘Hinweis zum aktuellen Schritt’. NVDA/JAWS erhält dieselbe Anweisung als Ansage. Wenn Sie den Kontext verlieren, drücken Sie Shift+F1; die Hilfe öffnet sich direkt beim aktuellen Abschnitt.",
+    "modes": "Beide Modi sind vollständig per Tastatur bedienbar. Im einfachen Modus gibt es weniger Elemente in der Tab-Reihenfolge. Im erweiterten Modus öffnen Ctrl+1…Ctrl+6 oder Alt+1…Alt+6 sofort eine bestimmte Registerkarte und sagen deren Zweck an.",
+    "book": "Nach der Auswahl einer anderen Sprecherfassung startet die erneute Analyse automatisch. Danach wechselt der Fokus zu ‘Buch herunterladen’, und der Screenreader sagt an, dass Enter oder Leertaste den Download startet. Einzelne Teile wählen Sie in der Tabelle mit den Pfeiltasten und der Leertaste aus.",
+    "search": "Die Quellen werden parallel abgefragt, daher soll eine langsame Website die anderen nicht aufhalten. Gibt es mehrere Sprecherfassungen, wählen Sie einen Sprecher; im einfachen Modus startet die Analyse automatisch. Sind einzelne Websites nicht erreichbar, wird die Suche mit den übrigen Quellen fortgesetzt.",
+    "download": "Nach dem Start ist keine zusätzliche Bestätigung nötig: Status, Schritt und Ergebnis werden vom Screenreader angesagt und gleichzeitig angezeigt. Esc fordert den Abbruch der aktuellen Aktion an. Nach erfolgreichem Abschluss können Sie den Ordner öffnen oder zum Player wechseln.",
+    "quality": "Wenn Sie unsicher sind, lassen Sie ‘Standard’ ausgewählt. Ändern Sie Kodierung oder Normalisierung nur für ein konkretes Ziel, etwa kleinere Dateien oder gleichmäßigere Lautstärke. Vor einer großen Serie empfiehlt sich ein Test mit einem einzelnen Buch.",
+    "queue": "Bereiten Sie zuerst die Aufgaben vor und starten Sie dann die Warteschlange. Auf einer Aufgabenzeile öffnet Shift+F10 die Aktionen. Nach einem Fehler beheben Sie zuerst die Ursache (zum Beispiel Netzwerk/VPN) und wiederholen anschließend die gewählte Aufgabe oder alle Fehler.",
+    "history": "Wählen Sie einen Eintrag mit den Pfeiltasten. Shift+F10 öffnet die Aktionen ohne Maus. Wenn ein Buch manuell verschoben wurde und der gespeicherte Pfad veraltet ist, sind erneute Analyse oder erneuter Download sicherer als das manuelle Bearbeiten von Servicedateien.",
+    "player": "Alle Player-Schaltflächen erreichen Sie mit Tab/Shift+Tab. Enter und Leertaste aktivieren Wiedergabe, Pause, Spulen, Stopp und Sprung zum Anfang. Pfeiltasten ändern Position/Lautstärke; die Kapitelliste wird mit Pfeilen und Enter bedient. Nach dem Öffnen einer Datei liegt der Fokus auf Wiedergabe/Pause und der nächste Schritt wird angesagt.",
+    "settings": "Gehen Sie mit Tab und Shift+Tab durch die Bedienelemente. Jedes interaktive Element besitzt einen Namen und eine Beschreibung für NVDA/JAWS. Aktivieren Sie nach Änderungen ‘Einstellungen speichern’ und achten Sie anschließend auf die Statusmeldung.",
+    "files": "Löschen Sie .part-Dateien oder Serviceteile nicht während eines unvollständigen Downloads; sie werden zum Fortsetzen benötigt. Wenn Sie Namensvorlagen ändern, testen Sie diese zuerst mit einem kurzen Buch und prüfen Sie, ob der Pfad unter Windows gültig bleibt.",
+    "backup": "Beenden Sie vor einer Wiederherstellung Analyse, Suche und Downloads. Eine Sicherung enthält Einstellungen und Programmzustand, ersetzt aber keine Sicherung der MP3-Dateien selbst. Beim Umzug auf einen anderen Computer kopieren Sie die Hörbücher separat.",
+    "accessibility": "Die Haupt-Hinweiszeile enthält immer den nächsten Schritt und wird zusätzlich über Qt Accessibility angesagt. Schaltflächen sollen Zweck und Aktivierungsmethode ansagen; die integrierte Barrierefreiheitsprüfung kontrolliert außerdem die Beschriftungen aller sichtbaren Schaltflächen.",
+    "shortcuts": "Globale Tastenkürzel sind auf Ebene des Hauptfensters registriert und funktionieren unabhängig von der aktiven Registerkarte, solange das Programmfenster aktiv ist. Ctrl+1…Ctrl+6 und Alt+1…Alt+6 öffnen bestimmte Registerkarten. Im Player wirkt Enter/Leertaste auf die fokussierte Schaltfläche.",
+    "diagnostics": "Wenn ein Fehler wiederholt auftritt, reproduzieren Sie ihn einmal und erstellen Sie danach ein Diagnosepaket. Fügen Sie MP3-Dateien einer Supportanfrage nur bei Bedarf manuell hinzu; das Standardpaket enthält bereits bereinigte technische Informationen und Log-Auszüge.",
+    "troubleshooting": "Beim Start prüft die App alle Quellen im Hintergrund. DNS arbeitet standardmäßig automatisch: zuerst Cloudflare DoH, bei einem Transportfehler der Windows-Systemresolver; nach mehreren Fehlern wird Cloudflare vorübergehend pausiert und später erneut geprüft. Der Wechsel wird angezeigt und von NVDA/JAWS angesagt. Sind weiterhin alle Quellen nicht erreichbar, prüfen Sie die Internetverbindung. Bei DNS-/Netzfilterung kann Cloudflare WARP helfen; wenn ein anderes Land benötigt wird, verwenden Sie ein VPN mit Länderauswahl, zum Beispiel Proton VPN oder Mullvad VPN, und wiederholen Sie die Suche.",
+}
+
+ROUND55_TOPIC_DETAILS_UK = {
+    "start": "Практичний орієнтир: програма завжди показує рядок ‘Підказка щодо поточного кроку’ над робочою областю. NVDA/JAWS отримує ту саму інструкцію голосом. Якщо ви втратили контекст, натисніть Shift+F1 — довідка відкриється одразу на поточному розділі.",
+    "modes": "Обидва режими повністю доступні з клавіатури. У простому режимі менше елементів у порядку Tab. У розширеному режимі Ctrl+1…Ctrl+6 або Alt+1…Alt+6 одразу відкривають потрібну вкладку та озвучують її призначення.",
+    "book": "Після вибору іншого озвучення повторний аналіз запускається автоматично. Після завершення фокус переходить на ‘Завантажити книгу’, а скрінрідер повідомляє, що Enter або пробіл запускає завантаження. Для окремих частин використовуйте стрілки в таблиці та пробіл для вибору.",
+    "search": "Джерела опитуються паралельно, тому один повільний сайт не повинен затримувати інші. Якщо результат має кілька озвучень, виберіть читця; у простому режимі аналіз вибраного озвучення запускається автоматично. Якщо частина сайтів недоступна, пошук продовжиться на доступних.",
+    "download": "Після запуску додаткове підтвердження не потрібне: статус, етап і результат озвучуються скрінрідером та одночасно показуються на екрані. Esc запитує скасування поточної операції. Після успішного завершення можна відкрити папку або перейти до плеєра.",
+    "quality": "Якщо ви не впевнені, залиште ‘Стандартне’. Змінюйте кодування або нормалізацію лише для конкретної мети — наприклад, зменшити розмір або вирівняти гучність. Перед масовим завантаженням корисно перевірити профіль на одній книзі.",
+    "queue": "Спочатку підготуйте завдання, потім запускайте чергу. На рядку завдання Shift+F10 відкриває дії. Після помилки усуньте причину (наприклад, мережу/VPN), а потім повторіть вибране завдання або всі помилки.",
+    "history": "Стрілками виберіть запис. Shift+F10 відкриває дії без миші. Якщо книгу вручну перемістили й шлях застарів, повторний аналіз або повторне завантаження безпечніше за ручне редагування службових файлів.",
+    "player": "Усі кнопки плеєра доступні через Tab/Shift+Tab. Enter і пробіл активують відтворення, паузу, перемотування, стоп і перехід на початок. Стрілки змінюють позицію/гучність; список розділів керується стрілками та Enter. Після відкриття файлу фокус переходить на Play/Pause і озвучується наступний крок.",
+    "settings": "Переходьте між елементами клавішами Tab і Shift+Tab. Кожен інтерактивний елемент має назву й опис для NVDA/JAWS. Після зміни параметрів активуйте ‘Зберегти налаштування’ та зверніть увагу на повідомлення стану.",
+    "files": "Не видаляйте .part і службові сегменти під час незавершеного завантаження: вони потрібні для продовження. Якщо змінюєте шаблони назв, спочатку перевірте результат на одній короткій книзі та переконайтеся, що шлях залишається допустимим для Windows.",
+    "backup": "Перед відновленням зупиніть аналіз, пошук і завантаження. Резервна копія зберігає налаштування та стан програми, але не замінює копію самих MP3. Для перенесення на інший комп’ютер копіюйте аудіокниги окремо.",
+    "accessibility": "Головний рядок підказки завжди містить поточний наступний крок і дублюється через повідомлення Qt Accessibility. Кнопки мають озвучувати призначення та спосіб активації; вбудована перевірка доступності також контролює підписи всіх видимих кнопок.",
+    "shortcuts": "Глобальні комбінації зареєстровані на рівні головного вікна й працюють незалежно від активної вкладки, доки вікно програми активне. Ctrl+1…Ctrl+6 та Alt+1…Alt+6 відкривають конкретні вкладки. У плеєрі Enter/пробіл діють на кнопку у фокусі.",
+    "diagnostics": "Якщо помилка повторюється, спочатку відтворіть її один раз, а потім створіть діагностичний пакет. Не додавайте MP3 до звернення вручну без потреби: стандартний пакет уже містить очищену технічну інформацію та фрагменти журналів.",
+    "troubleshooting": "Під час запуску програма у фоні перевіряє доступність усіх джерел. DNS за замовчуванням працює автоматично: спочатку Cloudflare DoH, після транспортного збою — системний DNS Windows, а після кількох збоїв Cloudflare тимчасово вимикається й перевіряється пізніше. Перемикання видно на екрані та озвучує NVDA/JAWS. Якщо всі джерела й далі недоступні, перевірте інтернет. За DNS/мережевої фільтрації може допомогти Cloudflare WARP; якщо потрібен вихід через іншу країну, використайте VPN з вибором країни, наприклад Proton VPN або Mullvad VPN, і повторіть пошук.",
+}
+
+ROUND55_TOPIC_DETAILS = {
+    "ru": ROUND55_TOPIC_DETAILS_RU,
+    "en": ROUND55_TOPIC_DETAILS_EN,
+    "de": ROUND55_TOPIC_DETAILS_DE,
+    "uk": ROUND55_TOPIC_DETAILS_UK,
+}
+
+
 
 def _format_help_body_html(title: str, body: str) -> str:
     """Render plain help topics as readable rich text without changing content."""
@@ -1090,10 +1155,9 @@ class QtHelpCenter(QDialog):
         if not 0 <= row < len(self._topic_data):
             return
         key, title, body = self._topic_data[row]
-        if self.language == "ru":
-            detail = ROUND55_TOPIC_DETAILS_RU.get(key, "")
-            if detail:
-                body = body.rstrip() + "\n\n" + detail
+        detail = ROUND55_TOPIC_DETAILS.get(self.language, {}).get(key, "")
+        if detail:
+            body = body.rstrip() + "\n\n" + detail
         self.text.setHtml(_format_help_body_html(title, body))
 
     def _copy_report(self):

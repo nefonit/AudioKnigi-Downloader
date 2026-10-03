@@ -330,9 +330,9 @@
     "uk": "Застосунок готовий."
   },
   "Применится после перезапуска": {
-    "de": "Wird nach einem Neustart angewendet.",
-    "en": "Applies after restart.",
-    "uk": "Застосується після перезапуску."
+    "de": "Wird nach einem Neustart angewendet",
+    "en": "Applies after restart",
+    "uk": "Застосується після перезапуску"
   },
   "Проверка доступности": {
     "de": "Barrierefreiheitsprüfung",
@@ -385,17 +385,17 @@
     "uk": "Завантаження вже виконується."
   },
   "Сначала выберите книгу в результатах поиска.": {
-    "de": "Wähle zuerst ein Buch in den Suchergebnissen aus.",
+    "de": "Wählen Sie zuerst ein Buch in den Suchergebnissen aus.",
     "en": "Select a book in the search results first.",
     "uk": "Спочатку оберіть книгу в результатах пошуку."
   },
   "Сначала выберите часть книги.": {
-    "de": "Wähle zuerst einen Buchteil aus.",
+    "de": "Wählen Sie zuerst einen Buchteil aus.",
     "en": "Select a book part first.",
     "uk": "Спочатку оберіть частину книги."
   },
   "Сначала проанализируйте книгу.": {
-    "de": "Analysiere zuerst das Buch.",
+    "de": "Analysieren Sie zuerst das Buch.",
     "en": "Analyze the book first.",
     "uk": "Спочатку проаналізуйте книгу."
   },
@@ -420,12 +420,12 @@
     "uk": "Для вибраної частини поки немає доступного локального файла. Спочатку завантажте її або відкрийте готовий аудіофайл на вкладці «Плеєр»."
   },
   "У книги несколько исходных файлов. Используйте очередь по частям.": {
-    "de": "Das Buch hat mehrere Quelldateien. Füge es stattdessen in Teilen zur Warteschlange hinzu.",
+    "de": "Das Buch hat mehrere Quelldateien. Fügen Sie es stattdessen in Teilen zur Warteschlange hinzu.",
     "en": "The book has multiple source files. Add it to the queue as separate parts instead.",
     "uk": "Книга має кілька вихідних аудіофайлів. Додайте її до черги частинами."
   },
   "У книги несколько исходных файлов. Используйте скачивание по частям.": {
-    "de": "Das Buch hat mehrere Quelldateien. Verwende den Download nach Teilen.",
+    "de": "Das Buch hat mehrere Quelldateien. Verwenden Sie den Download nach Teilen.",
     "en": "The book has multiple source files. Use per-part downloading.",
     "uk": "Книга має кілька вихідних аудіофайлів. Використовуйте завантаження частинами."
   },
@@ -475,7 +475,7 @@
     "uk": "Виберіть озвучення"
   },
   "Выберите чтеца перед анализом книги": {
-    "de": "Wähle vor der Buchanalyse einen Sprecher aus.",
+    "de": "Wählen Sie vor der Buchanalyse einen Sprecher aus.",
     "en": "Choose a narrator before analyzing the book.",
     "uk": "Виберіть читця перед аналізом книги."
   },
@@ -485,12 +485,12 @@
     "uk": "Виберіть озвучення…"
   },
   "Выберите озвучку перед анализом книги.": {
-    "de": "Wähle vor der Buchanalyse eine Sprecherfassung aus.",
+    "de": "Wählen Sie vor der Buchanalyse eine Sprecherfassung aus.",
     "en": "Choose a narration before analyzing the book.",
     "uk": "Виберіть озвучення перед аналізом книги."
   },
   "Найдено вариантов озвучки: {count}. Выберите чтеца.": {
-    "de": "Gefundene Sprecherfassungen: {count}. Wähle einen Sprecher aus.",
+    "de": "Gefundene Sprecherfassungen: {count}. Wählen Sie einen Sprecher aus.",
     "en": "Narration options found: {count}. Choose a narrator.",
     "uk": "Знайдено варіантів озвучення: {count}. Виберіть читця."
   },
@@ -570,8 +570,28 @@
     "uk": "Не вдалося звільнити старий файл для повторного завантаження."
   },
   "Загрузка остановлена: выбранная часть отсутствует в обновлённом плейлисте.": {
-    "de": "Download gestoppt: Der ausgewählte Teil fehlt in der aktualisierten Wiedergabeliste.",
+    "de": "Download gestoppt: Der ausgewählte Teil fehlt in der aktualisierten Playlist.",
     "en": "Download stopped: the selected part is missing from the refreshed playlist.",
     "uk": "Завантаження зупинено: вибрана частина відсутня в оновленому плейлисті."
+  },
+  "Анализирую audioknigi.com.ua быстрым HTTP-способом…": {
+    "de": "Analysiere audioknigi.com.ua per schnellem HTTP-Verfahren…",
+    "en": "Analyzing audioknigi.com.ua using the fast HTTP method…",
+    "uk": "Аналізую audioknigi.com.ua швидким HTTP-способом…"
+  },
+  "HTTP-анализ не сработал. Пробую Playwright fallback…": {
+    "de": "HTTP-Analyse fehlgeschlagen. Playwright-Fallback wird versucht…",
+    "en": "HTTP analysis failed. Trying the Playwright fallback…",
+    "uk": "HTTP-аналіз не спрацював. Пробую резервний Playwright…"
+  },
+  "Использую уже полностью скачанный исходный аудиофайл книги.": {
+    "de": "Die bereits vollständig heruntergeladene Ausgangs-Audiodatei des Buchs wird verwendet.",
+    "en": "Using the already fully downloaded source audio file for the book.",
+    "uk": "Використовую вже повністю завантажений вихідний аудіофайл книги."
+  },
+  "У выбранной части некорректный номер.": {
+    "de": "Der ausgewählte Teil hat eine ungültige Nummer.",
+    "en": "The selected part has an invalid number.",
+    "uk": "Вибрана частина має некоректний номер."
   }
 }

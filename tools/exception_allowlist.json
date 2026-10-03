@@ -26,7 +26,6 @@
   "audioknigi/download/media.py:_run_ffmpeg_capture:Exception#4": "best-effort cleanup: failure after kill must not mask the primary FFmpeg timeout",
   "audioknigi/download/media.py:_split_track:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/download/media.py:_split_track:Exception#2": "reviewed compatibility boundary; intentionally non-fatal",
-  "audioknigi/download/media.py:_split_track:Exception#3": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/download/network.py:_cleanup_partial_download:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/download/network.py:_cleanup_partial_download:Exception#2": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/download/network.py:_download_segmented:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",

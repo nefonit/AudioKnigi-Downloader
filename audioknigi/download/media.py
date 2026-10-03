@@ -17,7 +17,7 @@ from ..templates import track_number_width
 from ..integrations import audiobookshelf_scan
 from ..logging_utils import app_logger
 from ..core import Cancelled, fmt_time, safe_int, safe_normalization_mode, resolve_executable, effective_track_duration, parse_time_seconds, hidden_subprocess_kwargs, save_json
-from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes
+from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes, unlink_with_retry
 from .errors import SharedSourceTimelineError
 
 _AUDIO_INFO_CACHE_INIT_LOCK = threading.Lock()
@@ -568,9 +568,9 @@ class MediaProcessingMixin:
         out = self._track_path(book, track)
         if out.exists():
             try:
-                out.unlink()
-            except Exception:
-                pass
+                unlink_with_retry(out, missing_ok=True)
+            except OSError as exc:
+                raise RuntimeError(f"Не удалось подготовить файл {out.name} к перезаписи: {exc}") from exc
 
         start = parse_time_seconds(getattr(track, "start", None))
         end = parse_time_seconds(getattr(track, "end", None))
@@ -733,17 +733,22 @@ class MediaProcessingMixin:
             chapter_rows = []
             cursor = 0.0
             timeline_known = True
-            for t in tracks:
+            for row_number, t in enumerate(tracks, 1):
+                get_field = t.get if isinstance(t, Mapping) else lambda name, default=None: getattr(t, name, default)
+                index = safe_int(get_field("index", row_number), row_number)
+                if index <= 0:
+                    index = row_number
                 duration_value = effective_track_duration(t)
                 dur = float(duration_value) if duration_value is not None and float(duration_value) > 0 else None
-                chapter_title = str(t.title or "").strip() or f"Часть {int(t.index):02d}"
+                raw_title = get_field("title", "")
+                chapter_title = str(raw_title or "").strip() or f"Часть {index:02d}"
                 timeline_start = cursor if timeline_known else None
                 timeline_end = (cursor + dur) if timeline_known and dur is not None else None
                 chapter_rows.append({
-                    "index": int(t.index),
+                    "index": index,
                     "title": chapter_title,
-                    "start": t.start,
-                    "end": t.end,
+                    "start": get_field("start", None),
+                    "end": get_field("end", None),
                     "duration": dur,
                     "timeline_start": timeline_start,
                     "timeline_end": timeline_end,

@@ -563,6 +563,7 @@ class AudioKnigiQtWindow(
         self._pending_search_result = None
         self._known_narration_variants = None
         self._pending_narration_selected_indices = None
+        self._focus_download_after_analysis = False
         self._book_url_is_stale = False
         self._easy_input_is_stale = False
         self.track_model.set_book(Book(url="", title="", tracks=[]))
@@ -620,7 +621,7 @@ class AudioKnigiQtWindow(
         if not hasattr(self, "easy_action_button"):
             return
         value = str(text if text is not None else self.easy_input.text()).strip()
-        is_url = value.lower().startswith(("http://", "https://"))
+        is_url = value.lower().startswith(("http://", "https://")) or valid_site_url(value)
         self.easy_action_button.setText(self._l("Открыть" if is_url else "Искать"))
         self.easy_action_button.setAccessibleName(
             self._l("Найти книгу или открыть ссылку")
@@ -641,6 +642,8 @@ class AudioKnigiQtWindow(
                 and matches_current
                 and not bool(getattr(self, "_book_url_is_stale", False))
             )
+        elif hasattr(self, "easy_download_button"):
+            self.easy_download_button.setEnabled(False)
 
 
     def _set_operation_ui_blocked(self, blocked: bool) -> None:

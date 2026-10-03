@@ -395,7 +395,8 @@ class _DownloadEngine(DownloaderMixin):
             stored_duration = row.get("duration")
             current_duration = effective_track_duration(track)
             if stored_duration not in (None, "") and current_duration not in (None, ""):
-                if not self._duplicate_float_equal(stored_duration, current_duration, tolerance=5.0):
+                duration_tolerance = max(5.0, min(15.0, float(current_duration) * 0.015))
+                if not self._duplicate_float_equal(stored_duration, current_duration, tolerance=duration_tolerance):
                     return False
         return True
 
@@ -575,13 +576,20 @@ class _DownloadEngine(DownloaderMixin):
         target = self._full_mp3_target(book, folder)
         source_target = folder / f".{title_name}.full-source"
         required = max(0, safe_int(getattr(book, "remote_size", 0), 0))
+        try:
+            source_ready = source_target.is_file() and source_target.stat().st_size > 0
+        except OSError:
+            source_ready = False
         free = self._disk_free_for_path(folder)
         definite_transcode = bool(
             str(getattr(self, "runtime_audio_preset", "copy") or "copy") != "copy"
             or str(getattr(self, "runtime_normalization_mode", "off") or "off") != "off"
         )
         retains_source_copy = not bool(getattr(self, "runtime_delete_source", True))
-        peak_required = required * 2 if required and (definite_transcode or retains_source_copy) else required
+        if source_ready:
+            peak_required = required if required and (definite_transcode or retains_source_copy) else 0
+        else:
+            peak_required = required * 2 if required and (definite_transcode or retains_source_copy) else required
         if required and free is None:
             raise RuntimeError("Не удалось определить свободное место на диске. Проверьте папку сохранения и доступ к диску.")
         if peak_required and int(free or 0) < peak_required:
@@ -591,42 +599,47 @@ class _DownloadEngine(DownloaderMixin):
         self.set_status("Скачиваю исходный аудиофайл книги…")
         self.set_progress(0)
         refreshed = False
-        while True:
-            try:
-                self._download_source_with_fallback(
-                    source_url,
-                    fallback_url,
-                    source_target,
-                    str(getattr(book, "url", "") or ""),
-                )
-                break
-            except Cancelled:
-                raise
-            except Exception as exc:
-                if refreshed or not self._is_expired_media_error(exc):
+        if source_ready:
+            self.log("Использую уже полностью скачанный исходный аудиофайл книги.")
+        else:
+            while True:
+                try:
+                    self._download_source_with_fallback(
+                        source_url,
+                        fallback_url,
+                        source_target,
+                        str(getattr(book, "url", "") or ""),
+                    )
+                    break
+                except Cancelled:
                     raise
-                refreshed = True
-                self.log("Ссылка полного аудиофайла устарела. Обновляю страницу и плейлист один раз…")
-                self._cleanup_partial_download(source_target)
-                selected = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
-                self._refresh_book_media_playlist(book, selected)
-                source_url, fallback_url = shared_source_urls()
-                title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
-                target = self._full_mp3_target(book, folder)
-                source_target = folder / f".{title_name}.full-source"
-                req = getattr(self, "request", None)
-                callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
-                if req is not None:
-                    req.book = book
-                    req.selected_indices = [
-                        req.track_index(track)
-                        for track in list(getattr(book, "tracks", None) or [])
-                    ]
-                    if callback is not None:
-                        try:
-                            callback(req)
-                        except Exception:
-                            app_logger.debug("Request-change callback failed", exc_info=True)
+                except Exception as exc:
+                    if refreshed or not self._is_expired_media_error(exc):
+                        raise
+                    refreshed = True
+                    self.log("Ссылка полного аудиофайла устарела. Обновляю страницу и плейлист один раз…")
+                    self._cleanup_partial_download(source_target)
+                    selected = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
+                    self._refresh_book_media_playlist(book, selected)
+                    source_url, fallback_url = shared_source_urls()
+                    title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
+                    target = self._full_mp3_target(book, folder)
+                    source_target = folder / f".{title_name}.full-source"
+                    req = getattr(self, "request", None)
+                    callback = getattr(getattr(self, "callbacks", None), "request_changed", None)
+                    if req is not None:
+                        req.book = book
+                        req.selected_indices = [
+                            req.track_index(track)
+                            for track in list(getattr(book, "tracks", None) or [])
+                        ]
+                        full_indices = list(req.selected_indices)
+                        self._write_resume_manifest(book, full_indices, download_mode="full_mp3")
+                        if callback is not None:
+                            try:
+                                callback(req)
+                            except Exception:
+                                app_logger.debug("Request-change callback failed", exc_info=True)
 
         self._check_cancel()
         self.set_stage(3, i18n_tr(self.runtime_language, "stage_full_mp3_processing"))
@@ -726,6 +739,7 @@ class _DownloadEngine(DownloaderMixin):
                 tags.delall("TIT2")
                 tags.delall("TPE1")
                 tags.delall("TALB")
+                tags.delall("TRCK")
                 tags.add(TIT2(encoding=3, text=title))
                 tags.add(TALB(encoding=3, text=title))
                 author = str(getattr(book, "author", "") or "").strip()
@@ -749,7 +763,7 @@ class _DownloadEngine(DownloaderMixin):
         self.set_status("Полный MP3 готов.")
         return DownloadResult(
             folder=folder,
-            selected_indices=list(full_indices),
+            selected_indices=list(getattr(self.request, "selected_indices", None) or full_indices),
             skipped_indices=[],
             target_file=target,
             book=self.request.book,

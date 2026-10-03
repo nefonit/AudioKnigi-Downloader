@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import Slot, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication, QInputDialog, QMessageBox
-from ...core import DEFAULT_OUTPUT, valid_site_url
+from ...core import DEFAULT_OUTPUT, safe_int, valid_site_url
 from ...models import TRACK_STATUS_MISSING
 from ...sources import normalize_supported_url
 from ...services.library_service import scan_unfinished
@@ -40,7 +40,8 @@ class ClipboardUiMixin:
                     try:
                         if not path.is_file():
                             raise FileNotFoundError
-                        payload = path.read_bytes()
+                        with path.open("rb") as shortcut_file:
+                            payload = shortcut_file.read(65536)
                         if payload.startswith((b"\xff\xfe", b"\xfe\xff")):
                             content = payload.decode("utf-16")
                         elif payload.startswith(b"\xef\xbb\xbf"):
@@ -393,14 +394,20 @@ class ClipboardUiMixin:
         if track is None:
             self.set_status("Сначала выберите часть книги.", assertive=True)
             return
+        track_index = safe_int(getattr(track, "index", None), 0)
+        if track_index <= 0:
+            self.set_status("У выбранной части некорректный номер.", assertive=True)
+            return
         previous_selection = list(self.track_model.selected_indices())
-        try:
-            self.track_model.set_selected_indices([int(track.index)])
-            # start_download() snapshots selected_indices synchronously into the
-            # request before the worker thread starts.
-            self.start_download()
-        finally:
-            self.track_model.set_selected_indices(previous_selection)
+        self.track_model.set_selected_indices([track_index])
+        self._restore_track_selection_after_download = previous_selection
+        if not self.start_download():
+            self._restore_track_selection_after_download = None
+            self._suppress_track_selection_announcement = True
+            try:
+                self.track_model.set_selected_indices(previous_selection)
+            finally:
+                self._suppress_track_selection_announcement = False
 
 
 __all__ = ["ClipboardUiMixin"]

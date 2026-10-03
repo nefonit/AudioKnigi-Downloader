@@ -1797,7 +1797,13 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
                     narrator=item.narrator,
                     title=representative.title,
                     current=(idx == 0),
-                    available=(False if getattr(item, "availability", "") == "restricted" else True if getattr(item, "availability", "") == "available" else None),
+                    available=(
+                        False
+                        if str(getattr(item, "availability", "") or "").casefold() == "restricted"
+                        else True
+                        if str(getattr(item, "availability", "") or "").casefold() == "available"
+                        else None
+                    ),
                 )
             )
         results.append(

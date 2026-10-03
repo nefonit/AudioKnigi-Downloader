@@ -541,12 +541,9 @@ class PlayerUiMixin:
                 self._l("Аудиофайл загружен. Фокус на кнопке воспроизведения. Нажмите Enter или пробел. Tab ведёт к перемотке, громкости, скорости и списку глав."),
                 announce_now=True,
             )
-        if resume >= 3.0:
-            self.player_status_label.setText(self._l("Продолжение с {time}.", time=fmt_time(resume)))
-            self.set_status(f"Плеер: продолжаю {path.name} с {fmt_time(resume)}.")
-        else:
-            self.player_status_label.setText(self._l("Загружен файл: {name}", name=path.name))
-            self.set_status(f"Плеер: загружен {path.name}.")
+        # PlayerController.load() emits exactly one localized message which
+        # updates both this label and the shared status/announcement channel.
+        # Do not announce the same load a second time here.
 
     @staticmethod
     def _player_path_identity(path: Path) -> str:

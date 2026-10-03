@@ -179,7 +179,8 @@ class HistoryUiMixin:
             cover_file = Path(str(item.get("cover_file", "") or "")).expanduser()
             if cover_file.is_file():
                 self.history_table.item(row, 0).setIcon(QIcon(str(cover_file)))
-        self.history_table.resizeColumnsToContents()
+        for column in (0, 1, 5):
+            self.history_table.resizeColumnToContents(column)
         self.history_table.setUpdatesEnabled(True)
         del history_blocker
         if hasattr(self, "history_results_stack"):

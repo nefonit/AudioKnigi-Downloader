@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 74
+
+- Hardened malformed-track handling across sidecars, playlist refresh, queue/UI selections and clipboard actions; preserved fallback covers and refreshed full-MP3 indices; normalized provider availability, Unicode identity tokens, deferred-action guards, bounded shortcut parsing, output-directory fallback, and remaining German Sie-form onboarding/status wording.
+
+## 4.12.42 Round 73
+
+- Hardened backup restoration, shared-source validation, Windows-safe media replacement, queue boolean parsing, full-MP3 resume/tagging, runtime localization ordering, Unicode title validation, Easy-mode URL handling, player announcements, batch queue imports, missing-media dialog cleanup, history layout stability, and multilingual help guidance while preserving privacy-first diagnostic redaction.
+
 ## 4.12.42 Round 72
 
 - Added accessible search-result sorting by title/author/narrator, automatically removed explicitly restricted/unavailable books and the redundant Status column, and tightened Book-tab vertical geometry so the description card no longer crowds the expanded transfer-speed graph.

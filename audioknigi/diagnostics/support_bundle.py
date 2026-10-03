@@ -33,7 +33,9 @@ _LOG_SECRET_VALUE_RE = re.compile(
 # them at module scope so large diagnostic bundles do not rebuild regex state
 # thousands of times. File-like paths get a first pass whose final component
 # may contain spaces; this prevents names such as ``01. Введение.mp3`` from
-# leaking while the ordinary fallback keeps concise trailing log text intact.
+# leaking. Directory-like paths deliberately favor over-redaction because a
+# whitespace-delimited tail cannot be distinguished safely from a private path
+# component such as ``My Book for Alice``.
 _WINDOWS_PATH_SEGMENT_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*"
 _WINDOWS_PATH_FINAL_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*"
 _WINDOWS_FILE_FINAL_RE = r"[^\\/\s|;:,\r\n\"'][^\\/|;:,\r\n\"']*\.[A-Za-z0-9]{1,16}"

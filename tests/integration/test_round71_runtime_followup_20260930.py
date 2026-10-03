@@ -107,7 +107,7 @@ def test_round70_fixes_remain_present():
     progress = (ROOT / "audioknigi/qt/search_progress.py").read_text(encoding="utf-8")
     settings = (ROOT / "audioknigi/qt/mixins/settings.py").read_text(encoding="utf-8")
     assert '"cover.webp"' in player
-    assert "selected_indices=list(full_indices)" in engine
+    assert 'selected_indices=list(getattr(self.request, "selected_indices", None) or full_indices)' in engine
     assert "except OSError:" in engine[engine.index("def duplicate_preflight"):engine.index("def delete_existing_outputs")]
     assert "if side < 16:" in progress
     assert "replace_all(updated)" in settings

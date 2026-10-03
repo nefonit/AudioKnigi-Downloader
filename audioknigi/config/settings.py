@@ -193,10 +193,13 @@ class AppSettings(MutableMapping[str, Any]):
 
     def replace_all(self, payload: Mapping[str, Any] | None) -> None:
         """Replace live settings in one normalization pass while preserving identity."""
-        values = dict(payload or {})
+        original = dict(payload or {})
+        values = dict(original)
         values.setdefault(UI_SCALE_MIGRATION_KEY, True)
         normalized = normalize_settings(values)
         normalized.pop(UI_SCALE_MIGRATION_KEY, None)
+        if "first_run_complete" not in original:
+            normalized["first_run_complete"] = DEFAULT_SETTINGS["first_run_complete"]
         self._data = normalized
 
     def __getitem__(self, key: str) -> Any:

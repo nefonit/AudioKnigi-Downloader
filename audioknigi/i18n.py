@@ -113,6 +113,11 @@ def localize_runtime_text(language: str, text: str) -> str:
     raw = str(text or "")
     if language == "ru" or not raw:
         return raw
+    exact_entry = _PHASE29_RUNTIME_EXACT.get(raw)
+    if isinstance(exact_entry, dict):
+        translated = exact_entry.get(language)
+        if translated is not None:
+            return translated
     for pattern, variants in _PHASE29_RUNTIME_REGEX:
         match = _compiled_runtime_pattern(pattern).match(raw)
         if match:
@@ -122,11 +127,6 @@ def localize_runtime_text(language: str, text: str) -> str:
                     return template.format(*match.groups())
                 except Exception:
                     pass
-    exact_entry = _PHASE29_RUNTIME_EXACT.get(raw)
-    if isinstance(exact_entry, dict):
-        translated = exact_entry.get(language)
-        if translated is not None:
-            return translated
     for prefix, variants in _PHASE29_RUNTIME_PREFIXES.items():
         if raw.startswith(prefix):
             return variants.get(language, prefix) + raw[len(prefix):]

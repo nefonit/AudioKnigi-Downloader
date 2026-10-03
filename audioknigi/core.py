@@ -324,16 +324,19 @@ def parse_time_seconds(value):
 
 def effective_track_duration(track):
     """Best known duration without changing source-cut semantics on Track."""
-    duration = parse_time_seconds(getattr(track, "duration", None))
+    def field(name):
+        return track.get(name) if isinstance(track, Mapping) else getattr(track, name, None)
+
+    duration = parse_time_seconds(field("duration"))
     if duration is not None and duration > 0:
         return duration
 
-    start = parse_time_seconds(getattr(track, "start", None))
-    end = parse_time_seconds(getattr(track, "end", None))
+    start = parse_time_seconds(field("start"))
+    end = parse_time_seconds(field("end"))
     if start is not None and end is not None and end > start:
         return end - start
 
-    actual = parse_time_seconds(getattr(track, "actual_duration", None))
+    actual = parse_time_seconds(field("actual_duration"))
     if actual is not None and actual > 0:
         return actual
     return None

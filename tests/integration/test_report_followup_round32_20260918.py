@@ -81,15 +81,18 @@ def test_player_fields_initialized_and_context_delete_restores_focus() -> None:
 def test_analysis_refreshes_player_button_after_model_reset() -> None:
     source = src("audioknigi/qt/mixins/analysis_download.py")
     assert "self.track_model.set_book(book)\n        self._update_selected_track_player_button()" in source
-    assert "self.track_model.set_book(self.current_book)\n        self._update_selected_track_player_button()" in source
+    finish = source[source.index("def _download_finished"):source.index("def _clear_download_thread")]
+    assert "self.track_model.set_book(self.current_book)" in finish
+    assert "self._update_selected_track_player_button()" in finish
+    assert finish.index("self.track_model.set_book(self.current_book)") < finish.index("self._update_selected_track_player_button()")
 
 
 def test_localization_followups_present_and_german_uses_du_sprecherfassung() -> None:
     exact = json.loads((ROOT / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8"))
     legacy = json.loads((ROOT / "audioknigi/locales/legacy_literals.json").read_text(encoding="utf-8"))
     assert exact["Выберите озвучку"]["de"] == "Sprecherfassung auswählen"
-    assert exact["Выберите чтеца перед анализом книги"]["de"].startswith("Wähle ")
-    assert "Wählen Sie" not in exact["Найдено вариантов озвучки: {count}. Выберите чтеца."]["de"]
+    assert exact["Выберите чтеца перед анализом книги"]["de"].startswith("Wählen Sie ")
+    assert "Wählen Sie" in exact["Найдено вариантов озвучки: {count}. Выберите чтеца."]["de"]
     for key in ("Завершаю поиск", "Найден исправный резервный источник knigavuhe.org.", "Анализ отменён.", "Не удалось проанализировать книгу."):
         assert key in exact
     for key in ("Дата", "Попытки", "Частей", "Папка"):

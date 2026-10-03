@@ -298,7 +298,7 @@
   [
     "^Источник audioknigi\\.com\\.ua короче плейлиста \\((.+) с вместо (.+) с\\)\\. Ищу резервный источник…$",
     {
-      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Wiedergabeliste ({0} s statt {1} s). Suche nach einer Ersatzquelle…",
+      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Playlist ({0} s statt {1} s). Suche nach einer Ersatzquelle…",
       "en": "The audioknigi.com.ua source is shorter than the playlist ({0}s instead of {1}s). Looking for a fallback source…",
       "uk": "Джерело audioknigi.com.ua коротше за плейлист ({0} с замість {1} с). Шукаю резервне джерело…"
     }
@@ -306,7 +306,7 @@
   [
     "^Источник audioknigi\\.com\\.ua короче таймкодов плейлиста \\((.+) вместо (.+)\\)\\. Ищу исправную копию этой же озвучки на knigavuhe\\.org\\.$",
     {
-      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Zeitmarken der Wiedergabeliste ({0} statt {1}). Suche auf knigavuhe.org nach einer intakten Kopie derselben Sprecherfassung.",
+      "de": "Die Quelle audioknigi.com.ua ist kürzer als die Zeitmarken der Playlist ({0} statt {1}). Suche auf knigavuhe.org nach einer intakten Kopie derselben Sprecherfassung.",
       "en": "The audioknigi.com.ua source is shorter than the playlist timeline ({0} instead of {1}). Looking on knigavuhe.org for a valid copy of the same narration.",
       "uk": "Джерело audioknigi.com.ua коротше за таймкоди плейлиста ({0} замість {1}). Шукаю справну копію цього ж озвучення на knigavuhe.org."
     }
@@ -344,27 +344,11 @@
     }
   ],
   [
-    "^Анализирую audioknigi\\.com\\.ua быстрым HTTP-способом…$",
-    {
-      "de": "Analysiere audioknigi.com.ua per schnellem HTTP-Verfahren…",
-      "en": "Analyzing audioknigi.com.ua using the fast HTTP method…",
-      "uk": "Аналізую audioknigi.com.ua швидким HTTP-способом…"
-    }
-  ],
-  [
     "^Анализирую (.+)…$",
     {
       "de": "Analysiere {0}…",
       "en": "Analyzing {0}…",
       "uk": "Аналізую {0}…"
-    }
-  ],
-  [
-    "^HTTP-анализ не сработал\\. Пробую Playwright fallback…$",
-    {
-      "de": "HTTP-Analyse fehlgeschlagen. Playwright-Fallback wird versucht…",
-      "en": "HTTP analysis failed. Trying the Playwright fallback…",
-      "uk": "HTTP-аналіз не спрацював. Пробую резервний Playwright…"
     }
   ],
   [
@@ -426,7 +410,7 @@
   [
     "^Плейлист обновлён: частей (.+), изменённых аудиоссылок (.+)\\. Повторяю загрузку один раз\\.$",
     {
-      "de": "Wiedergabeliste aktualisiert: {0} Teile, {1} geänderte Audio-Links. Download wird einmal wiederholt.",
+      "de": "Playlist aktualisiert: {0} Teile, {1} geänderte Audio-Links. Download wird einmal wiederholt.",
       "en": "Playlist refreshed: {0} parts, {1} changed audio URLs. Retrying download once.",
       "uk": "Плейлист оновлено: частин {0}, змінених аудіопосилань {1}. Повторюю завантаження один раз."
     }
@@ -442,7 +426,7 @@
   [
     "^Плейлист обновлён, но в нём отсутствуют выбранные части: (.+)\\. Ожидаю решения пользователя\\.$",
     {
-      "de": "Wiedergabeliste aktualisiert, aber die ausgewählten Teile fehlen: {0}. Warte auf die Entscheidung des Benutzers.",
+      "de": "Playlist aktualisiert, aber die ausgewählten Teile fehlen: {0}. Warte auf die Entscheidung des Benutzers.",
       "en": "Playlist refreshed, but the selected parts are missing: {0}. Waiting for the user's decision.",
       "uk": "Плейлист оновлено, але в ньому відсутні вибрані частини: {0}. Очікую рішення користувача."
     }
@@ -508,7 +492,7 @@
     {
       "de": "Verbindung wurde unterbrochen, aber {0} des Segments sind bereits gespeichert; Fortsetzung ab Unterbrechung.",
       "en": "Connection was interrupted, but {0} of the segment is already saved; resuming from where it stopped.",
-      "uk": "З'єднання перервалося, але {0} сегмента вже збережено; продовжую з місця зупинки."
+      "uk": "З’єднання перервалося, але {0} сегмента вже збережено; продовжую з місця зупинки."
     }
   ],
   [
@@ -565,6 +549,14 @@
       "de": "Smart Format: Quelle ist bereits MP3 {0}; Hochrechnen auf Profil {1} ist nicht sinnvoll — Originalstream wird ohne Qualitätsverlust beibehalten.",
       "en": "Smart Format: source is already MP3 {0}; transcoding up to profile {1} makes no sense — keeping the original stream without quality loss.",
       "uk": "Smart Format: джерело вже MP3 {0}; підвищувати його до профілю {1} перекодуванням немає сенсу — зберігаю вихідний потік без втрати якості."
+    }
+  ],
+  [
+    "^Ищу одновременно на источниках: (\\d+)$",
+    {
+      "de": "Suche gleichzeitig auf Quellen: {0}",
+      "en": "Searching across sources simultaneously: {0}",
+      "uk": "Шукаю одночасно на джерелах: {0}"
     }
   ]
 ]

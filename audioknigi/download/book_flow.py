@@ -9,10 +9,9 @@ from ..models import normalize_track_status, TRACK_STATUS_MISSING, TRACK_STATUS_
 from ..logging_utils import app_logger
 from ..i18n import tr as i18n_tr
 from ..sources import source_key
-from ..core import Cancelled, fmt_size, fmt_time, resolve_executable, effective_track_duration, safe_normalization_mode
+from ..core import Cancelled, fmt_size, fmt_time, resolve_executable, effective_track_duration, safe_int, safe_normalization_mode
 from .errors import MissingMediaSourceError, MissingSelectedTracksError, SharedSourceTimelineError
-from .common import unlink_with_retry
-from .common import replace_with_retry, source_target_assignments
+from .common import replace_with_retry, source_target_assignments, unlink_with_retry
 
 class BookFlowMixin:
     """Book Flow subsystem for the downloader facade."""
@@ -92,14 +91,26 @@ class BookFlowMixin:
         if getattr(fresh, "restricted", False):
             raise RuntimeError("После обновления плейлиста эта озвучка стала недоступна.")
 
-        fresh_by_index = {int(tr.index): tr for tr in fresh.tracks}
-        wanted = {int(x) for x in (selected_indices or [])}
+        fresh_by_index = {}
+        for tr in list(getattr(fresh, "tracks", []) or []):
+            index = safe_int(getattr(tr, "index", None), 0)
+            if index > 0:
+                fresh_by_index[index] = tr
+        wanted = {
+            index for value in (selected_indices or [])
+            if (index := safe_int(value, 0)) > 0
+        }
         missing = sorted(wanted.difference(fresh_by_index))
 
-        old_by_index = {int(tr.index): tr for tr in book.tracks}
+        old_by_index = {}
+        for tr in list(getattr(book, "tracks", []) or []):
+            index = safe_int(getattr(tr, "index", None), 0)
+            if index > 0:
+                old_by_index[index] = tr
         changed_urls = 0
-        for tr in fresh.tracks:
-            previous = old_by_index.get(int(tr.index))
+        for tr in list(getattr(fresh, "tracks", []) or []):
+            index = safe_int(getattr(tr, "index", None), 0)
+            previous = old_by_index.get(index) if index > 0 else None
             if previous is None:
                 continue
             if str(previous.file or "") != str(tr.file or ""):
@@ -631,12 +642,13 @@ class BookFlowMixin:
                     )
                 return src
 
-            def split_group(source_url, group_tracks):
+            def split_group(source_url, group_tracks, *, announce_track=True):
                 nonlocal completed
                 src = local_source_for(source_url)
                 for tr in group_tracks:
                     self._check_cancel()
-                    self.set_status(f"Создаю {self._track_filename(book, tr)}")
+                    if announce_track:
+                        self.set_status(f"Создаю {self._track_filename(book, tr)}")
                     self._log_book_flow("ffmpeg_track_start", book, level="debug", track=tr.index, file=self._track_filename(book, tr))
                     self._split_track(book, tr, src)
                     self._log_book_flow("ffmpeg_track_complete", book, level="debug", track=tr.index, file=self._track_filename(book, tr))
@@ -704,8 +716,15 @@ class BookFlowMixin:
                 for source_url, group_tracks in groups.items():
                     split_group(source_url, group_tracks)
             else:
+                # Several independent source groups can finish out of order. Keep
+                # the user-facing status aggregate instead of having worker threads
+                # race to announce different filenames through the same status line.
+                self.set_status(split_text)
                 with ThreadPoolExecutor(max_workers=min(3, len(groups))) as pool:
-                    futures = [pool.submit(split_group, url, group) for url, group in groups.items()]
+                    futures = [
+                        pool.submit(split_group, url, group, announce_track=False)
+                        for url, group in groups.items()
+                    ]
                     try:
                         for future in as_completed(futures):
                             self._check_cancel()

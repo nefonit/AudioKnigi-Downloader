@@ -68,7 +68,7 @@ _ONBOARDING_TEXT = {
     },
     "de": {
         "title": "Willkommen bei AudioKnigi Downloader",
-        "subtitle": "Wähle die wichtigsten Einstellungen. Alles Weitere kannst du später in den Einstellungen ändern.",
+        "subtitle": "Wählen Sie die wichtigsten Einstellungen. Alles Weitere können Sie später in den Einstellungen ändern.",
         "language": "Oberflächensprache:",
         "folder": "Hörbuchordner:",
         "quality": "Standardqualität:",

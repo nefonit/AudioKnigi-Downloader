@@ -6,7 +6,7 @@ import threading
 from PySide6.QtCore import QThread, Slot, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import QMessageBox
-from ...core import effective_track_duration, fmt_time, valid_site_url
+from ...core import effective_track_duration, fmt_time, safe_int, valid_site_url
 from ...models import Book, cover_cache_bytes, normalize_cover_cache
 from ...i18n import tr
 from ...services.book_analysis_service import AnalysisOptions
@@ -312,7 +312,7 @@ class AnalysisDownloadUiMixin:
             batch_pending = bool(getattr(self, "_pending_queue_urls", None))
             if batch_pending:
                 self._append_log("Ошибка анализа при пакетном добавлении: " + str(payload))
-                self._pending_queue_urls = []
+                QTimer.singleShot(0, self._queue_next_dropped_url)
             else:
                 self._show_message(QMessageBox.Icon.Critical, "Ошибка анализа", str(payload))
             self._play_event_sound("book_not_found")
@@ -489,13 +489,23 @@ class AnalysisDownloadUiMixin:
                 if task.id != task_id:
                     continue
                 old = task.request
-                valid = {int(track.index) for track in book.tracks}
+                valid = {
+                    index for track in book.tracks
+                    if (index := safe_int(getattr(track, "index", None), 0)) > 0
+                }
                 if old.selected_indices is None:
                     selected = None
                 else:
-                    selected = [int(value) for value in old.selected_indices if int(value) in valid]
+                    selected = [
+                        index for value in old.selected_indices
+                        if (index := safe_int(value, 0)) > 0 and index in valid
+                    ]
                     if not selected:
-                        selected = [int(track.index) for track in book.tracks if bool(track.selected)]
+                        selected = [
+                            index for track in book.tracks
+                            if bool(getattr(track, "selected", False))
+                            and (index := safe_int(getattr(track, "index", None), 0)) > 0
+                        ]
                 settings = {
                     "output_dir": str(old.output_dir),
                     "naming_mode": old.naming_mode,
@@ -523,17 +533,32 @@ class AnalysisDownloadUiMixin:
                 break
         if self._queue_after_analysis and enabled:
             self._queue_after_analysis = False
+            expected_book = book
             def _add_and_continue():
+                if bool(getattr(self, "_exit_requested", False)) or self.current_book is not expected_book:
+                    return
                 self.add_current_to_queue()
                 if getattr(self, "_pending_queue_urls", None):
                     QTimer.singleShot(0, self._queue_next_dropped_url)
             QTimer.singleShot(0, _add_and_continue)
         elif self._full_mp3_after_analysis and enabled:
             self._full_mp3_after_analysis = False
-            QTimer.singleShot(0, self.start_full_mp3)
+            expected_book = book
+            QTimer.singleShot(
+                0,
+                lambda: self.start_full_mp3()
+                if not bool(getattr(self, "_exit_requested", False)) and self.current_book is expected_book
+                else None,
+            )
         elif self._download_after_analysis and enabled:
             self._download_after_analysis = False
-            QTimer.singleShot(0, self.start_download)
+            expected_book = book
+            QTimer.singleShot(
+                0,
+                lambda: self.start_download()
+                if not bool(getattr(self, "_exit_requested", False)) and self.current_book is expected_book
+                else None,
+            )
 
     @Slot()
     def _clear_analysis_thread(self):
@@ -561,9 +586,11 @@ class AnalysisDownloadUiMixin:
 
     @Slot()
     def _track_selection_changed(self, *_args):
-        self._announce_track_selection()
+        self._announce_track_selection(
+            announce=not bool(getattr(self, "_suppress_track_selection_announcement", False))
+        )
 
-    def _announce_track_selection(self):
+    def _announce_track_selection(self, *, announce: bool = True):
         if self.current_book is None:
             return
         selected = self.track_model.selected_count()
@@ -573,7 +600,8 @@ class AnalysisDownloadUiMixin:
         self.full_mp3_button.setEnabled(self._book_supports_full_mp3(self.current_book) and not downloading and not self._queue_running)
         self.add_queue_button.setEnabled(selected > 0 and not downloading)
         self._update_download_primary_button()
-        self.set_status(f"Выбрано частей: {selected} из {total}.")
+        if announce:
+            self.set_status(f"Выбрано частей: {selected} из {total}.")
 
     def _live_download_settings(self) -> dict:
         data = self._settings_from_ui()
@@ -686,18 +714,20 @@ class AnalysisDownloadUiMixin:
 
     @Slot()
     def start_download(self):
+        if bool(getattr(self, "_exit_requested", False)):
+            return False
         if self._download_thread is not None and self._download_thread.isRunning():
             self.set_status("Скачивание уже выполняется.")
-            return
+            return False
         if self._queue_running:
             self.set_status("Сначала остановите очередь загрузок.", assertive=True)
-            return
+            return False
         if self._analysis_thread is not None and self._analysis_thread.isRunning():
             self.set_status("Дождитесь завершения анализа книги.", assertive=True)
-            return
+            return False
         if self.current_book is None:
             self.set_status("Сначала проанализируйте книгу.", assertive=True)
-            return
+            return False
         selected = self.track_model.selected_indices()
         live_settings = self._live_download_settings()
         force_redownload = bool(getattr(self, "_history_redownload_confirmed", False))
@@ -707,7 +737,7 @@ class AnalysisDownloadUiMixin:
         except Exception as exc:
             self.set_status(str(exc), assertive=True)
             self._show_message(QMessageBox.Icon.Warning, "Скачивание", str(exc))
-            return
+            return False
         service = DownloadService(settings=live_settings)
         try:
             duplicate = service.duplicate_preflight(request, probe_durations=False)
@@ -736,13 +766,14 @@ class AnalysisDownloadUiMixin:
                 self.easy_open_folder_button.setEnabled(True)
                 self.easy_listen_button.setEnabled(True)
                 self._play_event_sound("files_already_downloaded")
-                return
+                return False
             if box.clickedButton() is redownload_button:
                 service.delete_existing_outputs(request)
             else:
-                return
+                return False
         self._active_queue_task_id = None
         self._launch_download(request, live_settings)
+        return True
 
     @Slot()
     def start_download_all(self):
@@ -754,6 +785,8 @@ class AnalysisDownloadUiMixin:
 
     @Slot()
     def start_full_mp3(self):
+        if bool(getattr(self, "_exit_requested", False)):
+            return False
         if self._download_thread is not None and self._download_thread.isRunning():
             self.set_status("Скачивание уже выполняется.")
             return
@@ -949,6 +982,10 @@ class AnalysisDownloadUiMixin:
                 self._active_missing_prompt = None
             if self._active_missing_box is box:
                 self._active_missing_box = None
+            try:
+                box.deleteLater()
+            except RuntimeError:
+                pass
         prompt.resolve("skip" if skip_button is not None and clicked_button is skip_button else "stop")
 
     @Slot(object)
@@ -1075,6 +1112,14 @@ class AnalysisDownloadUiMixin:
             self._notify_tray_if_hidden("Скачивание аудиокниги завершено.")
             self._load_history()
         self.track_model.set_book(self.current_book)
+        restore_selection = getattr(self, "_restore_track_selection_after_download", None)
+        if restore_selection is not None:
+            self._restore_track_selection_after_download = None
+            self._suppress_track_selection_announcement = True
+            try:
+                self.track_model.set_selected_indices(restore_selection)
+            finally:
+                self._suppress_track_selection_announcement = False
         self._update_selected_track_player_button()
         self._refresh_unfinished()
 

@@ -74,3 +74,5 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20260930_ROUND70.md` — disk/source/player/full-MP3/search-state/runtime-localization hardening.
 - `AUDIT_NOTES_20260930_ROUND71.md` — playlist-duration/clipboard/empty-book/Smart-Format follow-up hardening.
 - `AUDIT_NOTES_20261002_ROUND72.md` — search sorting/availability filtering and Book-tab transfer-layout polish.
+- `AUDIT_NOTES_20261002_ROUND73.md` — backup/source/full-MP3/UI/accessibility/localization hardening follow-up.
+- `AUDIT_NOTES_20261002_ROUND74.md` — malformed-track/fallback/full-MP3/UI/provider/localization follow-up hardening.

@@ -420,6 +420,7 @@ def _extract_narration_variants(
     page_url: str,
     title: str = "",
     current_narrator: str = "",
+    current_available: bool | None = None,
 ) -> list[NarrationVariant]:
     """Return current + alternative recordings linked from a Knigavuhe page."""
     variants: list[NarrationVariant] = []
@@ -432,6 +433,7 @@ def _extract_narration_variants(
                 narrator=_clean_text(current_narrator),
                 title=clean_title,
                 current=True,
+                available=current_available,
             )
         )
 
@@ -583,6 +585,7 @@ def parse_book_html(html_text: str, page_url: str) -> Book:
             page_url,
             title=restricted_title,
             current_narrator=restricted_narrator,
+            current_available=False,
         )
         # Return metadata even when this is the only recording.  The UI can then
         # show cover/author/description and a clear restricted state, while
@@ -676,6 +679,7 @@ def parse_book_html(html_text: str, page_url: str) -> Book:
         page_url,
         title=title or "Аудиокнига",
         current_narrator=narrator_text,
+        current_available=True,
     )
 
     return Book(
@@ -990,7 +994,7 @@ def _usable_search_title(value: str) -> bool:
     text = _clean_text(value)
     if not text or len(text) > 240:
         return False
-    if not re.search(r"[A-Za-zА-Яа-яЁёІіЇїЄє]", text):
+    if not re.search(r"[^\W\d_]", text, re.UNICODE):
         return False
     lowered = text.casefold().strip(" \t\r\n,;:–—-….")
     # Reject UI action labels without broad substring matching: legitimate book
@@ -1306,19 +1310,20 @@ def _enrich_search_result_variants(result: SearchResult) -> SearchResult:
         response.raise_for_status()
         html_text = response.text or ""
         meta = _book_page_search_metadata(html_text)
+        availability = "available"
+        if any(marker in html_text.casefold() for marker in _RESTRICTED_MARKERS):
+            availability = "restricted"
         page_variants = _extract_narration_variants(
             html_text,
             response.url or result.url,
             title=meta.get("title", "") or result.title,
             current_narrator=meta.get("narrator", "") or result.narrator,
+            current_available=(availability == "available"),
         )
         variants = _merge_narration_variants(
             list(getattr(result, "narration_variants", None) or []),
             page_variants,
         )
-        availability = "available"
-        if any(marker in html_text.casefold() for marker in _RESTRICTED_MARKERS):
-            availability = "restricted"
         return SearchResult(
             title=meta.get("title", "") or result.title,
             author=meta.get("author", "") or result.author,

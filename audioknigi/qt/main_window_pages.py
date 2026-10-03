@@ -129,7 +129,7 @@ class MainWindowPagesMixin:
         configure_accessible(self.download_all_button, name="Скачать книгу", identifier="download_all")
         row.addWidget(self.download_all_button)
     
-        self.download_menu_button = QPushButton("▾")
+        self.download_menu_button = QPushButton("")
         self.download_menu_button.setFixedWidth(42)
         self.download_menu_button.setEnabled(False)
         configure_accessible(self.download_menu_button, name="Дополнительные варианты скачивания", identifier="download_options")
@@ -414,7 +414,7 @@ class MainWindowPagesMixin:
             return widget
     
         basic = group(basic_layout, self._l("Основные"))
-        self.output_edit = QLineEdit(str(self.settings.get("output_dir", DEFAULT_OUTPUT)))
+        self.output_edit = QLineEdit(str(self.settings.get("output_dir") or DEFAULT_OUTPUT))
         configure_accessible(self.output_edit, name="Папка для аудиокниг", identifier="output_dir")
         browse = QPushButton(self._l("Выбрать папку"))
         configure_accessible(browse, name="Выбрать папку для аудиокниг", identifier="browse_output")
