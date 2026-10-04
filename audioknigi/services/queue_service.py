@@ -47,7 +47,8 @@ class QueueTask:
 
 
 def _track_from_dict(data: dict[str, Any]) -> Track:
-    allowed = {k: data.get(k) for k in Track.__dataclass_fields__ if k in data}
+    track_fields = {item.name for item in fields(Track)}
+    allowed = {k: data.get(k) for k in track_fields if k in data}
     allowed.setdefault("index", 0)
     allowed.setdefault("title", "")
     allowed.setdefault("file", "")
@@ -76,7 +77,8 @@ def _track_from_dict(data: dict[str, Any]) -> Track:
 
 
 def _variant_from_dict(data: dict[str, Any]) -> NarrationVariant:
-    allowed = {k: data.get(k) for k in NarrationVariant.__dataclass_fields__ if k in data}
+    variant_fields = {item.name for item in fields(NarrationVariant)}
+    allowed = {k: data.get(k) for k in variant_fields if k in data}
     allowed.setdefault("url", "")
     return NarrationVariant(**allowed)
 

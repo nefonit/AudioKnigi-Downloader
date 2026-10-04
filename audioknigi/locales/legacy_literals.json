@@ -1030,7 +1030,7 @@
     "Скачивание завершилось ошибкой. Прочитайте сообщение; затем можно повторить попытку или открыть Справочный центр клавишами Shift+F1.": "The download ended with an error. Read the message, then retry or open the Help Center with Shift+F1.",
     "Скачивание началось. Ход работы показан ниже. Можно продолжать слушать сообщения скринридера; Esc запрашивает отмену текущей операции.": "Downloading has started. Progress is shown below. You can keep listening to screen-reader announcements; Esc requests cancellation of the current operation.",
     "Скачивание отменено пользователем.": "Download cancelled by user.",
-    "Скачивание отменено. Можно изменить выбор частей или снова нажать «Скачать книгу».": "Download canceled. You can change the selected parts or press Download book again.",
+    "Скачивание отменено. Можно изменить выбор частей или снова нажать «Скачать книгу».": "Download cancelled. You can change the selected parts or press Download book again.",
     "Скачивание уже выполняется.": "A download is already running.",
     "Скачивание: не запущено": "Download: not started",
     "Скачивание: отменено": "Download: cancelled",

@@ -468,7 +468,7 @@
     {
       "de": "Segmentierter Download: {0} Thread(s), {1} Range-Aufgaben.",
       "en": "Segmented download: {0} worker(s), {1} Range tasks.",
-      "uk": "Сегментоване завантаження: {0} потік(и), {1} Range-завдань."
+      "uk": "Сегментоване завантаження: {0} потік(ів), {1} Range-завдань."
     }
   ],
   [

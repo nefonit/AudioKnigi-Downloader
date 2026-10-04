@@ -278,7 +278,11 @@ class BookFlowMixin:
                         "автоматический резервный источник knigavuhe.org сейчас недоступен. "
                         "Повторите попытку позже или выберите эту книгу на другом источнике."
                     ) from exc
-                original_indices = {int(tr.index) for tr in list(getattr(book, "tracks", []) or [])}
+                original_indices = {
+                    idx
+                    for tr in list(getattr(book, "tracks", []) or [])
+                    if (idx := safe_int(getattr(tr, "index", None), -1)) >= 0
+                }
                 selected_all_original = bool(original_indices) and active_selected == original_indices
                 if not selected_all_original:
                     raise RuntimeError(
@@ -303,7 +307,11 @@ class BookFlowMixin:
                     original_source="audioknigi", fallback_source="knigavuhe",
                 )
                 book = fallback
-                fallback_indices = {int(tr.index) for tr in list(getattr(book, "tracks", []) or [])}
+                fallback_indices = {
+                    idx
+                    for tr in list(getattr(book, "tracks", []) or [])
+                    if (idx := safe_int(getattr(tr, "index", None), -1)) >= 0
+                }
                 active_selected = fallback_indices
                 req = getattr(self, "request", None)
                 if req is not None:
@@ -534,7 +542,12 @@ class BookFlowMixin:
                     raise
                 except Exception as exc:
                     if self._is_expired_media_error(exc):
-                        affected = [int(tr.index) for tr in source_tracks if tr.file == url]
+                        affected = [
+                            idx
+                            for tr in source_tracks
+                            if str(getattr(tr, "file", "") or "") == url
+                            if (idx := safe_int(getattr(tr, "index", None), -1)) >= 0
+                        ]
                         raise MissingMediaSourceError(
                             str(exc), source_url=url, track_indices=affected
                         ) from exc
@@ -574,7 +587,12 @@ class BookFlowMixin:
                                         pending.cancel()
                                 self._cancel_active_network_io()
                                 if self._is_expired_media_error(exc):
-                                    affected = [int(tr.index) for tr in source_tracks if tr.file == url]
+                                    affected = [
+                                        idx
+                                        for tr in source_tracks
+                                        if str(getattr(tr, "file", "") or "") == url
+                                        if (idx := safe_int(getattr(tr, "index", None), -1)) >= 0
+                                    ]
                                     raise MissingMediaSourceError(
                                         str(exc), source_url=url, track_indices=affected
                                     ) from exc

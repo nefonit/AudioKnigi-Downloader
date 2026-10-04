@@ -206,16 +206,21 @@ class AppSettings(MutableMapping[str, Any]):
         return self._data[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        # Keep the MutableMapping contract type-safe at runtime too. Callers
-        # frequently mutate the live settings object before persistence; using
-        # the same normalization boundary here prevents transient string
-        # numerics/booleans or out-of-range values from leaking into UI logic.
-        payload = dict(self._data)
-        payload[str(key)] = value
-        payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
+        # Normalize only the value being assigned. Re-normalizing the complete
+        # live mapping here would refill keys intentionally removed through the
+        # MutableMapping API with DEFAULT_SETTINGS on every unrelated write.
+        # A one-key probe still reuses the canonical migration/type/range rules
+        # without mutating any other currently present (or absent) setting.
+        normalized_key = str(key)
+        write_key = {
+            "auto_chunk_min_kbps": "auto_chunk_min_kbytes_per_sec",
+            "normalize_audio": "normalization_mode",
+        }.get(normalized_key, normalized_key)
+        payload = {normalized_key: value, UI_SCALE_MIGRATION_KEY: True}
         normalized = normalize_settings(payload)
         normalized.pop(UI_SCALE_MIGRATION_KEY, None)
-        self._data = normalized
+        if write_key in normalized:
+            self._data[write_key] = normalized[write_key]
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]

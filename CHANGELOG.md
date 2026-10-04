@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 76
+
+- Preserved legacy settings-write compatibility without resurrecting deprecated keys, switched queue Track/NarrationVariant field introspection to the public dataclasses API, and documented false-positive import/privacy findings from the external review.
+
+## 4.12.42 Round 75
+
+- Hardened fallback/source-error handling against malformed track indices, prevented unrelated settings writes from resurrecting deleted keys, added diagnostics for invalid explicit chapter boundaries, and aligned German, English and Ukrainian runtime localization wording.
+
 ## 4.12.42 Round 74
 
 - Hardened malformed-track handling across sidecars, playlist refresh, queue/UI selections and clipboard actions; preserved fallback covers and refreshed full-MP3 indices; normalized provider availability, Unicode identity tokens, deferred-action guards, bounded shortcut parsing, output-directory fallback, and remaining German Sie-form onboarding/status wording.

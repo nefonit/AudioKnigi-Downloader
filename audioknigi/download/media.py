@@ -575,6 +575,13 @@ class MediaProcessingMixin:
         start = parse_time_seconds(getattr(track, "start", None))
         end = parse_time_seconds(getattr(track, "end", None))
         duration = None
+        if start is not None and end is not None and end <= start:
+            app_logger.debug(
+                "MEDIA | event=split_invalid_explicit_boundary | track=%s | start=%s | end=%s",
+                safe_int(getattr(track, "index", None), -1),
+                start,
+                end,
+            )
         if start is not None and end is not None and end > start:
             duration = end - start
         elif start is None and end is None:
