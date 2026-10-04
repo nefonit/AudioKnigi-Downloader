@@ -48,6 +48,9 @@ def fetch_cover_bytes(url: str, referer: str = "", *, cancel_event=None):
             return None
         mime = str(response.headers.get("content-type", "image/jpeg") or "image/jpeg")
         mime = mime.split(";", 1)[0].strip() or "image/jpeg"
+        if not mime.casefold().startswith("image/"):
+            app_logger.debug("Rejected non-image cover response: content_type=%s", mime)
+            return None
         return payload, mime
     except Cancelled:
         raise

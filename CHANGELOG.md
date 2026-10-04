@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 77
+
+- Hardened remaining malformed-track index paths, single-letter search matching, queue dataclass introspection, old-requests JSON compatibility, mapping-based timeline rendering, cover MIME validation, localized QTextEdit context menus, and Ukrainian/English/German wording consistency.
+
 ## 4.12.42 Round 76
 
 - Preserved legacy settings-write compatibility without resurrecting deprecated keys, switched queue Track/NarrationVariant field introspection to the public dataclasses API, and documented false-positive import/privacy findings from the external review.

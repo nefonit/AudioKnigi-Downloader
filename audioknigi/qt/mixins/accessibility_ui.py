@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Slot, Qt, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCursor, QDesktopServices, QKeySequence, QShortcut
-from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit, QMessageBox, QPlainTextEdit, QSlider, QToolTip
+from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit, QMessageBox, QPlainTextEdit, QSlider, QTextEdit, QToolTip
 from ...metadata import APP_VERSION
 from ...core import CRASH_REPORT_FILE, DEFAULT_OUTPUT, resolve_executable
 from ...i18n import tr
@@ -184,7 +184,7 @@ class AccessibilityUiMixin:
             window = window_ref()
             return str(getattr(window, "language", "ru") or "ru") if window is not None else "ru"
 
-        for widget_type in (QLineEdit, QPlainTextEdit):
+        for widget_type in (QLineEdit, QPlainTextEdit, QTextEdit):
             for widget in self.findChildren(widget_type):
                 install_localized_text_context_menu(widget, language_getter)
 

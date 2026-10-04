@@ -7,6 +7,8 @@ import requests
 
 from .core import get_http_session
 
+_JSONDecodeError = getattr(requests.exceptions, "JSONDecodeError", ValueError)
+
 
 @dataclass(slots=True)
 class AudiobookshelfConfig:
@@ -59,7 +61,7 @@ def audiobookshelf_get_libraries(server_url: str, api_key: str, timeout: float =
         raise RuntimeError(f"Не удалось подключиться к Audiobookshelf: {exc}") from exc
     try:
         data = response.json()
-    except (ValueError, requests.exceptions.JSONDecodeError) as exc:
+    except (ValueError, _JSONDecodeError) as exc:
         raise RuntimeError(
             "Audiobookshelf вернул ответ не в формате JSON. Проверьте адрес сервера, reverse proxy и авторизацию."
         ) from exc

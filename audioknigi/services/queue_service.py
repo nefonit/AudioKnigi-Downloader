@@ -126,7 +126,7 @@ def _book_to_dict(book: Book) -> dict[str, Any]:
 
 
 def _book_from_dict(data: dict[str, Any]) -> Book:
-    book_fields = Book.__dataclass_fields__
+    book_fields = {item.name for item in fields(Book)}
     kwargs = {k: data.get(k) for k in book_fields if k in data and k not in {"tracks", "narration_variants", "cover_cache"}}
     kwargs.setdefault("url", "")
     kwargs.setdefault("title", "—")

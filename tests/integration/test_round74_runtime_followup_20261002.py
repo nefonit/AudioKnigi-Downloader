@@ -147,8 +147,9 @@ def test_identity_tokens_preserve_ukrainian_and_belarusian_letters():
 def test_queue_deserializer_does_not_shadow_dataclasses_fields_function():
     source = (ROOT / "audioknigi/services/queue_service.py").read_text(encoding="utf-8")
     block = source[source.index("def _book_from_dict"):source.index("def task_to_dict")]
-    assert "book_fields = Book.__dataclass_fields__" in block
-    assert "\n    fields = Book.__dataclass_fields__" not in block
+    assert "book_fields = {item.name for item in fields(Book)}" in block
+    assert "Book.__dataclass_fields__" not in block
+    assert "\n    fields =" not in block
 
 
 def test_full_mp3_refresh_updates_manifest_and_result_indices():

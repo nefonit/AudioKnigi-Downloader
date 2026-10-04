@@ -355,8 +355,9 @@ def display_track_timeline(tracks):
     cursor = 0.0
     for track in tracks:
         duration = effective_track_duration(track)
-        raw_start = parse_time_seconds(getattr(track, "start", None))
-        raw_end = parse_time_seconds(getattr(track, "end", None))
+        field = track.get if isinstance(track, Mapping) else lambda name, default=None: getattr(track, name, default)
+        raw_start = parse_time_seconds(field("start", None))
+        raw_end = parse_time_seconds(field("end", None))
 
         if raw_start is not None or raw_end is not None:
             start = raw_start

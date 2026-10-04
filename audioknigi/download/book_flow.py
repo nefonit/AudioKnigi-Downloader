@@ -513,7 +513,12 @@ class BookFlowMixin:
         download_jobs = []
         for file_index, url, target in self._source_target_assignments(book, unique_files, folder):
             local_map[url] = target
-            affected_tracks = [int(tr.index) for tr in source_tracks if str(tr.file or "") == url]
+            affected_tracks = [
+                idx
+                for tr in source_tracks
+                if str(getattr(tr, "file", "") or "") == url
+                if (idx := safe_int(getattr(tr, "index", None), -1)) >= 0
+            ]
             self._log_book_flow(
                 "source_mapping", book, level="debug", source_index=file_index,
                 file=target.name, tracks=affected_tracks,
@@ -794,10 +799,11 @@ class BookFlowMixin:
                             raise
                         except Exception as exc:
                             if self._is_expired_media_error(exc):
+                                track_index = safe_int(getattr(tr, "index", None), -1)
                                 raise MissingMediaSourceError(
                                     str(exc),
-                                    source_url=tr.file,
-                                    track_indices=[int(tr.index)],
+                                    source_url=getattr(tr, "file", ""),
+                                    track_indices=[track_index] if track_index >= 0 else [],
                                 ) from exc
                             raise
                         cleanup_sources.add(src)

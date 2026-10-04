@@ -31,7 +31,9 @@ def _safe_track_index(track) -> int:
             pass
     try:
         raw = _field(track, "index", 0)
-        return int(raw if raw is not None else 0)
+        if isinstance(raw, bool) or raw is None:
+            return 0
+        return int(raw)
     except (AttributeError, TypeError, ValueError):
         return 0
 

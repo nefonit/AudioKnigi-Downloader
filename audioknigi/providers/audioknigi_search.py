@@ -205,16 +205,22 @@ def _matches_query(title: str, query: str, author: str = "", narrator: str = "")
     # appears somewhere inside a title/author word.  Longer query tokens retain
     # the historical substring behavior for conservative inflection/partial-name
     # matching.
-    full_matches = {token for token in tokens if len(token) > 1 and token in haystack}
+    long_tokens = [token for token in tokens if len(token) > 1]
+    full_matches = {token for token in long_tokens if token in haystack}
     if len(full_matches) == len(tokens):
         return True
-    if not full_matches:
+    if long_tokens and not full_matches:
         return False
 
     title_tokens = set(_TOKEN_RE.findall(_normalize_text(title)))
     person_haystack = _normalize_text(" ".join(part for part in (author, narrator) if part))
     person_tokens = _TOKEN_RE.findall(person_haystack)
     person_initials = {token for token in person_tokens if len(token) == 1}
+    if not long_tokens:
+        # A query made only of initials/one-letter tokens must match explicit
+        # token boundaries. Do not broaden a lone "Л." into any person name
+        # beginning with Л; mixed queries retain that historical initials logic.
+        return all(token in title_tokens or token in person_initials for token in tokens)
     for token in tokens:
         if token in full_matches:
             continue
