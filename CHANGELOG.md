@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 79
+
+- Hardened primitive and mapping track-index handling, preserved valid titles when optional metadata is absent, clarified alternate playlist shapes, restored KnigaVuhe author fallback, used Windows-safe cleanup for resume/full-source files, rejected oversized covers earlier, reduced POSIX-path false positives, and localized search accessibility descriptions.
+
+## 4.12.42 Round 78
+
+- Preserved valid zero-index tracks across playlist refresh and sidecars, hardened unknown-duration sidecars and legacy settings reads, tightened narrator-safe fallback selection, fixed blank track-title collisions, expanded KnigaVuhe narration discovery and German help shortcuts, localized fallback errors, and made the speed graph DPI-aware.
+
 ## 4.12.42 Round 77
 
 - Hardened remaining malformed-track index paths, single-letter search matching, queue dataclass introspection, old-requests JSON compatibility, mapping-based timeline rendering, cover MIME validation, localized QTextEdit context menus, and Ukrainian/English/German wording consistency.

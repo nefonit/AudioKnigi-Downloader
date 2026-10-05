@@ -558,5 +558,21 @@
       "en": "Searching across sources simultaneously: {0}",
       "uk": "Шукаю одночасно на джерелах: {0}"
     }
+  ],
+  [
+    "^В плейлисте отсутствует адрес аудиофайла для частей: (.+)\\. Повторите анализ книги\\.$",
+    {
+      "de": "In der Playlist fehlt die Audiodatei-Adresse für die Teile: {0}. Analysieren Sie das Buch erneut.",
+      "en": "The playlist is missing the audio-file address for parts: {0}. Analyze the book again.",
+      "uk": "У плейлисті відсутня адреса аудіофайлу для частин: {0}. Повторіть аналіз книги."
+    }
+  ],
+  [
+    "^Не удалось корректно создать (.+): ожидалось (.+), получено (.+)\\.$",
+    {
+      "de": "{0} konnte nicht korrekt erstellt werden: erwartet {1}, erhalten {2}.",
+      "en": "Could not create {0} correctly: expected {1}, got {2}.",
+      "uk": "Не вдалося коректно створити {0}: очікувалося {1}, отримано {2}."
+    }
   ]
 ]

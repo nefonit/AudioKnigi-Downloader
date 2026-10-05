@@ -366,6 +366,7 @@ class BookAnalysisService:
             best_by_url[candidate_url] = max(candidate_score, best_by_url.get(candidate_url, float("-inf")))
         unknown_narrator_choice = None
         unknown_narrator_identity = None
+        saw_conflicting_narrator = False
         for candidate_url, _score in sorted(best_by_url.items(), key=lambda item: item[1], reverse=True)[:8]:
             self._check_cancel()
             try:
@@ -390,6 +391,7 @@ class BookAnalysisService:
                         unknown_narrator_choice = fallback
                     continue
                 if len(narrator_tokens & fn) / max(1, len(narrator_tokens | fn)) < 0.40:
+                    saw_conflicting_narrator = True
                     continue
                 return fallback
             narrator_identity = " ".join(str(getattr(fallback, "narrator", "") or "").casefold().split())
@@ -400,6 +402,8 @@ class BookAnalysisService:
             elif identity != unknown_narrator_identity:
                 app_logger.info("Analysis fallback is ambiguous because the source narrator is unknown")
                 return None
+        if narrator_tokens and saw_conflicting_narrator:
+            return None
         return unknown_narrator_choice
 
     def _recover_short_audioknigi_source(self, book: Book) -> Book:
@@ -587,7 +591,10 @@ class BookAnalysisService:
         metadata_title = _canonical_audioknigi_title(metadata_title)
         metadata_book_title, metadata_prefix_authors = _split_audioknigi_multi_author_prefix(metadata_title)
         author = _merge_audioknigi_authors(visible_authors, author, metadata_prefix_authors)
-        title = metadata_book_title if metadata_prefix_authors else metadata_title
+        # Metadata is optional. Never erase a title already recovered from
+        # PlayerJS/page <title> merely because OpenGraph/Schema markup is absent.
+        if metadata_title:
+            title = metadata_book_title if metadata_prefix_authors else metadata_title
         if author:
             stripped = title
             for known_author in [part.strip() for part in author.split(",") if part.strip()]:
@@ -608,7 +615,11 @@ class BookAnalysisService:
             data = json.loads(normalized_playlist_text)
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"Неизвестный формат плейлиста: {exc}") from exc
-        if not isinstance(data, list) or not data:
+        if isinstance(data, dict) and isinstance(data.get("playlist"), list):
+            data = data["playlist"]
+        if not isinstance(data, list):
+            raise SiteStructureChanged("Формат плейлиста изменился: ожидался список треков.")
+        if not data:
             raise RuntimeError("Плейлист пуст.")
 
         playlist_items = [

@@ -232,8 +232,7 @@ class _DownloadEngine(DownloaderMixin):
     def _remove_resume_manifest(self, book):
         try:
             path = self._resume_manifest_path(book, create=False)
-            if path.exists():
-                path.unlink()
+            unlink_with_retry(path, missing_ok=True)
         except Exception:
             app_logger.debug("Could not remove resume manifest", exc_info=True)
 
@@ -712,7 +711,7 @@ class _DownloadEngine(DownloaderMixin):
             self._run_ffmpeg(cmd)
             if self.runtime_delete_source:
                 try:
-                    source_target.unlink(missing_ok=True)
+                    unlink_with_retry(source_target, missing_ok=True)
                 except Exception:
                     pass
             else:

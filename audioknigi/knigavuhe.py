@@ -390,7 +390,8 @@ class _NarrationVariantsParser(HTMLParser):
                 and any(token in " ".join((*node[1], node[2])) for token in marker_tokens)
                 for node in self._context_stack
             )
-            if structural_heading or named_container:
+            exact_heading = lowered.strip(" :–—-") == "другие озвучки"
+            if exact_heading or structural_heading or named_container:
                 self.active = True
                 self._current = None
                 return
@@ -628,6 +629,9 @@ def parse_book_html(html_text: str, page_url: str) -> Book:
         title = re.sub(r"\s*\(слушать аудиокнигу.*$", "", title, flags=re.I).strip()
 
     authors = _extract_names(book_data.get("authors"))
+    author_text = ", ".join(authors)
+    if not author_text:
+        author_text = _book_page_search_metadata(html_text).get("author", "")
     readers = _extract_names(book_data.get("readers"))
     cover_url = _absolute_audio_url(page_url, book_data.get("cover"))
 
@@ -685,7 +689,7 @@ def parse_book_html(html_text: str, page_url: str) -> Book:
     return Book(
         url=page_url,
         title=title or "Аудиокнига",
-        author=", ".join(authors),
+        author=author_text,
         narrator=narrator_text,
         description=_description_from_html(html_text),
         cover_url=cover_url,

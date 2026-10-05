@@ -32,6 +32,13 @@ def fetch_cover_bytes(url: str, referer: str = "", *, cancel_event=None):
             absolute_url, headers=headers, stream=True, timeout=(10, 25), allow_redirects=True
         )
         response.raise_for_status()
+        try:
+            declared_size = int(response.headers.get("content-length", 0) or 0)
+        except (TypeError, ValueError, OverflowError):
+            declared_size = 0
+        if declared_size > _MAX_COVER_BYTES:
+            app_logger.debug("Rejected oversized cover response: content_length=%s", declared_size)
+            return None
         chunks: list[bytes] = []
         total = 0
         for chunk in response.iter_content(chunk_size=64 * 1024):

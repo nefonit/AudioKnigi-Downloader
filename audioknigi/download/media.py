@@ -743,7 +743,7 @@ class MediaProcessingMixin:
             for row_number, t in enumerate(tracks, 1):
                 get_field = t.get if isinstance(t, Mapping) else lambda name, default=None: getattr(t, name, default)
                 index = safe_int(get_field("index", row_number), row_number)
-                if index <= 0:
+                if index < 0:
                     index = row_number
                 duration_value = effective_track_duration(t)
                 dur = float(duration_value) if duration_value is not None and float(duration_value) > 0 else None
@@ -799,9 +799,9 @@ class MediaProcessingMixin:
             ]
             width = track_number_width(book)
             for row in chapter_rows:
-                lines.append(
-                    f"{row['index']:0{width}d}. {fmt_time(row['timeline_start'])}–{fmt_time(row['timeline_end'])}  {row['title']}"
-                )
+                start_text = fmt_time(row["timeline_start"]) if row["timeline_start"] is not None else "—"
+                end_text = fmt_time(row["timeline_end"]) if row["timeline_end"] is not None else "—"
+                lines.append(f"{row['index']:0{width}d}. {start_text}–{end_text}  {row['title']}")
             atomic_write_text(folder / "book_info.txt", "\n".join(lines) + "\n", encoding="utf-8")
 
             # Audiobookshelf documents NFO as a simple text metadata source.

@@ -70,12 +70,15 @@ class SpeedGraphWidget(QWidget):
             return
         actual_peak = max(values, default=0.0)
         scale_peak = max(actual_peak, 0.1)
+        metrics = painter.fontMetrics()
+        label_baseline = max(2, metrics.ascent() + 2)
+        graph_top = max(7, metrics.height() + 4)
         w = max(1, self.width() - 12)
-        h = max(1, self.height() - 14)
+        h = max(1, self.height() - graph_top - 7)
         points = []
         for i, value in enumerate(values):
             x = 6 + (w * i / max(1, len(values) - 1))
-            y = 7 + h - (value / scale_peak) * h
+            y = graph_top + h - (value / scale_peak) * h
             points.append((x, y))
         pen = QPen(palette.highlight().color())
         pen.setWidth(2)
@@ -83,7 +86,7 @@ class SpeedGraphWidget(QWidget):
         for left, right in zip(points, points[1:]):
             painter.drawLine(int(left[0]), int(left[1]), int(right[0]), int(right[1]))
         painter.setPen(palette.text().color())
-        painter.drawText(7, 13, ui_text(_language(), "max {peak:.1f} МБ/с", peak=actual_peak))
+        painter.drawText(7, label_baseline, ui_text(_language(), "max {peak:.1f} МБ/с", peak=actual_peak))
 
 
 __all__ = ["SpeedGraphWidget"]

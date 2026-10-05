@@ -203,7 +203,18 @@ class AppSettings(MutableMapping[str, Any]):
         self._data = normalized
 
     def __getitem__(self, key: str) -> Any:
-        return self._data[key]
+        normalized_key = str(key)
+        if normalized_key == "auto_chunk_min_kbps":
+            return self._data["auto_chunk_min_kbytes_per_sec"]
+        if normalized_key == "normalize_audio":
+            return str(self._data["normalization_mode"] or "off").strip().casefold() != "off"
+        return self._data[normalized_key]
+
+    def __contains__(self, key: object) -> bool:
+        # Membership reflects physically stored canonical keys. Legacy aliases
+        # remain readable through __getitem__/get without pretending they are
+        # persisted in the live mapping.
+        return str(key) in self._data
 
     def __setitem__(self, key: str, value: Any) -> None:
         # Normalize only the value being assigned. Re-normalizing the complete

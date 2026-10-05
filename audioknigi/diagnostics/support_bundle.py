@@ -54,7 +54,7 @@ _EMBEDDED_UNC_PATH_RE = re.compile(
     rf"(?<!:)//{_WINDOWS_PATH_SEGMENT_RE}/(?:{_WINDOWS_PATH_SEGMENT_RE}/)*(?:{_WINDOWS_PATH_FINAL_RE})?/?)"
 )
 _EMBEDDED_POSIX_FILE_RE = re.compile(
-    r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/|;\r\n\"']+/)*[^/|;\r\n\"']+\.[A-Za-z0-9]{1,16})",
+    r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/\s|;\r\n\"'][^/|;\r\n\"']*/)*[^/\s|;\r\n\"'][^/|;\r\n\"']*\.[A-Za-z0-9]{1,16})",
     re.MULTILINE,
 )
 _EMBEDDED_POSIX_PATH_RE = re.compile(

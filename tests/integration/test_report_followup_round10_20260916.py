@@ -96,7 +96,8 @@ def test_round10_source_hardening_contracts_are_present():
 
     assert "resolved_path = file_path.resolve()" in probe
     assert "safe_int(getattr(item, \"index\", None), -1) == track_index" in media
-    assert "track_index = int(getattr(tr, \"index\", -1))" in book_flow
+    assert "track_index = safe_int(raw_index, -1)" in book_flow
+    assert "isinstance(value, (str, int, float, bool))" in book_flow
     assert "normalize_cover_cache(raw_cover)" in workers
     assert 'self._l("Озвучка {index}", index=idx + 1)' in analysis.replace("\n", " ") or "Озвучка {index}" in analysis
     assert '"addItem"' in audit

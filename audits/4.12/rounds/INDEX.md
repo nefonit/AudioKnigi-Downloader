@@ -78,3 +78,5 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20261002_ROUND74.md` — malformed-track/fallback/full-MP3/UI/provider/localization follow-up hardening.
 - `AUDIT_NOTES_20261003_ROUND76.md` — legacy settings-write compatibility and queue dataclass introspection follow-up.
 - `AUDIT_NOTES_20261004_ROUND77.md` — remaining index/search/timeline/cover/accessibility/localization hardening.
+- `AUDIT_NOTES_20261005_ROUND78.md` — zero-index/sidecar/fallback/narration/help localization and DPI follow-up.
+- `AUDIT_NOTES_20261005_ROUND79.md` — primitive/mapping index, metadata, playlist, cleanup, cover, privacy-redaction and accessibility follow-up.

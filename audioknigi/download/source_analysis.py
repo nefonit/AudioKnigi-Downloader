@@ -69,6 +69,7 @@ class SourceAnalysisMixin:
             best_by_url[candidate_url] = max(candidate_score, best_by_url.get(candidate_url, float("-inf")))
         unknown_narrator_choice = None
         unknown_narrator_identity = None
+        saw_conflicting_narrator = False
         for candidate_url, _score in sorted(best_by_url.items(), key=lambda item: item[1], reverse=True)[:8]:
             self._check_cancel()
             try:
@@ -97,6 +98,7 @@ class SourceAnalysisMixin:
                     continue
                 narrator_overlap = len(narrator_tokens & fb_narrator_tokens) / max(1, len(narrator_tokens | fb_narrator_tokens))
                 if narrator_overlap < 0.40:
+                    saw_conflicting_narrator = True
                     continue
                 return fallback
             narrator_identity = " ".join(str(fallback_narrator or "").casefold().split())
@@ -107,6 +109,8 @@ class SourceAnalysisMixin:
             elif identity != unknown_narrator_identity:
                 app_logger.info("Download fallback is ambiguous because the source narrator is unknown")
                 return None
+        if narrator_tokens and saw_conflicting_narrator:
+            return None
         return unknown_narrator_choice
 
     def _service(self) -> BookAnalysisService:

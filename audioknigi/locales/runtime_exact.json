@@ -593,5 +593,45 @@
     "de": "Der ausgewählte Teil hat eine ungültige Nummer.",
     "en": "The selected part has an invalid number.",
     "uk": "Вибрана частина має некоректний номер."
+  },
+  "В плейлисте общей аудиодорожки отсутствует корректная граница следующей части. Повторите анализ книги или выберите другой источник.": {
+    "de": "In der Playlist der gemeinsamen Audiospur fehlt eine gültige Grenze für den nächsten Teil. Analysieren Sie das Buch erneut oder wählen Sie eine andere Quelle.",
+    "en": "The shared-audio playlist is missing a valid boundary for the next part. Analyze the book again or choose another source.",
+    "uk": "У плейлисті спільної аудіодоріжки відсутня коректна межа наступної частини. Повторіть аналіз книги або виберіть інше джерело."
+  },
+  "Резервный источник уже использовался один раз, но ошибка общей аудиодорожки повторилась. Повторное автоматическое переключение источника остановлено, чтобы избежать цикла.": {
+    "de": "Die Ersatzquelle wurde bereits einmal verwendet, aber der Fehler der gemeinsamen Audiospur ist erneut aufgetreten. Der automatische Quellenwechsel wurde beendet, um eine Schleife zu vermeiden.",
+    "en": "The backup source was already used once, but the shared-audio error occurred again. Automatic source switching has stopped to avoid a loop.",
+    "uk": "Резервне джерело вже було використано один раз, але помилка спільної аудіодоріжки повторилася. Автоматичне перемикання джерела зупинено, щоб уникнути циклу."
+  },
+  "Общий аудиофайл audioknigi.com.ua оказался неполным, а автоматический резервный источник knigavuhe.org сейчас недоступен. Повторите попытку позже или выберите эту книгу на другом источнике.": {
+    "de": "Die gemeinsame Audiodatei von audioknigi.com.ua ist unvollständig, und die automatische Ersatzquelle knigavuhe.org ist derzeit nicht verfügbar. Versuchen Sie es später erneut oder wählen Sie dieses Buch bei einer anderen Quelle.",
+    "en": "The shared audio file from audioknigi.com.ua is incomplete, and the automatic backup source knigavuhe.org is currently unavailable. Try again later or choose this book from another source.",
+    "uk": "Спільний аудіофайл audioknigi.com.ua виявився неповним, а автоматичне резервне джерело knigavuhe.org зараз недоступне. Повторіть спробу пізніше або виберіть цю книгу з іншого джерела."
+  },
+  "Резервный источник найден, но выбранные части нельзя безопасно сопоставить между audioknigi.com.ua и knigavuhe.org: разметка глав на этих сайтах различается. Проанализируйте резервную версию книги и выберите нужные части заново.": {
+    "de": "Eine Ersatzquelle wurde gefunden, aber die ausgewählten Teile können zwischen audioknigi.com.ua und knigavuhe.org nicht sicher zugeordnet werden, weil sich die Kapitelstruktur unterscheidet. Analysieren Sie die Ersatzversion des Buchs und wählen Sie die gewünschten Teile erneut aus.",
+    "en": "A backup source was found, but the selected parts cannot be safely matched between audioknigi.com.ua and knigavuhe.org because their chapter layouts differ. Analyze the backup version of the book and select the required parts again.",
+    "uk": "Резервне джерело знайдено, але вибрані частини неможливо безпечно зіставити між audioknigi.com.ua і knigavuhe.org, оскільки розмітка розділів відрізняється. Проаналізуйте резервну версію книги та виберіть потрібні частини знову."
+  },
+  "Локальный исходник для нарезки не найден. Повторите анализ или загрузку книги.": {
+    "de": "Die lokale Quelldatei zum Aufteilen wurde nicht gefunden. Analysieren oder laden Sie das Buch erneut.",
+    "en": "The local source file for splitting was not found. Analyze or download the book again.",
+    "uk": "Локальний вихідний файл для поділу не знайдено. Повторіть аналіз або завантаження книги."
+  },
+  "Введите название аудиокниги или автора, минимум три символа": {
+    "de": "Geben Sie den Titel des Hörbuchs oder den Autor ein, mindestens drei Zeichen",
+    "en": "Enter the audiobook title or author, at least three characters",
+    "uk": "Введіть назву аудіокниги або автора, щонайменше три символи"
+  },
+  "Поиск одновременно на трёх поддерживаемых сайтах": {
+    "de": "Gleichzeitige Suche auf den drei unterstützten Websites",
+    "en": "Search all three supported websites at the same time",
+    "uk": "Одночасний пошук на трьох підтримуваних сайтах"
+  },
+  "Таблица с названием, автором, чтецом, количеством озвучек и источником": {
+    "de": "Tabelle mit Titel, Autor, Sprecher, Anzahl der Sprecherfassungen und Quelle",
+    "en": "Table with title, author, narrator, narration count, and source",
+    "uk": "Таблиця з назвою, автором, читцем, кількістю варіантів озвучення та джерелом"
   }
 }

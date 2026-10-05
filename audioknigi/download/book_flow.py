@@ -5,6 +5,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from collections.abc import Mapping
 from ..models import normalize_track_status, TRACK_STATUS_MISSING, TRACK_STATUS_PRESENT, TRACK_STATUS_READY, TRACK_STATUS_DAMAGED
 from ..logging_utils import app_logger
 from ..i18n import tr as i18n_tr
@@ -93,24 +94,24 @@ class BookFlowMixin:
 
         fresh_by_index = {}
         for tr in list(getattr(fresh, "tracks", []) or []):
-            index = safe_int(getattr(tr, "index", None), 0)
-            if index > 0:
+            index = safe_int(getattr(tr, "index", None), -1)
+            if index >= 0:
                 fresh_by_index[index] = tr
         wanted = {
             index for value in (selected_indices or [])
-            if (index := safe_int(value, 0)) > 0
+            if (index := safe_int(value, -1)) >= 0
         }
         missing = sorted(wanted.difference(fresh_by_index))
 
         old_by_index = {}
         for tr in list(getattr(book, "tracks", []) or []):
-            index = safe_int(getattr(tr, "index", None), 0)
-            if index > 0:
+            index = safe_int(getattr(tr, "index", None), -1)
+            if index >= 0:
                 old_by_index[index] = tr
         changed_urls = 0
         for tr in list(getattr(fresh, "tracks", []) or []):
-            index = safe_int(getattr(tr, "index", None), 0)
-            previous = old_by_index.get(index) if index > 0 else None
+            index = safe_int(getattr(tr, "index", None), -1)
+            previous = old_by_index.get(index) if index >= 0 else None
             if previous is None:
                 continue
             if str(previous.file or "") != str(tr.file or ""):
@@ -153,7 +154,12 @@ class BookFlowMixin:
         Interactive frontends override this hook.  Non-interactive callers stop
         safely instead of guessing that missing chapters may be skipped.
         """
-        indices = sorted({int(x) for x in (track_indices or [])})
+        indices = sorted({
+            index
+            for value in (track_indices or [])
+            if not isinstance(value, bool)
+            if (index := safe_int(value, -1)) >= 0
+        })
         if indices:
             self.log(
                 "Недоступны части: "
@@ -166,10 +172,11 @@ class BookFlowMixin:
     def _expired_media_track_indices(exc, book, active_selected) -> list[int]:
         explicit = []
         for value in list(getattr(exc, "track_indices", []) or []):
-            try:
-                explicit.append(int(value))
-            except (TypeError, ValueError):
+            if isinstance(value, bool):
                 continue
+            index = safe_int(value, -1)
+            if index >= 0:
+                explicit.append(index)
         if explicit:
             return sorted(set(explicit))
 
@@ -188,18 +195,23 @@ class BookFlowMixin:
                     urls.add(value)
             current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
 
-        active = {int(value) for value in (active_selected or [])}
+        active = {
+            index
+            for value in (active_selected or [])
+            if not isinstance(value, bool)
+            if (index := safe_int(value, -1)) >= 0
+        }
         inferred: list[int] = []
         for track in list(getattr(book, "tracks", []) or []):
-            try:
-                index = int(track.index)
-            except (TypeError, ValueError):
+            get_field = track.get if isinstance(track, Mapping) else lambda name, default=None: getattr(track, name, default)
+            index = safe_int(get_field("index", None), -1)
+            if index < 0:
                 continue
             if active and index not in active:
                 continue
             candidates = {
-                str(getattr(track, "file", "") or "").strip(),
-                str(getattr(track, "fallback_file", "") or "").strip(),
+                str(get_field("file", "") or "").strip(),
+                str(get_field("fallback_file", "") or "").strip(),
             }
             if urls.intersection(value for value in candidates if value):
                 inferred.append(index)
@@ -210,7 +222,12 @@ class BookFlowMixin:
         return []
 
     def _record_skipped_media_parts(self, indices):
-        skipped = sorted({int(x) for x in (indices or [])})
+        skipped = sorted({
+            index
+            for value in (indices or [])
+            if not isinstance(value, bool)
+            if (index := safe_int(value, -1)) >= 0
+        })
         existing = set(getattr(self, "_last_process_skipped_indices", []) or [])
         existing.update(skipped)
         self._last_process_skipped_indices = sorted(existing)
@@ -226,7 +243,9 @@ class BookFlowMixin:
         values = list(getattr(book, "tracks", []) or []) if selected_indices is None else list(selected_indices)
         active_selected = set()
         for value in values:
-            raw_index = getattr(value, "index", value)
+            # Primitive values (notably str) also expose an ``index`` method.
+            # Only Track-like objects should use their .index attribute.
+            raw_index = value if isinstance(value, (str, int, float, bool)) else getattr(value, "index", value)
             if isinstance(raw_index, bool):
                 continue
             try:
@@ -411,14 +430,23 @@ class BookFlowMixin:
 
         tracks = book.tracks
         if selected_indices is None:
-            selected_indices = [tr.index for tr in tracks]
-        selected_indices = set(int(x) for x in selected_indices)
+            selected_indices = [
+                tr.get("index") if isinstance(tr, Mapping) else getattr(tr, "index", None)
+                for tr in tracks
+            ]
+        normalized_selected = set()
+        for value in selected_indices:
+            raw_value = value if isinstance(value, (str, int, float, bool)) else (value.get("index") if isinstance(value, Mapping) else getattr(value, "index", value))
+            if isinstance(raw_value, bool):
+                continue
+            track_index = safe_int(raw_value, -1)
+            if track_index >= 0:
+                normalized_selected.add(track_index)
+        selected_indices = normalized_selected
         chosen = []
         for tr in tracks:
-            try:
-                track_index = int(getattr(tr, "index", -1))
-            except (TypeError, ValueError):
-                continue
+            raw_index = tr.get("index") if isinstance(tr, Mapping) else getattr(tr, "index", None)
+            track_index = safe_int(raw_index, -1)
             if track_index in selected_indices:
                 chosen.append(tr)
         if not chosen:
@@ -477,9 +505,10 @@ class BookFlowMixin:
 
         source_tracks = list(mp3_needs_creation)
         missing_source_indices = [
-            int(getattr(tr, "index", 0) or 0)
+            index
             for tr in source_tracks
             if not str(getattr(tr, "file", "") or "").strip()
+            if (index := safe_int(getattr(tr, "index", None), -1)) >= 0
         ]
         if missing_source_indices:
             joined = ", ".join(str(index) for index in missing_source_indices if index >= 0) or "?"
