@@ -146,7 +146,7 @@
 
 ## 4.2 Test Automation
 
-- Активний pytest baseline Round 81: 899 collected tests (27 unit, 856 integration, 16 architecture).
+- Активний pytest baseline Round 81: 899 collected tests (27 unit, 856 integration, 16 architecture) у 23 test modules: 15 integration + 6 unit + 2 architecture.
 - Остання повна перевірка: 897 passed; 2 Qt accessibility self-tests blocked лише через відсутній PySide6 у середовищі перевірки.
 - Окремі quality gates: compileall, strict JSON duplicate-key check, undefined-global, unused-import, exception, Qt-localization audits; release workflow також передбачає full parity, Qt import/runtime boundary та historical regression checks.
 - Кожен audit round додає focused regression tests на підтверджені дефекти; хибні/архітектурні findings документуються без зайвих кодових змін.
@@ -246,7 +246,7 @@
 
 - Кожна manual test case має Requirement ID та Test Suite ID.
 - Checklist містить Requirement ID; test repository агрегує suites, cases та checklist items.
-- Автоматизовані тести ідентифікуються повним pytest node id; baseline містить усі 899 node IDs.
+- Автоматизовані тести ідентифікуються повним pytest node id; baseline містить усі 899 node IDs. Після Test Consolidation Stage 1 актуальні node IDs використовують доменні integration-модулі, а історичне походження збережено у `tests/integration/README.md` та `consolidation_manifest.json`.
 - Реліз/аудит версіонується через changelog, Git commit/ZIP, audit notes та test evidence.
 
 # 9 RESOURCE AND ENVIRONMENT NEEDS (Ресурси та середовище)
@@ -295,7 +295,8 @@ QA виконувався ітеративно: кожна функціонал�
 
 - Цей Test Plan.
 - Детальна тестова база: вимоги, тестові набори, чек-лист, тест-кейси, історичні баг-репорти, трасування, автотести, історія QA.
-- Automated pytest suite: 899 collected node IDs у 101 test files.
+- Automated pytest suite: 899 collected node IDs у 23 test modules (15 integration + 6 unit + 2 architecture).
+- Test Consolidation Stage 1 traceability: 93 історичних integration-файли консолідовано у 15 доменних модулів без втрати 856 integration cases; mapping збережено у `tests/integration/README.md` та `consolidation_manifest.json`.
 - 80 audit notes у audits/4.12/rounds та 119 changelog entries.
 - Runtime/source documentation у README/docs та release quality scripts.
 
@@ -322,7 +323,7 @@ QA виконувався ітеративно: кожна функціонал�
 | Blocked by environment | 2 (Qt accessibility self-tests: PySide6 unavailable in validation environment) |
 | Runnable pass rate | 100.00% |
 | Overall collected pass share | 99.78% |
-| Test files | 101 |
+| Test modules | 23 (15 integration + 6 unit + 2 architecture) |
 | Active audit notes | 80 |
 | Changelog entries | 119 |
 | Manual baseline cases | 68 |
