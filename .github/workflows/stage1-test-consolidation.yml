@@ -1,0 +1,48 @@
+name: Stage 1 test consolidation generator
+
+on:
+  push:
+    branches:
+      - test-consolidation-stage1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[stage1-generated]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: test-consolidation-stage1
+
+      - name: Consolidate integration tests
+        run: python .stage1/consolidate_integration_tests.py .
+
+      - name: Update official test documentation
+        run: python .stage1/update_testing_docs.py
+
+      - name: Structural validation
+        shell: bash
+        run: |
+          python -m compileall -q tests/integration
+          test "$(find tests/integration -maxdepth 1 -type f -name 'test_*.py' | wc -l)" -eq 15
+          test "$(find tests/integration -maxdepth 1 -type f -name 'test_*round*.py' | wc -l)" -eq 0
+          test -f tests/integration/README.md
+          test -f tests/integration/consolidation_manifest.json
+          test -f docs/testing/TEST_CONSOLIDATION_STAGE1_REPORT.md
+
+      - name: Commit generated tree to staging branch
+        shell: bash
+        run: |
+          git config user.name "AudioKnigi QA automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A tests/integration docs/testing
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+            exit 0
+          fi
+          git commit -m "Consolidate integration tests by domain [stage1-generated]"
+          git push origin HEAD:test-consolidation-stage1
