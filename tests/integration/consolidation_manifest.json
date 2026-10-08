@@ -3,7 +3,6 @@
   "legacy_test_functions": 834,
   "domains": {
     "test_quality_gates.py": {
-      "tests": 32,
       "source_files": 15,
       "test_names": [
         "test_acceptance_gate_accepts_bom_prefixed_ok_report",
@@ -38,10 +37,11 @@
         "test_undefined_global_audit_catches_split_module_name_errors",
         "test_ci_exercises_minimum_and_release_python_and_unused_import_gate",
         "test_unused_import_quality_gate_passes"
-      ]
+      ],
+      "test_functions": 32,
+      "collected_cases": 32
     },
     "test_privacy_diagnostics.py": {
-      "tests": 46,
       "source_files": 34,
       "test_names": [
         "test_support_bundle_includes_existing_empty_error_log",
@@ -90,10 +90,11 @@
         "test_support_bundle_path_privacy_handles_both_windows_slash_styles",
         "test_support_bundle_tail_starts_at_clean_utf8_line_boundary",
         "test_support_bundle_queue_uses_opaque_nonempty_ids_and_excludes_private_book_data"
-      ]
+      ],
+      "test_functions": 46,
+      "collected_cases": 46
     },
     "test_build_release.py": {
-      "tests": 36,
       "source_files": 23,
       "test_names": [
         "test_release_baseline_comment_and_runtime_stage_are_current",
@@ -132,10 +133,11 @@
         "test_qt_selftest_reports_current_runtime_stage_but_keeps_acceptance_marker",
         "test_version_and_runtime_stage_41240",
         "test_release_docs_and_dependency_contract_are_consistent"
-      ]
+      ],
+      "test_functions": 36,
+      "collected_cases": 36
     },
     "test_localization.py": {
-      "tests": 72,
       "source_files": 42,
       "test_names": [
         "test_ukrainian_legacy_literals_cover_common_search_and_book_prompts",
@@ -210,10 +212,11 @@
         "test_track_status_is_language_neutral_and_legacy_value_normalizes",
         "test_missing_file_loaded_literal_is_translated_in_all_non_russian_languages",
         "test_runtime_regex_supports_multiline_capture"
-      ]
+      ],
+      "test_functions": 72,
+      "collected_cases": 78
     },
     "test_accessibility.py": {
-      "tests": 53,
       "source_files": 35,
       "test_names": [
         "test_accessibility_selftest_failure_reports_details_not_partial_report",
@@ -269,10 +272,11 @@
         "test_help_accessibility_polish_is_present",
         "test_accessibility_worker_path_never_calls_widget_window",
         "test_player_tab_has_alt_shortcut_too"
-      ]
+      ],
+      "test_functions": 53,
+      "collected_cases": 53
     },
     "test_player.py": {
-      "tests": 31,
       "source_files": 25,
       "test_names": [
         "test_player_position_timestamp_is_timezone_aware",
@@ -306,10 +310,11 @@
         "test_clipboard_prompt_waits_for_active_application_and_narration_switch_suppresses_stale_warning",
         "test_downloader_source_analysis_delegates_playerjs_to_shared_service",
         "test_player_position_store_prunes_completed_position"
-      ]
+      ],
+      "test_functions": 31,
+      "collected_cases": 31
     },
     "test_settings_contract.py": {
-      "tests": 42,
       "source_files": 33,
       "test_names": [
         "test_onboarding_accepted_settings_use_normalized_writer",
@@ -354,10 +359,11 @@
         "test_first_run_cancel_is_skip_not_process_exit",
         "test_invalid_normalization_mode_is_normalized_at_settings_boundary",
         "test_download_request_uses_normalized_settings"
-      ]
+      ],
+      "test_functions": 42,
+      "collected_cases": 42
     },
     "test_queue_history.py": {
-      "tests": 59,
       "source_files": 36,
       "test_names": [
         "test_queue_roundtrip_preserves_optional_and_empty_template_values",
@@ -419,10 +425,11 @@
         "test_queue_model_dataclasses_are_serialized_with_tracks",
         "test_history_lock_is_shared_by_engine_and_library_service",
         "test_backup_uses_memory_snapshots_instead_of_zipfile_write"
-      ]
+      ],
+      "test_functions": 59,
+      "collected_cases": 59
     },
     "test_providers.py": {
-      "tests": 150,
       "source_files": 58,
       "test_names": [
         "test_poleknig_playwright_cancelled_before_browser_work",
@@ -575,10 +582,11 @@
         "test_search_source_filter_accepts_internal_provider_keys",
         "test_search_service_uses_registry_without_provider_search_cycle",
         "test_book_analysis_service_has_real_knigavuhe_fetch_binding"
-      ]
+      ],
+      "test_functions": 150,
+      "collected_cases": 153
     },
     "test_search.py": {
-      "tests": 29,
       "source_files": 19,
       "test_names": [
         "test_multi_source_search_cooperative_cancel_returns_promptly",
@@ -610,10 +618,11 @@
         "test_title_sort_puts_exact_query_first_then_shorter_titles_alphabetically",
         "test_single_letter_search_tokens_use_boundaries_and_initials",
         "test_search_service_private_compatibility_wrappers_are_not_dead_imports"
-      ]
+      ],
+      "test_functions": 29,
+      "collected_cases": 29
     },
     "test_network.py": {
-      "tests": 47,
       "source_files": 31,
       "test_names": [
         "test_connect_proxy_preserves_full_duplex_after_upstream_half_close",
@@ -663,10 +672,11 @@
         "test_reviewed_i18n_and_proxy_contracts_remain_intentional",
         "test_cloudflare_http_200_interstitial_detection_is_shared",
         "test_cover_fetch_rejects_non_http_schemes_without_network"
-      ]
+      ],
+      "test_functions": 47,
+      "collected_cases": 47
     },
     "test_media_processing.py": {
-      "tests": 71,
       "source_files": 44,
       "test_names": [
         "test_atomic_write_text_creates_missing_parent_directory",
@@ -740,10 +750,11 @@
         "test_split_module_name_regressions_are_guarded_in_ci",
         "test_ffmpeg_workers_never_inherit_parent_stdin",
         "test_parallel_split_reports_progress_inside_same_lock"
-      ]
+      ],
+      "test_functions": 71,
+      "collected_cases": 71
     },
     "test_download_flow.py": {
-      "tests": 32,
       "source_files": 25,
       "test_names": [
         "test_download_request_exposes_public_track_index_and_keeps_compat_alias",
@@ -778,10 +789,11 @@
         "test_none_selected_indices_means_whole_book",
         "test_disk_preflight_does_not_create_book_folder",
         "test_download_book_info_uses_dynamic_track_number_width"
-      ]
+      ],
+      "test_functions": 32,
+      "collected_cases": 32
     },
     "test_qt_ui.py": {
-      "tests": 39,
       "source_files": 22,
       "test_names": [
         "test_scale_is_clamped_after_ui_migration",
@@ -823,10 +835,11 @@
         "test_delayed_window_callbacks_use_lifecycle_safe_scheduler",
         "test_extra_catalog_terms_still_keep_stable_two_word_title_phrase",
         "test_qt_worker_callbacks_are_signal_emitters_not_widget_methods"
-      ]
+      ],
+      "test_functions": 39,
+      "collected_cases": 39
     },
     "test_core_services.py": {
-      "tests": 95,
       "source_files": 52,
       "test_names": [
         "test_missing_uk_literals_are_complete",
@@ -924,7 +937,10 @@
         "test_archived_behavioral_regressions_have_no_new_failures",
         "test_retry_constructor_does_not_require_urllib3_2_only_other_keyword",
         "test_qt_refactor_contracts_are_present_without_importing_pyside"
-      ]
+      ],
+      "test_functions": 95,
+      "collected_cases": 108
     }
-  }
+  },
+  "collected_integration_cases": 856
 }
