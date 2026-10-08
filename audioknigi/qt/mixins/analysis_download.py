@@ -491,20 +491,20 @@ class AnalysisDownloadUiMixin:
                 old = task.request
                 valid = {
                     index for track in book.tracks
-                    if (index := safe_int(getattr(track, "index", None), 0)) > 0
+                    if (index := safe_int(getattr(track, "index", None), -1)) >= 0
                 }
                 if old.selected_indices is None:
                     selected = None
                 else:
                     selected = [
                         index for value in old.selected_indices
-                        if (index := safe_int(value, 0)) > 0 and index in valid
+                        if (index := safe_int(value, -1)) >= 0 and index in valid
                     ]
                     if not selected:
                         selected = [
                             index for track in book.tracks
                             if bool(getattr(track, "selected", False))
-                            and (index := safe_int(getattr(track, "index", None), 0)) > 0
+                            and (index := safe_int(getattr(track, "index", None), -1)) >= 0
                         ]
                 settings = {
                     "output_dir": str(old.output_dir),

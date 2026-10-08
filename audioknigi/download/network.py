@@ -387,6 +387,10 @@ class NetworkDownloadMixin:
                                             )
                                         else:
                                             self.set_status(f"Скачано {fmt_size(done)}  •  {speed_text}")
+                        if total and done < total:
+                            raise RuntimeError(
+                                f"Загрузка оборвалась: получено {fmt_size(done)} из {fmt_size(total)}."
+                            )
                 finally:
                     self._unregister_active_network_response(response)
 
@@ -628,7 +632,10 @@ class NetworkDownloadMixin:
         min_chunk = 4 * 1024 * 1024
         desired_tasks = max(initial_workers, initial_workers * 3)
         max_tasks_by_size = max(1, total_size // min_chunk)
-        task_count = max(initial_workers, min(32, desired_tasks, max_tasks_by_size))
+        task_count = max(
+            1,
+            min(total_size, max(initial_workers, min(32, desired_tasks, max_tasks_by_size))),
+        )
 
         ranges = []
         base = total_size // task_count

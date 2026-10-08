@@ -633,5 +633,20 @@
     "de": "Tabelle mit Titel, Autor, Sprecher, Anzahl der Sprecherfassungen und Quelle",
     "en": "Table with title, author, narrator, narration count, and source",
     "uk": "Таблиця з назвою, автором, читцем, кількістю варіантів озвучення та джерелом"
+  },
+  "После обновления плейлиста эта озвучка стала недоступна.": {
+    "de": "Nach der Aktualisierung der Playlist ist diese Sprecherfassung nicht mehr verfügbar.",
+    "en": "After refreshing the playlist, this narration became unavailable.",
+    "uk": "Після оновлення плейлиста це озвучення стало недоступним."
+  },
+  "Аудиофайл недоступен (HTTP 404/410) даже после обновления плейлиста. Возможно, файл временно удалён на сервере или эта часть книги недоступна.": {
+    "de": "Die Audiodatei ist auch nach der Aktualisierung der Playlist nicht verfügbar (HTTP 404/410). Möglicherweise wurde die Datei vorübergehend vom Server entfernt oder dieser Teil des Buchs ist nicht verfügbar.",
+    "en": "The audio file is unavailable (HTTP 404/410) even after refreshing the playlist. The file may have been temporarily removed from the server, or this part of the book may be unavailable.",
+    "uk": "Аудіофайл недоступний (HTTP 404/410) навіть після оновлення плейлиста. Можливо, файл тимчасово видалено із сервера або ця частина книги недоступна."
+  },
+  "Не выбрано ни одной части.": {
+    "de": "Kein Teil ausgewählt.",
+    "en": "No parts selected.",
+    "uk": "Не вибрано жодної частини."
   }
 }

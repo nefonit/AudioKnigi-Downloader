@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.12.42 Round 81
+
+- Hardened single-stream completeness checks, mapping-backed track planning, callable UI dispatch, Cloudflare 503 source-health handling, runtime/help localization, keyboard context-menu placement, accessibility exports, and Ukrainian shortcut rendering; documented stale/architectural audit findings.
+
+## 4.12.42 Round 80
+
+- Hardened missing-source diagnostics for malformed track indices, bounded tiny-file segmented ranges, normalized headless missing-media decisions, and preserved zero-index selections during queue re-analysis; documented reviewed i18n/privacy/proxy/API findings.
+
 ## 4.12.42 Round 79
 
 - Hardened primitive and mapping track-index handling, preserved valid titles when optional metadata is absent, clarified alternate playlist shapes, restored KnigaVuhe author fallback, used Windows-safe cleanup for resume/full-source files, rejected oversized covers earlier, reduced POSIX-path false positives, and localized search accessibility descriptions.

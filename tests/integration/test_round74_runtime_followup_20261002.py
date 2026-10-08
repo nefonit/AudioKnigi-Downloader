@@ -211,7 +211,8 @@ def test_output_dir_none_and_easy_download_state_are_guarded():
 
 def test_analysis_requeue_and_delayed_actions_guard_state_and_indices():
     source = (ROOT / "audioknigi/qt/mixins/analysis_download.py").read_text(encoding="utf-8")
-    assert 'safe_int(getattr(track, "index", None), 0)' in source
+    assert 'safe_int(getattr(track, "index", None), -1)) >= 0' in source
+    assert 'safe_int(value, -1)) >= 0 and index in valid' in source
     assert "self.current_book is not expected_book" in source
     assert 'if bool(getattr(self, "_exit_requested", False)):' in source
 

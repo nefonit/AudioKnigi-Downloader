@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from pathlib import Path
+from collections.abc import Mapping
 
 
 def source_target_assignments(book, source_urls, folder):
@@ -15,7 +16,8 @@ def source_target_assignments(book, source_urls, folder):
     all_unique_files = []
     seen = set()
     for track in list(getattr(book, "tracks", []) or []):
-        url = str(getattr(track, "file", "") or "")
+        get_field = track.get if isinstance(track, Mapping) else lambda name, default="": getattr(track, name, default)
+        url = str(get_field("file", "") or "")
         if url and url not in seen:
             seen.add(url)
             all_unique_files.append(url)

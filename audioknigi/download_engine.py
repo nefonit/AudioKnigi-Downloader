@@ -199,7 +199,12 @@ class _DownloadEngine(DownloaderMixin):
         self.log(str(message or ""))
 
     def _ask_missing_media_action(self, track_indices, *, detail="", allow_skip=True):
-        indices = sorted({int(x) for x in (track_indices or [])})
+        indices = sorted({
+            index
+            for value in (track_indices or [])
+            if not isinstance(value, bool)
+            if (index := safe_int(value, -1)) >= 0
+        })
         cb = self.callbacks.missing_media
         if cb is None:
             return "stop"

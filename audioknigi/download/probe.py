@@ -530,6 +530,10 @@ class ProbeMixin:
     def _estimate_required_space(self, book, selected_indices=None):
         """Approximate peak extra disk use for source + selected output formats."""
         tracks = book.tracks
+
+        def track_field(track, name, default=None):
+            return track.get(name, default) if isinstance(track, Mapping) else getattr(track, name, default)
+
         if selected_indices is None:
             chosen = tracks
         else:
@@ -547,7 +551,11 @@ class ProbeMixin:
             for value in values:
                 # Primitive values (notably str) also expose attributes named
                 # ``index``; only Track-like objects should use their .index.
-                raw_value = value if isinstance(value, (str, int, float, bool)) else getattr(value, "index", value)
+                raw_value = (
+                    value
+                    if isinstance(value, (str, int, float, bool))
+                    else (value.get("index") if isinstance(value, Mapping) else getattr(value, "index", value))
+                )
                 if isinstance(raw_value, str) and raw_value.strip().lower() in {"all", "*"}:
                     select_all = True
                     continue
@@ -560,13 +568,17 @@ class ProbeMixin:
                     raise ValueError(f"Invalid selected track index: {value!r}")
                 wanted.add(number)
             chosen = tracks if select_all else [
-                t for t in tracks if safe_int(getattr(t, "index", None), -1) in wanted
+                t for t in tracks if safe_int(track_field(t, "index", None), -1) in wanted
             ]
 
         want_mp3 = True
         remote_size = int(book.remote_size or 0)
         total_duration = sum(float(effective_track_duration(t) or 0) for t in tracks)
-        missing = [t for t in chosen if normalize_track_status(t.local_status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT)]
+        missing = [
+            t for t in chosen
+            if normalize_track_status(track_field(t, "local_status", None))
+            not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT)
+        ]
         missing_duration = sum(float(effective_track_duration(t) or 0) for t in missing)
 
         folder = self._book_folder(book, create=False)
@@ -574,9 +586,9 @@ class ProbeMixin:
         source_remaining = 0
         if need_source and remote_size > 0:
             source_urls = list(dict.fromkeys(
-                str(getattr(track, "file", "") or "")
+                str(track_field(track, "file", "") or "")
                 for track in missing
-                if str(getattr(track, "file", "") or "")
+                if str(track_field(track, "file", "") or "")
             ))
             assignments = source_target_assignments(book, source_urls, folder)
             locally_present = 0
@@ -604,9 +616,9 @@ class ProbeMixin:
                 source_remaining = 0
             else:
                 all_source_urls = list(dict.fromkeys(
-                    str(getattr(track, "file", "") or "")
+                    str(track_field(track, "file", "") or "")
                     for track in tracks
-                    if str(getattr(track, "file", "") or "")
+                    if str(track_field(track, "file", "") or "")
                 ))
                 if len(all_source_urls) <= 1:
                     # A shared-source book must download the complete physical

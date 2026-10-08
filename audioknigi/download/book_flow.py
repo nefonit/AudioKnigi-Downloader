@@ -504,14 +504,13 @@ class BookFlowMixin:
                         pass
 
         source_tracks = list(mp3_needs_creation)
-        missing_source_indices = [
-            index
-            for tr in source_tracks
-            if not str(getattr(tr, "file", "") or "").strip()
-            if (index := safe_int(getattr(tr, "index", None), -1)) >= 0
-        ]
+        missing_source_indices = []
+        for position, tr in enumerate(source_tracks, 1):
+            if not str(getattr(tr, "file", "") or "").strip():
+                index = safe_int(getattr(tr, "index", None), -1)
+                missing_source_indices.append(index if index >= 0 else position)
         if missing_source_indices:
-            joined = ", ".join(str(index) for index in missing_source_indices if index >= 0) or "?"
+            joined = ", ".join(str(index) for index in missing_source_indices) or "?"
             raise RuntimeError(
                 "В плейлисте отсутствует адрес аудиофайла для частей: "
                 f"{joined}. Повторите анализ книги."
@@ -662,7 +661,7 @@ class BookFlowMixin:
             if actual is not None and actual > 0:
                 tr.actual_duration = float(actual)
                 measured_source_timing = True
-        if measured_source_timing and hasattr(self, "ui") and hasattr(self, "_refresh_book_timing_ui"):
+        if measured_source_timing and callable(getattr(self, "ui", None)) and hasattr(self, "_refresh_book_timing_ui"):
             self.ui(lambda b=book: self._refresh_book_timing_ui(b))
 
         if want_mp3 and mp3_needs_creation:
@@ -859,7 +858,7 @@ class BookFlowMixin:
                 tr.local_status = normalize_track_status(status)
                 tr.actual_duration = actual
                 tr.local_path = str(out)
-                if hasattr(self, "ui") and hasattr(self, "_refresh_book_timing_ui"):
+                if callable(getattr(self, "ui", None)) and hasattr(self, "_refresh_book_timing_ui"):
                     self.ui(lambda b=book: self._refresh_book_timing_ui(b))
                 tag_jobs.append((tr, out))
                 self.set_stage(4, i18n_tr(getattr(self, "runtime_language", "ru"), "status_checking_progress", current=pos, total=len(chosen)))

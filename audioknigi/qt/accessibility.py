@@ -454,4 +454,4 @@ def focus_table_row(
     return True
 
 
-__all__ = ["configure_accessible", "ensure_accessibility_tree", "announce", "AccessibleAnnouncer", "focus_table_row"]
+__all__ = ["configure_accessible", "ensure_accessibility_tree", "announce", "AccessibleAnnouncer", "focus_table_row", "install_keyboard_focus_frame", "KeyboardFocusFrameManager"]

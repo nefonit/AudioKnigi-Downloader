@@ -574,5 +574,13 @@
       "en": "Could not create {0} correctly: expected {1}, got {2}.",
       "uk": "Не вдалося коректно створити {0}: очікувалося {1}, отримано {2}."
     }
+  ],
+  [
+    "^Загрузка оборвалась: получено (.+) из (.+)\\.$",
+    {
+      "de": "Download abgebrochen: {0} von {1} empfangen.",
+      "en": "Download was interrupted: received {0} of {1}.",
+      "uk": "Завантаження перервалося: отримано {0} із {1}."
+    }
   ]
 ]

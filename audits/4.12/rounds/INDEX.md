@@ -80,3 +80,5 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20261004_ROUND77.md` — remaining index/search/timeline/cover/accessibility/localization hardening.
 - `AUDIT_NOTES_20261005_ROUND78.md` — zero-index/sidecar/fallback/narration/help localization and DPI follow-up.
 - `AUDIT_NOTES_20261005_ROUND79.md` — primitive/mapping index, metadata, playlist, cleanup, cover, privacy-redaction and accessibility follow-up.
+- `AUDIT_NOTES_20261005_ROUND80.md` — malformed missing-source indices, tiny Range geometry, safe callback indices and zero-index queue re-analysis follow-up.
+- `AUDIT_NOTES_20261006_ROUND81.md` — single-stream integrity, Mapping source planning, Cloudflare health, localization and keyboard-accessibility follow-up.

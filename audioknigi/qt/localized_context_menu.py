@@ -94,6 +94,10 @@ def _delete_selection(widget: QWidget) -> None:
 def _global_menu_position(widget: QWidget, pos: QPoint):
     try:
         if pos.x() < 0 or pos.y() < 0:
+            if isinstance(widget, QLineEdit):
+                return widget.mapToGlobal(widget.rect().bottomLeft())
+            if isinstance(widget, (QPlainTextEdit, QTextEdit)):
+                return widget.viewport().mapToGlobal(widget.cursorRect().bottomLeft())
             return QCursor.pos()
         viewport = widget.viewport() if isinstance(widget, (QPlainTextEdit, QTextEdit)) else widget
         return viewport.mapToGlobal(pos)
