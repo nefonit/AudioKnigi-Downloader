@@ -58,7 +58,7 @@ Traceability connects:
 
 `Requirement → Test Suite → Checklist/Test Case → Automated regression evidence → defect/audit history`
 
-Automated tests use their complete pytest node IDs as stable evidence. Release/audit baselines are tied to Git commits, ZIP hashes where applicable, changelog entries, and audit notes.
+Current automated tests use their complete pytest node IDs as executable evidence. Test Consolidation Stage 1 changed integration module paths, so historical node-path provenance is retained through `tests/integration/README.md` and `consolidation_manifest.json`. Release/audit baselines remain tied to Git commits, ZIP hashes where applicable, changelog entries, and audit notes.
 
 ## Automated Test Baseline
 
@@ -68,7 +68,7 @@ Round 81 regression evidence:
 - **897** passed
 - **2** environment-blocked Qt accessibility self-tests because PySide6 was unavailable in the validation environment
 - **100%** pass rate for runnable automated tests
-- **101** test files
+- **23** test modules: **15 integration + 6 unit + 2 architecture**
 
 Additional quality gates include Python compilation, strict JSON duplicate-key validation, undefined-global checks, unused-import checks, exception audits, Qt localization audits, and historical regression contracts.
 
@@ -87,6 +87,14 @@ Major phases include:
 - 4.12.32–42 — structured refactoring, quality gates, runtime integrity, diagnostics, cancellation, localization, compatibility
 - Rounds 61–81 — systematic external-audit follow-up for edge cases, privacy, indices, network integrity, fallback behavior, accessibility, and regression contracts
 
+## Test Suite Structure Consolidation
+
+Test Consolidation Stage 1 reorganized the integration suite from **93 historical integration test files** into **15 behavior-domain modules** while preserving all **856 integration cases** and all **899 collected tests** across the project.
+
+The consolidation is organizational only: application runtime code is unchanged. Human-readable provenance is stored in `tests/integration/README.md`; machine-readable provenance and per-domain counts are stored in `tests/integration/consolidation_manifest.json`.
+
+New integration regression tests should be added to the relevant domain module rather than creating a new `round`/follow-up module. Round history belongs in `audits/4.12/rounds/`, changelog entries where appropriate, and Git history.
+
 ## Maintenance Rules
 
 1. Every confirmed defect should receive a focused regression test where practical.
@@ -96,3 +104,4 @@ Major phases include:
 5. The two environment-blocked Qt accessibility self-tests must be executed in a suitable PySide6/Windows validation environment before final packaged-release sign-off.
 6. Accessibility and localization are functional requirements, not cosmetic post-processing.
 7. File integrity and privacy guarantees take precedence over optimistic success reporting or diagnostic convenience.
+8. New integration regressions should be placed in the appropriate domain module; do not create new `test_*round*.py` or `test_report_followup_*.py` files.

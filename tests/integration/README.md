@@ -1,0 +1,118 @@
+# Integration test consolidation map
+
+The historical round-oriented integration modules were consolidated by behavior domain.
+Round/audit history remains in `audits/4.12/rounds/` and Git history.
+
+## Domain files
+
+- `test_quality_gates.py` — 32 collected cases (32 test functions), sourced from 15 historical modules.
+- `test_privacy_diagnostics.py` — 46 collected cases (46 test functions), sourced from 34 historical modules.
+- `test_build_release.py` — 36 collected cases (36 test functions), sourced from 23 historical modules.
+- `test_localization.py` — 78 collected cases (72 test functions), sourced from 42 historical modules.
+- `test_accessibility.py` — 53 collected cases (53 test functions), sourced from 35 historical modules.
+- `test_player.py` — 31 collected cases (31 test functions), sourced from 25 historical modules.
+- `test_settings_contract.py` — 42 collected cases (42 test functions), sourced from 33 historical modules.
+- `test_queue_history.py` — 59 collected cases (59 test functions), sourced from 36 historical modules.
+- `test_providers.py` — 153 collected cases (150 test functions), sourced from 58 historical modules.
+- `test_search.py` — 29 collected cases (29 test functions), sourced from 19 historical modules.
+- `test_network.py` — 47 collected cases (47 test functions), sourced from 31 historical modules.
+- `test_media_processing.py` — 71 collected cases (71 test functions), sourced from 44 historical modules.
+- `test_download_flow.py` — 32 collected cases (32 test functions), sourced from 25 historical modules.
+- `test_qt_ui.py` — 39 collected cases (39 test functions), sourced from 22 historical modules.
+- `test_core_services.py` — 108 collected cases (95 test functions), sourced from 52 historical modules.
+
+## Historical file mapping
+
+- `test_acceptance_localization_followup_20260914.py` → `test_accessibility.py` (1), `test_build_release.py` (1), `test_localization.py` (1), `test_quality_gates.py` (2)
+- `test_acceptance_parser_diagnostics_followup_20260915.py` → `test_media_processing.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (3), `test_quality_gates.py` (5)
+- `test_build_wmi_bootstrap_round8_20260916.py` → `test_build_release.py` (5)
+- `test_cancellation_cover_localization_followup_20260914.py` → `test_build_release.py` (1), `test_core_services.py` (1), `test_localization.py` (2), `test_media_processing.py` (4), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (4), `test_settings_contract.py` (1)
+- `test_external_review_hardening_20260928.py` → `test_build_release.py` (1), `test_core_services.py` (1), `test_network.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (4)
+- `test_help_center_round16_20260917.py` → `test_accessibility.py` (3), `test_localization.py` (1)
+- `test_network_parser_retention_round6_20260915.py` → `test_accessibility.py` (1), `test_core_services.py` (1), `test_network.py` (3), `test_providers.py` (3)
+- `test_persistence_cancellation_hardening_20260929.py` → `test_media_processing.py` (1), `test_providers.py` (1), `test_qt_ui.py` (1), `test_queue_history.py` (2), `test_search.py` (1), `test_settings_contract.py` (2)
+- `test_quality_runtime_followup_20260913.py` → `test_build_release.py` (2), `test_media_processing.py` (2), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (2), `test_quality_gates.py` (4), `test_queue_history.py` (2)
+- `test_recovery_diagnostics_hardening_20260912.py` → `test_build_release.py` (1), `test_core_services.py` (2), `test_localization.py` (2), `test_player.py` (1), `test_privacy_diagnostics.py` (2), `test_providers.py` (1), `test_quality_gates.py` (1), `test_queue_history.py` (1)
+- `test_release_integrity_followup_20260913.py` → `test_accessibility.py` (1), `test_build_release.py` (1), `test_core_services.py` (1), `test_localization.py` (2), `test_media_processing.py` (1), `test_providers.py` (1), `test_qt_ui.py` (1), `test_quality_gates.py` (2), `test_queue_history.py` (2)
+- `test_release_quality_followup_20260915.py` → `test_accessibility.py` (2), `test_build_release.py` (2), `test_media_processing.py` (1), `test_privacy_diagnostics.py` (2), `test_providers.py` (2), `test_quality_gates.py` (3), `test_queue_history.py` (3), `test_search.py` (1)
+- `test_report_followup_20260915.py` → `test_core_services.py` (3), `test_localization.py` (2), `test_media_processing.py` (1), `test_providers.py` (3)
+- `test_report_followup_round10_20260916.py` → `test_core_services.py` (1), `test_download_flow.py` (1), `test_localization.py` (3), `test_providers.py` (4)
+- `test_report_followup_round11_20260916.py` → `test_accessibility.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (1), `test_providers.py` (2), `test_queue_history.py` (2)
+- `test_report_followup_round12_20260916.py` → `test_accessibility.py` (1), `test_build_release.py` (1), `test_core_services.py` (1), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (2), `test_qt_ui.py` (1), `test_queue_history.py` (1)
+- `test_report_followup_round13_20260916.py` → `test_accessibility.py` (1), `test_core_services.py` (1), `test_localization.py` (1), `test_media_processing.py` (3), `test_network.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (2), `test_providers.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round14_20260916.py` → `test_accessibility.py` (2), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (4), `test_settings_contract.py` (2)
+- `test_report_followup_round15_20260916.py` → `test_accessibility.py` (1), `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (4), `test_player.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round17_20260917.py` → `test_build_release.py` (1), `test_core_services.py` (1), `test_download_flow.py` (1), `test_localization.py` (2), `test_settings_contract.py` (1)
+- `test_report_followup_round18_20260917.py` → `test_accessibility.py` (1), `test_core_services.py` (2), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_queue_history.py` (1)
+- `test_report_followup_round19_20260917.py` → `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (1), `test_providers.py` (3), `test_qt_ui.py` (1), `test_search.py` (1)
+- `test_report_followup_round20_20260917.py` → `test_localization.py` (1), `test_media_processing.py` (2), `test_player.py` (1), `test_providers.py` (4), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round21_20260917.py` → `test_accessibility.py` (2), `test_build_release.py` (1), `test_core_services.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (2), `test_queue_history.py` (1)
+- `test_report_followup_round22_20260917.py` → `test_download_flow.py` (2), `test_network.py` (3), `test_providers.py` (1), `test_qt_ui.py` (1), `test_queue_history.py` (1)
+- `test_report_followup_round23_20260918.py` → `test_core_services.py` (3)
+- `test_report_followup_round24_20260918.py` → `test_localization.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (2), `test_providers.py` (4), `test_search.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round25_20260918.py` → `test_search.py` (3)
+- `test_report_followup_round26_20260918.py` → `test_qt_ui.py` (3), `test_search.py` (1)
+- `test_report_followup_round27_20260918.py` → `test_download_flow.py` (1), `test_qt_ui.py` (1), `test_queue_history.py` (3)
+- `test_report_followup_round28_20260918.py` → `test_download_flow.py` (1), `test_qt_ui.py` (1), `test_search.py` (2)
+- `test_report_followup_round29_20260918.py` → `test_search.py` (2)
+- `test_report_followup_round2_20260915.py` → `test_accessibility.py` (3), `test_download_flow.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round30_20260918.py` → `test_providers.py` (4)
+- `test_report_followup_round31_20260918.py` → `test_accessibility.py` (1), `test_providers.py` (1), `test_qt_ui.py` (1), `test_search.py` (1)
+- `test_report_followup_round32_20260918.py` → `test_accessibility.py` (1), `test_core_services.py` (2), `test_localization.py` (4), `test_network.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (3), `test_queue_history.py` (2)
+- `test_report_followup_round33_20260918.py` → `test_build_release.py` (1), `test_core_services.py` (6), `test_download_flow.py` (2), `test_media_processing.py` (3), `test_network.py` (1), `test_providers.py` (3), `test_qt_ui.py` (1), `test_quality_gates.py` (1), `test_queue_history.py` (1), `test_search.py` (1)
+- `test_report_followup_round34_20260919.py` → `test_accessibility.py` (1), `test_core_services.py` (1), `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (1), `test_providers.py` (6), `test_quality_gates.py` (1), `test_queue_history.py` (2), `test_search.py` (2), `test_settings_contract.py` (2)
+- `test_report_followup_round36_20260919.py` → `test_providers.py` (8), `test_qt_ui.py` (2)
+- `test_report_followup_round37_20260919.py` → `test_providers.py` (5)
+- `test_report_followup_round38_20260919.py` → `test_accessibility.py` (2), `test_providers.py` (4), `test_quality_gates.py` (1)
+- `test_report_followup_round39_20260919.py` → `test_accessibility.py` (2), `test_player.py` (1), `test_qt_ui.py` (4)
+- `test_report_followup_round3_20260915.py` → `test_accessibility.py` (1), `test_localization.py` (3), `test_media_processing.py` (4), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round40_20260920.py` → `test_accessibility.py` (2), `test_network.py` (1), `test_qt_ui.py` (2), `test_search.py` (2)
+- `test_report_followup_round41_20260920.py` → `test_media_processing.py` (1), `test_player.py` (1), `test_providers.py` (1), `test_qt_ui.py` (3), `test_queue_history.py` (1)
+- `test_report_followup_round42_20260920.py` → `test_accessibility.py` (2), `test_qt_ui.py` (4), `test_quality_gates.py` (1), `test_settings_contract.py` (2)
+- `test_report_followup_round43_20260920.py` → `test_accessibility.py` (1), `test_build_release.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_providers.py` (5), `test_settings_contract.py` (1)
+- `test_report_followup_round44_20260920.py` → `test_accessibility.py` (2), `test_core_services.py` (2), `test_network.py` (1), `test_player.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (3), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round45_20260921.py` → `test_accessibility.py` (1), `test_build_release.py` (1), `test_core_services.py` (1), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (3), `test_privacy_diagnostics.py` (2), `test_providers.py` (2), `test_settings_contract.py` (2)
+- `test_report_followup_round46_20260922.py` → `test_accessibility.py` (1), `test_core_services.py` (1), `test_media_processing.py` (1), `test_providers.py` (3), `test_queue_history.py` (4), `test_search.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round47_20260923.py` → `test_core_services.py` (2), `test_localization.py` (1), `test_media_processing.py` (1), `test_privacy_diagnostics.py` (2), `test_providers.py` (3), `test_queue_history.py` (1), `test_settings_contract.py` (2)
+- `test_report_followup_round48_20260923.py` → `test_providers.py` (1), `test_qt_ui.py` (5)
+- `test_report_followup_round49_20260924.py` → `test_core_services.py` (1), `test_media_processing.py` (1), `test_privacy_diagnostics.py` (3), `test_providers.py` (1), `test_qt_ui.py` (1), `test_settings_contract.py` (1)
+- `test_report_followup_round50_20260924.py` → `test_providers.py` (3), `test_qt_ui.py` (2)
+- `test_report_followup_round51_20260924.py` → `test_search.py` (5)
+- `test_report_followup_round52_20260924.py` → `test_core_services.py` (1), `test_download_flow.py` (2), `test_network.py` (1), `test_privacy_diagnostics.py` (2), `test_settings_contract.py` (1)
+- `test_report_followup_round53_20260926.py` → `test_core_services.py` (6), `test_localization.py` (2), `test_quality_gates.py` (2)
+- `test_report_followup_round54_20260926.py` → `test_core_services.py` (5), `test_localization.py` (1), `test_qt_ui.py` (1), `test_quality_gates.py` (1)
+- `test_report_followup_round5_20260915.py` → `test_build_release.py` (1), `test_core_services.py` (1), `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (1), `test_providers.py` (3)
+- `test_report_followup_round9_20260916.py` → `test_core_services.py` (1), `test_localization.py` (1), `test_media_processing.py` (1), `test_providers.py` (4), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_round4_circular_import_20260915.py` → `test_core_services.py` (1), `test_download_flow.py` (1)
+- `test_round55_accessibility_guidance_20260926.py` → `test_accessibility.py` (4), `test_core_services.py` (1), `test_media_processing.py` (1), `test_network.py` (2), `test_quality_gates.py` (1), `test_search.py` (1)
+- `test_round56_qt_lifecycle_20260926.py` → `test_accessibility.py` (2), `test_qt_ui.py` (1)
+- `test_round57_selftest_finally_20260926.py` → `test_accessibility.py` (1), `test_core_services.py` (2)
+- `test_round58_dns_resilience_20260928.py` → `test_accessibility.py` (2), `test_build_release.py` (1), `test_core_services.py` (1), `test_network.py` (8)
+- `test_round61_external_review_followup_20260929.py` → `test_localization.py` (1), `test_media_processing.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (2), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_round62_followup_20260929.py` → `test_core_services.py` (1), `test_localization.py` (2), `test_media_processing.py` (1), `test_network.py` (2), `test_player.py` (1), `test_privacy_diagnostics.py` (1)
+- `test_round63_followup_20260929.py` → `test_core_services.py` (1), `test_localization.py` (2), `test_privacy_diagnostics.py` (2), `test_providers.py` (1), `test_settings_contract.py` (1)
+- `test_round64_qt_fontdir_20260929.py` → `test_build_release.py` (2), `test_core_services.py` (1)
+- `test_round65_poleknig_search_relevance_20260929.py` → `test_core_services.py` (1), `test_providers.py` (4), `test_qt_ui.py` (1)
+- `test_round66_runtime_followup_20260929.py` → `test_core_services.py` (1), `test_localization.py` (1), `test_media_processing.py` (1), `test_network.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_queue_history.py` (1)
+- `test_round67_runtime_followup_20260929.py` → `test_core_services.py` (1), `test_localization.py` (1), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_qt_ui.py` (1), `test_queue_history.py` (3)
+- `test_round68_creator_metadata_20260929.py` → `test_accessibility.py` (1), `test_build_release.py` (2), `test_core_services.py` (1), `test_localization.py` (1)
+- `test_round69_runtime_followup_20260930.py` → `test_download_flow.py` (1), `test_localization.py` (2), `test_media_processing.py` (1), `test_network.py` (1), `test_providers.py` (2)
+- `test_round70_runtime_followup_20260930.py` → `test_build_release.py` (2), `test_core_services.py` (2), `test_download_flow.py` (2), `test_localization.py` (1), `test_media_processing.py` (1), `test_player.py` (2), `test_providers.py` (1), `test_queue_history.py` (1), `test_search.py` (1), `test_settings_contract.py` (1)
+- `test_round71_runtime_followup_20260930.py` → `test_core_services.py` (3), `test_download_flow.py` (1), `test_localization.py` (1), `test_player.py` (1), `test_providers.py` (1)
+- `test_round72_search_sorting_availability_layout_20261002.py` → `test_accessibility.py` (1), `test_core_services.py` (1), `test_download_flow.py` (1), `test_localization.py` (1), `test_providers.py` (1), `test_search.py` (1)
+- `test_round73_runtime_followup_20261002.py` → `test_accessibility.py` (1), `test_localization.py` (3), `test_media_processing.py` (4), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (3), `test_queue_history.py` (4), `test_settings_contract.py` (1)
+- `test_round74_runtime_followup_20261002.py` → `test_accessibility.py` (1), `test_core_services.py` (2), `test_download_flow.py` (2), `test_localization.py` (3), `test_media_processing.py` (4), `test_providers.py` (2), `test_queue_history.py` (2), `test_settings_contract.py` (1)
+- `test_round75_external_review_followup_20261003.py` → `test_core_services.py` (2), `test_localization.py` (1), `test_media_processing.py` (1), `test_settings_contract.py` (1)
+- `test_round76_external_review_followup_20261003.py` → `test_privacy_diagnostics.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (2)
+- `test_round77_external_review_followup_20261004.py` → `test_core_services.py` (4), `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (2), `test_privacy_diagnostics.py` (1), `test_queue_history.py` (1), `test_search.py` (1)
+- `test_round78_external_review_followup_20261005.py` → `test_core_services.py` (2), `test_localization.py` (3), `test_media_processing.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (5), `test_settings_contract.py` (1)
+- `test_round79_external_review_followup_20261005.py` → `test_core_services.py` (3), `test_download_flow.py` (1), `test_localization.py` (1), `test_media_processing.py` (2), `test_privacy_diagnostics.py` (1), `test_providers.py` (3), `test_settings_contract.py` (1)
+- `test_round80_external_review_followup_20261005.py` → `test_core_services.py` (2), `test_media_processing.py` (2), `test_network.py` (2), `test_privacy_diagnostics.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_round81_external_review_followup_20261006.py` → `test_accessibility.py` (1), `test_core_services.py` (2), `test_download_flow.py` (2), `test_localization.py` (1), `test_media_processing.py` (1), `test_network.py` (2)
+- `test_runtime_contract_hardening_20260912.py` → `test_build_release.py` (3), `test_core_services.py` (4), `test_download_flow.py` (1), `test_player.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_queue_history.py` (2), `test_search.py` (1), `test_settings_contract.py` (3)
+- `test_runtime_followup_round7_20260916.py` → `test_core_services.py` (2), `test_download_flow.py` (1), `test_localization.py` (2), `test_media_processing.py` (2), `test_player.py` (1), `test_providers.py` (1), `test_queue_history.py` (2)
+- `test_runtime_integrity_followup_20260912.py` → `test_build_release.py` (3), `test_core_services.py` (2), `test_download_flow.py` (2), `test_localization.py` (3), `test_media_processing.py` (1), `test_network.py` (1), `test_player.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_services.py` → `test_player.py` (1), `test_queue_history.py` (1), `test_settings_contract.py` (1)
+- `test_stability_localization_followup_20260915.py` → `test_accessibility.py` (2), `test_build_release.py` (1), `test_localization.py` (4), `test_media_processing.py` (2), `test_network.py` (1), `test_privacy_diagnostics.py` (1), `test_providers.py` (1), `test_queue_history.py` (3)
+- `test_static_quality_gates.py` → `test_core_services.py` (1), `test_quality_gates.py` (5)
+- `test_structured_hardening_20260912.py` → `test_build_release.py` (1), `test_core_services.py` (2), `test_download_flow.py` (1), `test_localization.py` (3), `test_privacy_diagnostics.py` (3), `test_providers.py` (4), `test_quality_gates.py` (2)
