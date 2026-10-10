@@ -678,10 +678,18 @@ class QueueUiMixin:
         new_idx = idx + int(delta)
         if not (0 <= new_idx < len(self.queue_tasks)):
             return
+        # Clear the old row under a blocker before mutating the backing list.
+        # Otherwise _refresh_queue() resolves that row against the post-swap
+        # list, briefly restoring the other task before selectRow(new_idx)
+        # selects the moved one and causes duplicate screen-reader feedback.
+        blocker = QSignalBlocker(self.queue_table)
+        self.queue_table.clearSelection()
+        self.queue_table.setCurrentCell(-1, -1)
+        del blocker
         self.queue_tasks[idx], self.queue_tasks[new_idx] = self.queue_tasks[new_idx], self.queue_tasks[idx]
         self._persist_queue()
         self._refresh_queue()
-        self.queue_table.selectRow(new_idx)
+        focus_table_row(self.queue_table, new_idx, column=2, focus=True)
 
     @Slot()
     def remove_queue_selected(self):

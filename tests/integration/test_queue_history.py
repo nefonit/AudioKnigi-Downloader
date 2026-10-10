@@ -806,3 +806,116 @@ def test_backup_uses_memory_snapshots_instead_of_zipfile_write(tmp_path, monkeyp
         assert manifest['includes'] == ['settings.json']
     source_text = (ROOT / 'audioknigi' / 'services' / 'library_service.py').read_text(encoding='utf-8')
     assert 'archive.write(source' not in source_text
+
+# Post-consolidation: Round 83 external audit follow-up.
+def test_queue_deserialization_understands_german_boolean_values():
+    from audioknigi.services.queue_service import _optional_persisted_bool, _track_from_dict
+
+    assert _track_from_dict({'index': 1, 'selected': 'nein'}).selected is False
+    assert _track_from_dict({'index': 1, 'selected': 'ja'}).selected is True
+    assert _optional_persisted_bool({'flag': 'nein'}, 'flag') is False
+    assert _optional_persisted_bool({'flag': 'ja'}, 'flag') is True
+
+
+def test_queue_task_url_fails_closed_for_missing_legacy_book():
+    from types import SimpleNamespace
+    from audioknigi.services.queue_service import QueueTask
+
+    task = QueueTask(id='legacy', request=SimpleNamespace(book=None), title='Legacy')
+    assert task.url == ''
+
+
+def test_restore_backup_snapshots_history_under_history_lock(monkeypatch, tmp_path):
+    from audioknigi.services import library_service
+
+    history = tmp_path / 'history.json'
+    history.write_text('[]', encoding='utf-8')
+
+    class LockProbe:
+        def __init__(self):
+            self.depth = 0
+
+        def __enter__(self):
+            self.depth += 1
+            return self
+
+        def __exit__(self, *_args):
+            self.depth -= 1
+
+    lock = LockProbe()
+    monkeypatch.setattr(library_service, 'APP_DIR', tmp_path)
+    monkeypatch.setattr(library_service, 'HISTORY_FILE', history)
+    monkeypatch.setattr(library_service, 'HISTORY_LOCK', lock)
+    monkeypatch.setattr(library_service, 'BACKUP_MEMBERS', {'history.json': history})
+    monkeypatch.setattr(library_service, '_validated_backup_payloads', lambda _path: {'history.json': []})
+
+    original_reader = library_service._read_backup_member
+
+    def checked_reader(path):
+        assert path == history
+        assert lock.depth > 0
+        return original_reader(path)
+
+    monkeypatch.setattr(library_service, '_read_backup_member', checked_reader)
+    monkeypatch.setattr(library_service, 'save_json', lambda *_args, **_kwargs: True)
+    assert library_service.restore_backup(tmp_path / 'backup.zip') == ['history.json']
+
+
+# Post-consolidation: Round 86 external audit follow-up.
+def test_restore_backup_holds_history_lock_for_entire_transaction(monkeypatch, tmp_path):
+    from audioknigi.services import library_service
+
+    history = tmp_path / "history.json"
+    settings = tmp_path / "settings.json"
+    history.write_text("[]", encoding="utf-8")
+    settings.write_text('{"before": true}', encoding="utf-8")
+
+    class LockProbe:
+        def __init__(self):
+            self.depth = 0
+            self.entries = 0
+        def __enter__(self):
+            self.depth += 1
+            self.entries += 1
+            return self
+        def __exit__(self, *_args):
+            self.depth -= 1
+
+    lock = LockProbe()
+    monkeypatch.setattr(library_service, "APP_DIR", tmp_path)
+    monkeypatch.setattr(library_service, "HISTORY_FILE", history)
+    monkeypatch.setattr(library_service, "HISTORY_LOCK", lock)
+    monkeypatch.setattr(
+        library_service,
+        "BACKUP_MEMBERS",
+        {"history.json": history, "settings.json": settings},
+    )
+    monkeypatch.setattr(
+        library_service,
+        "_validated_backup_payloads",
+        lambda _path: {"history.json": [], "settings.json": {"after": True}},
+    )
+
+    original_reader = library_service._read_backup_member
+    writes = []
+    def checked_reader(path):
+        assert lock.depth > 0
+        return original_reader(path)
+    def checked_save(path, data, **_kwargs):
+        assert lock.depth > 0
+        writes.append((Path(path).name, data))
+        return True
+
+    monkeypatch.setattr(library_service, "_read_backup_member", checked_reader)
+    monkeypatch.setattr(library_service, "save_json", checked_save)
+    assert library_service.restore_backup(tmp_path / "backup.zip") == ["history.json", "settings.json"]
+    assert lock.entries == 1
+    assert lock.depth == 0
+    assert [name for name, _data in writes] == ["history.json", "settings.json"]
+
+
+def test_queue_empty_selection_contract_remains_explicit_not_all_tracks():
+    # Current snapshots serialize None for "all tracks". An explicit [] means
+    # "nothing selected" and must not silently become a full-book download.
+    assert _parse_selected_indices_payload(None) is None
+    assert _parse_selected_indices_payload([]) == []

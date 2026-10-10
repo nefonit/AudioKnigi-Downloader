@@ -82,3 +82,8 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20261005_ROUND79.md` — primitive/mapping index, metadata, playlist, cleanup, cover, privacy-redaction and accessibility follow-up.
 - `AUDIT_NOTES_20261005_ROUND80.md` — malformed missing-source indices, tiny Range geometry, safe callback indices and zero-index queue re-analysis follow-up.
 - `AUDIT_NOTES_20261006_ROUND81.md` — single-stream integrity, Mapping source planning, Cloudflare health, localization and keyboard-accessibility follow-up.
+- `AUDIT_NOTES_20261008_ROUND82.md` — one-shot HTTP 416 restart and search-result pluralization follow-up after test consolidation.
+- `AUDIT_NOTES_20261010_ROUND83.md` — privacy-route, legacy settings/queue, backup locking, full-MP3 and Qt edge-case hardening follow-up.
+- `AUDIT_NOTES_20261010_ROUND84.md` — Qt session diagnostics, stale crash-report filtering and F1 Help Center accessibility follow-up.
+- `AUDIT_NOTES_20261010_ROUND85.md` — Range fallback, ffprobe cleanup, timeline issue schema and localization-key cleanup follow-up.
+- `AUDIT_NOTES_20261010_ROUND86.md` — backup/cancellation/provider/accessibility/queue/modal-dialog hardening and regression follow-up.

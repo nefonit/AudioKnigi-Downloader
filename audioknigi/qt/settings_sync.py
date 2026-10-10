@@ -74,7 +74,17 @@ class SettingsSyncMixin:
                 rate = float(data.get("player_rate", 1.0) or 1.0)
             except (TypeError, ValueError):
                 rate = 1.0
-            self._set_combo_data(self.player_rate_combo, rate)
+            rate_index = self.player_rate_combo.findData(rate)
+            if rate_index < 0 and self.player_rate_combo.count() > 0:
+                try:
+                    rate_index = min(
+                        range(self.player_rate_combo.count()),
+                        key=lambda idx: abs(float(self.player_rate_combo.itemData(idx)) - rate),
+                    )
+                except (TypeError, ValueError):
+                    rate_index = self.player_rate_combo.findData(1.0)
+            if rate_index >= 0:
+                self.player_rate_combo.setCurrentIndex(rate_index)
         if hasattr(self, "easy_output_edit"):
             self.easy_output_edit.setText(str(data.get("output_dir", DEFAULT_OUTPUT) or DEFAULT_OUTPUT))
         if hasattr(self, "book_output_edit"):

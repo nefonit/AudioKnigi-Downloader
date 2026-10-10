@@ -180,7 +180,9 @@ def test_help_header_no_longer_calls_it_short_instructions() -> None:
 
 def test_help_menu_opens_dedicated_shortcuts_topic_on_f1() -> None:
     source = ACCESSIBILITY_UI.read_text(encoding='utf-8')
-    assert 'shortcuts_action.triggered.connect(lambda: self.show_context_help(topic="shortcuts"))' in source
+    assert 'shortcuts_action.triggered.connect(self.show_shortcuts_help)' in source
+    assert 'def show_shortcuts_help(self, _checked=False):' in source
+    assert 'self.show_context_help(topic="shortcuts")' in source
     assert 'help_action.setShortcut(QKeySequence("Shift+F1"))' in source
     assert any((key == 'shortcuts' for key, _title, _body in _topics()['ru']))
 
@@ -850,10 +852,11 @@ def test_help_accessibility_polish_is_present():
     assert '"install_keyboard_focus_frame"' in accessibility
     assert '"KeyboardFocusFrameManager"' in accessibility
     context_menu = (ROOT / 'audioknigi/qt/localized_context_menu.py').read_text(encoding='utf-8')
-    assert 'widget.viewport().mapToGlobal(widget.cursorRect().bottomLeft())' in context_menu
+    assert 'viewport.mapToGlobal(point)' in context_menu
+    assert 'point.setX(max(visible.left(), min(visible.right(), point.x())))' in context_menu
     assert 'widget.mapToGlobal(widget.rect().bottomLeft())' in context_menu
     help_center = (ROOT / 'audioknigi/qt/help_center.py').read_text(encoding='utf-8')
-    assert 'Leertaste|Пробіл|Esc' in help_center
+    assert 'Leertaste|Пробел|Пробіл|Esc' in help_center
 
 
 # Origin: test_stability_localization_followup_20260915.py
@@ -869,3 +872,104 @@ def test_player_tab_has_alt_shortcut_too():
     source = (ROOT / 'audioknigi' / 'qt' / 'mixins' / 'accessibility_ui.py').read_text(encoding='utf-8')
     marker = 'for number, tab_index in enumerate([self.TAB_BOOK, self.TAB_SEARCH, self.TAB_QUEUE, self.TAB_HISTORY, self.TAB_SETTINGS, self.TAB_PLAYER], start=1):'
     assert source.count(marker) >= 2
+
+# Post-consolidation: Round 83 external audit follow-up.
+def test_focus_table_row_fails_closed_for_deleted_qt_wrappers_source_contract():
+    source = (ROOT / 'audioknigi/qt/accessibility.py').read_text(encoding='utf-8')
+    start = source.index('def focus_table_row(')
+    end = source.index('__all__', start)
+    block = source[start:end]
+    assert 'except RuntimeError:' in block
+    assert 'return False' in block
+
+
+def test_ui_mode_switch_releases_easy_only_operation_block_source_contract():
+    source = (ROOT / 'audioknigi/qt/main_window.py').read_text(encoding='utf-8')
+    start = source.index('def set_ui_mode(')
+    end = source.index('def current_ui_mode', start)
+    block = source[start:end]
+    assert 'if self._operation_dialog is not None:' in block
+    assert 'self._set_operation_ui_blocked(mode == "easy")' in block
+
+# Post-consolidation: Round 84 user-log/accessibility follow-up.
+def test_f1_shortcuts_action_uses_triggered_bool_compatible_slot():
+    source = (ROOT / 'audioknigi/qt/mixins/accessibility_ui.py').read_text(encoding='utf-8')
+    assert 'def show_shortcuts_help(self, _checked=False):' in source
+    assert 'shortcuts_action.triggered.connect(self.show_shortcuts_help)' in source
+    assert 'shortcuts_action.triggered.connect(lambda: self.show_context_help(topic="shortcuts"))' not in source
+
+
+def test_context_help_action_and_f1_shortcuts_keep_separate_topics():
+    source = (ROOT / 'audioknigi/qt/mixins/accessibility_ui.py').read_text(encoding='utf-8')
+    assert 'help_action.setShortcut(QKeySequence("Shift+F1"))' in source
+    assert 'help_action.triggered.connect(self.show_context_help)' in source
+    assert 'shortcuts_action.setShortcut(QKeySequence("F1"))' in source
+    shortcuts = source[source.index('def show_shortcuts_help'):source.index('def copy_last_crash_report')]
+    assert 'self.show_context_help(topic="shortcuts")' in shortcuts
+
+
+# Post-consolidation: Round 86 external audit follow-up.
+def test_accessibility_round86_keyboard_and_localization_contracts():
+    accessibility = (ROOT / "audioknigi/qt/accessibility.py").read_text(encoding="utf-8")
+    help_center = (ROOT / "audioknigi/qt/help_center.py").read_text(encoding="utf-8")
+    context_menu = (ROOT / "audioknigi/qt/localized_context_menu.py").read_text(encoding="utf-8")
+    pages = (ROOT / "audioknigi/qt/main_window_pages.py").read_text(encoding="utf-8")
+    track_model = (ROOT / "audioknigi/qt/track_model.py").read_text(encoding="utf-8")
+
+    assert "_DIRECT_ANNOUNCE_LAST_AT < 0.25" in accessibility
+    assert "Leertaste|Пробел|Пробіл|Esc" in help_center
+    assert "point.setX(max(visible.left(), min(visible.right(), point.x())))" in context_menu
+    assert "point.setY(max(visible.top(), min(visible.bottom(), point.y())))" in context_menu
+
+    # Accessible names/descriptions in the page builder are now localized.
+    assert 'name="' not in pages
+    assert 'description="' not in pages
+    assert 'settings_general' in pages
+    assert 'settings_download_network' in pages
+    assert 'settings_appearance_sound' in pages
+    assert 'settings_integrations_backup' in pages
+    assert 'identifier="settings_" + title.lower()' not in pages
+
+    assert "Qt.ItemDataRole.CheckStateRole" in track_model
+    assert "Qt.ItemDataRole.AccessibleTextRole" in track_model
+    assert "Qt.ItemDataRole.AccessibleDescriptionRole" in track_model
+    assert "self.dataChanged.emit(left, right, [])" not in track_model
+
+
+def test_missing_media_skip_is_resolved_only_after_clicked_button_is_known():
+    source = (ROOT / "audioknigi/qt/mixins/analysis_download.py").read_text(encoding="utf-8")
+    block = source[source.index("def _resolve_missing_media"):source.index("def _download_request_changed")]
+    assert "box.finished.connect(" not in block
+    assert "clicked_button = box.clickedButton()" in block
+    assert 'prompt.resolve("skip" if skip_button is not None and clicked_button is skip_button else "stop")' in block
+
+
+def test_queue_move_and_easy_mode_preserve_single_accessible_focus_context():
+    queue = (ROOT / "audioknigi/qt/mixins/queue.py").read_text(encoding="utf-8")
+    move = queue[queue.index("def move_queue_selected"):queue.index("def remove_queue_selected")]
+    assert "QSignalBlocker(self.queue_table)" in move
+    assert "self.queue_table.selectRow(new_idx)" not in move
+    assert "focus_table_row(self.queue_table, new_idx, column=2, focus=True)" in move
+
+    main = (ROOT / "audioknigi/qt/main_window.py").read_text(encoding="utf-8")
+    block = main[main.index("def _easy_operation_active"):main.index("def _easy_reset_to_initial_state")]
+    assert 'getattr(self, "_queue_running", False)' in block
+
+
+def test_ui_scale_uses_resolved_immutable_baseline_and_speed_graph_clamps_bounds():
+    application = (ROOT / "audioknigi/qt/application.py").read_text(encoding="utf-8")
+    scale = application[application.index("def apply_ui_scale"):application.index("def create_application")]
+    assert "if base_font.pointSizeF() <= 0 and base_font.pixelSize() <= 0:" in scale
+    assert "base_font.setPointSizeF(effective)" in scale
+    assert "app._audioknigi_base_font_py = QFont(base_font)" in scale
+
+    graph = (ROOT / "audioknigi/qt/speed_graph.py").read_text(encoding="utf-8")
+    assert "graph_bottom = max(graph_top, self.height() - 3)" in graph
+    assert "min(float(self.height() - 2), y)" in graph
+
+
+def test_event_sound_shutdown_balances_unconsumed_sentinel_source_contract():
+    source = (ROOT / "audioknigi/qt/event_sounds.py").read_text(encoding="utf-8")
+    shutdown = source[source.index("def shutdown(self):"):source.index("__all__")]
+    assert shutdown.count("self._system_sound_queue.get_nowait()") >= 2
+    assert shutdown.count("self._system_sound_queue.task_done()") >= 2

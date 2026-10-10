@@ -839,3 +839,35 @@ def test_runtime_regex_supports_multiline_capture():
     translated = localize_runtime_text('en', text)
     assert translated.startswith('Backup created:\n')
     assert 'extra' in translated
+
+# Round 82: post-consolidation audit follow-up
+
+def test_search_result_pluralization_has_correct_singular_and_few_forms():
+    assert localize_runtime_text("en", "Найдена 1 книга.") == "Found 1 book."
+    assert localize_runtime_text("de", "Найдена 1 книга.") == "1 Buch gefunden."
+    assert localize_runtime_text("uk", "Найдена 1 книга.") == "Знайдено 1 книгу."
+    assert localize_runtime_text("en", "Найдено 2 книги.") == "Found 2 books."
+    assert localize_runtime_text("de", "Найдено 2 книги.") == "2 Bücher gefunden."
+    assert localize_runtime_text("uk", "Найдено 2 книги.") == "Знайдено 2 книги."
+    assert localize_runtime_text("en", "Найдена 1 книга, источников: 1.") == "Found 1 book, sources: 1."
+    source = (ROOT / "audioknigi/qt/mixins/search.py").read_text(encoding="utf-8")
+    assert 'result_summary = f"Найдена {result_count} книга"' in source
+    assert 'result_summary = f"Найдено {result_count} книги"' in source
+
+# Post-consolidation: Round 85 external audit follow-up.
+def test_runtime_localization_does_not_require_leading_space_catalog_keys():
+    exact = json.loads((ROOT / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8"))
+    legacy = json.loads((ROOT / "audioknigi/locales/legacy_literals.json").read_text(encoding="utf-8"))
+    advice = "В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS."
+
+    assert " Системный трей активен." not in exact
+    assert " Системный трей недоступен." not in exact
+    assert "Системный трей активен." in exact
+    assert "Системный трей недоступен." in exact
+    assert all(advice in mapping for mapping in legacy.values())
+    assert all((" " + advice) not in mapping for mapping in legacy.values())
+
+    main_window = (ROOT / "audioknigi/qt/main_window.py").read_text(encoding="utf-8")
+    accessibility_ui = (ROOT / "audioknigi/qt/mixins/accessibility_ui.py").read_text(encoding="utf-8")
+    assert 'self.set_status(f"{ready_text} {tray_text}")' in main_window
+    assert 'dns_advice = " " + self._l(' in accessibility_ui

@@ -153,9 +153,18 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks[index.row()].selected = bool(selected)
         left = self.index(index.row(), 0)
         right = self.index(index.row(), max(0, self.columnCount() - 1))
-        # Empty roles means every role changed. This reliably refreshes both
-        # the visual checkbox and cached Windows UIA/NVDA row text.
-        self.dataChanged.emit(left, right, [])
+        # Explicit roles make Windows UIA/NVDA receive the checkbox and
+        # accessible-row text update immediately on Space, including Qt builds
+        # that do not propagate an empty "all roles" vector to accessibility.
+        self.dataChanged.emit(
+            left,
+            right,
+            [
+                Qt.ItemDataRole.CheckStateRole,
+                Qt.ItemDataRole.AccessibleTextRole,
+                Qt.ItemDataRole.AccessibleDescriptionRole,
+            ],
+        )
         return True
 
     def set_book(self, book: Book | None):

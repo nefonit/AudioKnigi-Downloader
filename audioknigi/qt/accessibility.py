@@ -327,7 +327,7 @@ def announce(widget: QWidget, message: str, *, assertive: bool = False) -> None:
             # cannot flood Windows UIA/NVDA with dozens of events per second.
             if now - _DIRECT_ANNOUNCE_LAST_AT < 0.06:
                 return
-            if text == _DIRECT_ANNOUNCE_LAST_TEXT and now - _DIRECT_ANNOUNCE_LAST_AT < 0.8:
+            if text == _DIRECT_ANNOUNCE_LAST_TEXT and now - _DIRECT_ANNOUNCE_LAST_AT < 0.25:
                 return
             _DIRECT_ANNOUNCE_LAST_TEXT = text
             _DIRECT_ANNOUNCE_LAST_AT = now
@@ -429,29 +429,36 @@ def focus_table_row(
     """Give a table a real current cell/row before moving keyboard focus to it.
 
     Screen readers can otherwise announce only "table" after a model reset because
-    the view has focus but no current accessible cell.
+    the view has focus but no current accessible cell. Delayed Qt callbacks can
+    outlive the underlying C++ view/model, so deleted wrappers fail closed.
     """
-    model = view.model()
-    if model is None or row < 0 or row >= model.rowCount():
-        return False
-    column = max(0, min(int(column), max(0, model.columnCount() - 1)))
-    index = model.index(int(row), column)
-    if not index.isValid():
-        return False
-    view.setCurrentIndex(index)
-    selection = view.selectionModel()
-    if selection is not None:
-        flags = QItemSelectionModel.SelectionFlag.ClearAndSelect
-        if view.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectRows:
-            flags |= QItemSelectionModel.SelectionFlag.Rows
-        selection.select(index, flags)
     try:
-        view.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
-    except Exception:
-        pass
-    if focus:
-        view.setFocus(reason)
-    return True
+        model = view.model()
+        if model is None or row < 0 or row >= model.rowCount():
+            return False
+        column = max(0, min(int(column), max(0, model.columnCount() - 1)))
+        index = model.index(int(row), column)
+        if not index.isValid():
+            return False
+        view.setCurrentIndex(index)
+        selection = view.selectionModel()
+        if selection is not None:
+            flags = QItemSelectionModel.SelectionFlag.ClearAndSelect
+            if view.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectRows:
+                flags |= QItemSelectionModel.SelectionFlag.Rows
+            selection.select(index, flags)
+        try:
+            view.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
+        except Exception:
+            pass
+        if focus:
+            view.setFocus(reason)
+        return True
+    except RuntimeError:
+        # QTimer/signal callbacks may run after a QTableView or its model was
+        # destroyed by a fast page/search transition. This is a stale UI event,
+        # not a product failure.
+        return False
 
 
 __all__ = ["configure_accessible", "ensure_accessibility_tree", "announce", "AccessibleAnnouncer", "focus_table_row", "install_keyboard_focus_frame", "KeyboardFocusFrameManager"]

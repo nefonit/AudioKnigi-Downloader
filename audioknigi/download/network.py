@@ -207,6 +207,14 @@ class NetworkDownloadMixin:
             return 0
         with lock:
             active = list(processes)
+            # Claim the snapshot before killing outside the lock. Multiple
+            # download/split workers can observe the same cancel_event at once;
+            # only one of them should issue kill() for a given Windows handle.
+            try:
+                processes.difference_update(active)
+            except Exception:
+                for proc in active:
+                    processes.discard(proc)
         killed = 0
         for proc in active:
             try:
@@ -298,7 +306,7 @@ class NetworkDownloadMixin:
         except Exception:
             return False, 0
 
-    def _download_single(self, url, target, referer):
+    def _download_single(self, url, target, referer, *, _restart_after_416=False):
         self._check_cancel()
         target = Path(target)
         part = target.with_name(target.name + ".part")
@@ -316,6 +324,13 @@ class NetworkDownloadMixin:
             with session.get(url, headers=headers, stream=True, timeout=(20, 120)) as response:
                 self._register_active_network_response(response)
                 try:
+                    # A retry after discarding a stale/oversized .part must be the
+                    # final restart attempt. If a broken CDN/proxy answers 416 even
+                    # to that zero-offset request, surface the HTTP failure instead
+                    # of ever recursing again.
+                    if _restart_after_416 and response.status_code == 416:
+                        response.raise_for_status()
+
                     # A previous run may have downloaded the complete .part but
                     # exited before the final atomic rename.  Servers correctly
                     # answer Range: bytes=<total>- with 416; Content-Range tells us
@@ -401,7 +416,7 @@ class NetworkDownloadMixin:
                     raise RuntimeError(
                         f"Не удалось удалить повреждённый временный файл {part.name}: {exc}"
                     ) from exc
-                return self._download_single(url, target, referer)
+                return self._download_single(url, target, referer, _restart_after_416=True)
 
             replace_with_retry(part, target)
             return target
@@ -990,6 +1005,16 @@ class NetworkDownloadMixin:
                 return self._download_segmented(url, target, referer, total, segment_count)
             except RangeUnsupported as e:
                 self.log(f"Range недоступен, переключаюсь на обычную загрузку: {e}")
+                # A segmented attempt never owns the ordinary ``.part`` file.
+                # If one exists here, it is stale state from an older single-
+                # stream attempt and must not be resumed against a server that
+                # has just rejected Range semantics.
+                try:
+                    unlink_with_retry(part, missing_ok=True)
+                except OSError as cleanup_exc:
+                    raise RuntimeError(
+                        f"Не удалось удалить устаревший временный файл {part.name}: {cleanup_exc}"
+                    ) from cleanup_exc
             except Cancelled:
                 raise
 

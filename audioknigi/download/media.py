@@ -243,11 +243,10 @@ class MediaProcessingMixin:
                 "format_name": str(format_info.get("format_name") or ""),
             }
         except Cancelled:
-            if proc is not None and proc.poll() is None:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+            # Let the single cleanup path below kill *and reap* ffprobe.
+            # Killing here first could make poll() report a finished process in
+            # finally and skip communicate(), leaving pipes/process resources
+            # unreaped on some Windows/PyInstaller combinations.
             raise
         except Exception:
             return {}

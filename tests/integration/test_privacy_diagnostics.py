@@ -520,7 +520,7 @@ def test_history_lock_contracts_and_dead_privacy_bookkeeping_removed():
     engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
     assert 'original_was_absolute_path' in support
     assert 'if collapse_whole_path and original_was_absolute_path' in support
-    assert 'if target == HISTORY_FILE:\n                        with HISTORY_LOCK:\n                            target.unlink' in library
+    assert 'with HISTORY_LOCK:\n        # A backup can contain several independent state files.' in library
     block = engine.split('def _history_metadata_matches_book', 1)[1].split('def _sidecar_metadata_matches_book', 1)[0]
     assert 'with HISTORY_LOCK:' in block
     assert 'history = load_json(HISTORY_FILE, [])' in block
@@ -671,3 +671,77 @@ def test_support_bundle_queue_uses_opaque_nonempty_ids_and_excludes_private_book
     assert payload[0]['attempts'] == 2
     assert private_url.encode() not in combined
     assert b'PRIVATE TITLE' not in combined
+
+# Post-consolidation: Round 83 external audit follow-up.
+def test_support_bundle_preserves_http_request_targets_but_redacts_local_posix_paths():
+    from audioknigi.diagnostics.support_bundle import _privacy_path
+
+    assert _privacy_path('GET /search', collapse_whole_path=False) == 'GET /search'
+    assert _privacy_path('POST /api/books/42', collapse_whole_path=False) == 'POST /api/books/42'
+    assert _privacy_path('file /home/alice/private/book.mp3 done', collapse_whole_path=False) == 'file <configured-path> done'
+    assert _privacy_path('path /secret', collapse_whole_path=False) == 'path <configured-path>'
+
+# Post-consolidation: Round 84 user-log diagnostic follow-up.
+def test_session_state_writer_refreshes_build_version_and_running_flag(tmp_path):
+    from audioknigi.diagnostics.session import write_session_state
+    from audioknigi.metadata import APP_VERSION
+
+    path = tmp_path / 'session_state.json'
+    assert write_session_state(running=True, settings={'language': 'de', 'ui_mode': 'advanced'}, path=path)
+    data = json.loads(path.read_text(encoding='utf-8'))
+    assert data['running'] is True
+    assert data['version'] == APP_VERSION
+    assert data['language'] == 'de'
+    assert data['ui_mode'] == 'advanced'
+    assert data['updated_utc']
+
+    assert write_session_state(running=False, settings={'language': 'ru', 'ui_mode': 'easy'}, path=path)
+    data = json.loads(path.read_text(encoding='utf-8'))
+    assert data['running'] is False
+    assert data['version'] == APP_VERSION
+
+
+def test_qt_application_restores_session_header_and_lifecycle_markers_source_contract():
+    source = (ROOT / 'audioknigi/qt/application.py').read_text(encoding='utf-8')
+    assert 'log_runtime_context(' in source
+    assert 'version=APP_VERSION' in source
+    assert 'write_session_state(running=True, settings=settings)' in source
+    assert 'write_session_state(running=False, settings=final_settings)' in source
+
+
+def test_stale_crash_report_is_not_presented_as_current(tmp_path):
+    from audioknigi.brand import DISPLAY_NAME
+    from audioknigi.crash_report import crash_report_is_current, read_current_crash_report
+    from audioknigi.metadata import APP_VERSION
+
+    report = tmp_path / 'last_crash_report.txt'
+    report.write_text(f'{DISPLAY_NAME} 4.12.31\nTime: old\nRecursionError: old crash\n', encoding='utf-8')
+    assert crash_report_is_current(report) is False
+    assert read_current_crash_report(report) == ''
+
+    report.write_text(f'{DISPLAY_NAME} {APP_VERSION}\nTime: now\nRuntimeError: current crash\n', encoding='utf-8')
+    assert crash_report_is_current(report) is True
+    assert 'current crash' in read_current_crash_report(report)
+
+
+def test_support_bundle_omits_stale_other_version_crash_report(tmp_path, monkeypatch):
+    import audioknigi.diagnostics.support_bundle as bundle
+    from audioknigi.brand import DISPLAY_NAME
+
+    crash = tmp_path / 'last_crash_report.txt'
+    crash.write_text(f'{DISPLAY_NAME} 4.12.31\nTime: old\nRecursionError: stale\n', encoding='utf-8')
+    monkeypatch.setattr(bundle, 'CRASH_REPORT_FILE', crash)
+    monkeypatch.setattr(bundle, 'APP_LOG_FILE', tmp_path / 'missing-app.log')
+    monkeypatch.setattr(bundle, 'ERROR_LOG_FILE', tmp_path / 'missing-errors.log')
+    monkeypatch.setattr(bundle, 'QT_QUEUE_FILE', tmp_path / 'missing-queue.json')
+
+    target = bundle.create_support_bundle(tmp_path / 'bundle.zip', settings={'language': 'ru'})
+    with zipfile.ZipFile(target) as archive:
+        assert 'diagnostics/last_crash_report.txt' not in archive.namelist()
+
+
+def test_help_center_crash_copy_uses_current_build_filter_source_contract():
+    source = (ROOT / 'audioknigi/qt/mixins/accessibility_ui.py').read_text(encoding='utf-8')
+    block = source[source.index('def copy_last_crash_report'):source.index('def open_error_log')]
+    assert 'read_current_crash_report()' in block
+    assert 'CRASH_REPORT_FILE.read_text' not in block

@@ -943,9 +943,10 @@ class AnalysisDownloadUiMixin:
             configure_accessible(skip_button, name=skip_text, identifier="missing_media_skip")
         box.setDefaultButton(stop_button)
         box.setEscapeButton(stop_button)
-        box.finished.connect(
-            lambda _code: prompt.resolve("stop") if not prompt.event.is_set() else None
-        )
+        # Do not resolve from QMessageBox.finished: that signal fires before
+        # exec() returns, so a click on "Skip" could wake the worker with the
+        # default "stop" value before we inspect clickedButton(). Unexpected
+        # destruction is still a safe stop fallback.
         box.destroyed.connect(
             lambda *_args: prompt.resolve("stop") if not prompt.event.is_set() else None
         )

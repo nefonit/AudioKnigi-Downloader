@@ -158,8 +158,8 @@ class AudioKnigiQtWindow(
         tray_started = self.tray_controller.start()
         self.tray_controller.set_window_visible(True)
         ready_text = self._rt("Приложение готово.")
-        tray_text = self._rt(" Системный трей активен." if tray_started else " Системный трей недоступен.")
-        self.set_status(ready_text + tray_text)
+        tray_text = self._rt("Системный трей активен." if tray_started else "Системный трей недоступен.")
+        self.set_status(f"{ready_text} {tray_text}")
         self._refresh_context_guidance(announce_now=True)
         self._dns_status_timer = QTimer(self)
         self._dns_status_timer.setInterval(1000)
@@ -547,6 +547,8 @@ class AudioKnigiQtWindow(
         return page
 
     def _easy_operation_active(self) -> bool:
+        if bool(getattr(self, "_queue_running", False)):
+            return True
         for name in ("_search_thread", "_analysis_thread", "_download_thread"):
             thread = getattr(self, name, None)
             if thread is None:
@@ -759,6 +761,12 @@ class AudioKnigiQtWindow(
     def set_ui_mode(self, mode: str, *, persist: bool = True) -> None:
         mode = "easy" if str(mode).lower() == "easy" else "advanced"
         self.mode_stack.setCurrentIndex(0 if mode == "easy" else 1)
+        if self._operation_dialog is not None:
+            # Easy mode intentionally blocks the underlying UI while a search
+            # or analysis progress dialog is active. Advanced mode remains
+            # usable, so a programmatic/hotkey mode switch must release that
+            # Easy-only block instead of carrying it onto the advanced pages.
+            self._set_operation_ui_blocked(mode == "easy")
         self.easy_mode_button.setChecked(mode == "easy")
         self.advanced_mode_button.setChecked(mode == "advanced")
         if hasattr(self, "view_easy_action"):

@@ -339,10 +339,17 @@ class SearchUiMixin:
         app_logger.info("SEARCH UI | event=model_reset_complete")
         if outcome.results:
             self._set_search_results_active(True)
-            if outcome.source_count:
-                message = self._rt(f"Найдено {len(outcome.results)} книг, источников: {outcome.source_count}.")
+            result_count = len(outcome.results)
+            if result_count % 10 == 1 and result_count % 100 != 11:
+                result_summary = f"Найдена {result_count} книга"
+            elif result_count % 10 in {2, 3, 4} and result_count % 100 not in {12, 13, 14}:
+                result_summary = f"Найдено {result_count} книги"
             else:
-                message = self._rt(f"Найдено {len(outcome.results)} книг.")
+                result_summary = f"Найдено {result_count} книг"
+            if outcome.source_count:
+                message = self._rt(f"{result_summary}, источников: {outcome.source_count}.")
+            else:
+                message = self._rt(f"{result_summary}.")
             if outcome.errors:
                 message += " " + self._rt("Часть источников недоступна.")
             self.set_status(message)

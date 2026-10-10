@@ -141,7 +141,20 @@ def render_track_filename(template: str, book, track, ext: str = ".mp3", *, lang
     source_template = str(template or "{Track_Number}")
     source_template = _strip_literal_template_extension(source_template)
     values = template_values(book, track=track, language=language)
+    raw_title = str(_field(track, "title", "") or "").strip()
+    template_tokens = {token.casefold() for token in _TOKEN_RE.findall(source_template)}
+    blank_title_with_number = (
+        not raw_title
+        and "track_number" in template_tokens
+        and "track_title" in template_tokens
+    )
+    if blank_title_with_number:
+        # The number is already present in the user's template; do not repeat it
+        # via the uniqueness fallback used by a Track_Title-only template.
+        values["Track_Title"] = ""
     raw = render_text_template(source_template, values)
+    if blank_title_with_number:
+        raw = raw.strip(" -–—_.,;")
     raw = safe_name(raw) or f"{_safe_track_index(track):0{track_number_width(book)}d}"
     # PlayerJS metadata sometimes already contains the source media extension.
     # The output format owns the final suffix, so replace a trailing known audio

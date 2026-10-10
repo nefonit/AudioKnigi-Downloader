@@ -64,11 +64,11 @@ def _probe_source(host: str, *, timeout: float) -> SourceHealthItem:
             finally:
                 response.close()
         blocked = status in {401, 403, 429, 451, 503}
-        # 403/429/503 can represent a browser challenge or temporary protection
+        # 401/403/429/451/503 can represent authentication, policy, a browser challenge, or temporary protection
         # rather than a dead host. Playwright-backed source operations may still
         # succeed, so count those responses as network-reachable while retaining
         # blocked=True for diagnostics. 404/405 likewise prove that the host answered.
-        reachable = bool(200 <= status < 400 or status in {403, 404, 405, 429, 503})
+        reachable = bool(200 <= status < 400 or status in {401, 403, 404, 405, 429, 451, 503})
         return SourceHealthItem(
             source=source,
             url=url,

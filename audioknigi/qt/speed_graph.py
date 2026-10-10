@@ -71,14 +71,16 @@ class SpeedGraphWidget(QWidget):
         actual_peak = max(values, default=0.0)
         scale_peak = max(actual_peak, 0.1)
         metrics = painter.fontMetrics()
-        label_baseline = max(2, metrics.ascent() + 2)
-        graph_top = max(7, metrics.height() + 4)
+        label_baseline = min(max(2, metrics.ascent() + 2), max(2, self.height() - 2))
+        graph_top = min(max(7, metrics.height() + 4), max(1, self.height() - 3))
         w = max(1, self.width() - 12)
-        h = max(1, self.height() - graph_top - 7)
+        graph_bottom = max(graph_top, self.height() - 3)
+        h = max(1, graph_bottom - graph_top)
         points = []
         for i, value in enumerate(values):
             x = 6 + (w * i / max(1, len(values) - 1))
             y = graph_top + h - (value / scale_peak) * h
+            y = max(1.0, min(float(self.height() - 2), y))
             points.append((x, y))
         pen = QPen(palette.highlight().color())
         pen.setWidth(2)

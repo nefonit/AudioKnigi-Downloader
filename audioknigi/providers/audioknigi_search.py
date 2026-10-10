@@ -116,8 +116,10 @@ def _split_multi_author_prefix(value: str) -> tuple[str, str]:
     if len(authors) < 2:
         return label, ""
     for author in authors:
-        words = re.findall(r"[^\W\d_]+", author, re.UNICODE)
-        if len(words) < 2 or not _looks_like_author_prefix(author):
+        # Explicit comma/semicolon-separated coauthor lists are much less
+        # ambiguous than a generic single prefix, so one-word historical/pen
+        # names such as "Гомер" or "Платон" are valid here too.
+        if not _looks_like_author_prefix(author):
             return label, ""
     return title, ", ".join(authors)
 
@@ -173,6 +175,10 @@ def _response_html_text(response) -> str:
         apparent = ""
     if apparent:
         encodings.append(apparent)
+    # DLE-based Russian sites can still expose legacy Windows-1251 pages. Keep
+    # an explicit Cyrillic fallback ahead of requests' permissive latin-1
+    # default so a missing/misdetected charset cannot silently mojibake text.
+    encodings.extend(("cp1251", "windows-1251"))
     if declared and declared_folded in latin1_aliases:
         encodings.append(declared)
 

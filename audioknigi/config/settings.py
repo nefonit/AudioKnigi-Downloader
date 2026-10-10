@@ -23,9 +23,9 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
     text = str(value).strip().casefold()
     if not text:
         return bool(default)
-    if text in {"1", "true", "yes", "on", "да", "так"}:
+    if text in {"1", "true", "yes", "on", "да", "так", "ja"}:
         return True
-    if text in {"0", "false", "no", "off", "нет", "ні"}:
+    if text in {"0", "false", "no", "off", "нет", "ні", "nein"}:
         return False
     return bool(default)
 
@@ -234,7 +234,12 @@ class AppSettings(MutableMapping[str, Any]):
             self._data[write_key] = normalized[write_key]
 
     def __delitem__(self, key: str) -> None:
-        del self._data[key]
+        normalized_key = str(key)
+        delete_key = {
+            "auto_chunk_min_kbps": "auto_chunk_min_kbytes_per_sec",
+            "normalize_audio": "normalization_mode",
+        }.get(normalized_key, normalized_key)
+        del self._data[delete_key]
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)

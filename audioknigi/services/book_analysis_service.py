@@ -235,16 +235,25 @@ class BookAnalysisService:
         except Exception:
             return None
         finally:
-            if proc is not None and proc.poll() is None:
-                self._request_duration_probe_stop(proc)
+            if proc is not None:
+                if proc.poll() is None:
+                    self._request_duration_probe_stop(proc)
                 try:
+                    # Reap even a process that was already killed by the
+                    # cancellation coordinator; poll() returning a code does not
+                    # drain/close its redirected stdout pipe.
                     proc.communicate(timeout=2)
                 except subprocess.TimeoutExpired:
-                    # A killed process should normally exit immediately. Keep
-                    # cleanup bounded and never let a stuck ffprobe block Qt
-                    # analysis teardown indefinitely.
+                    # A killed process should normally exit immediately. Retry
+                    # termination directly in case the first request raced or
+                    # failed, then perform one bounded reap attempt.
                     try:
-                        proc.wait(timeout=1)
+                        if proc.poll() is None:
+                            proc.kill()
+                    except (OSError, ProcessLookupError):
+                        pass
+                    try:
+                        proc.communicate(timeout=1)
                     except Exception:
                         pass
                 except (OSError, ValueError):

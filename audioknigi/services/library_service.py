@@ -184,56 +184,48 @@ def _validated_backup_payloads(path: Path) -> dict[str, Any]:
 
 
 def restore_backup(path: Path) -> list[str]:
-    """Restore validated JSON members with best-effort rollback on partial failure."""
+    """Restore validated JSON members with best-effort rollback on partial failure.
+
+    The shared history lock is held for the whole restore transaction. This
+    prevents a background download from inserting a new history record between
+    the pre-restore snapshot and the history replacement/rollback.
+    """
     payloads = _validated_backup_payloads(Path(path))
     APP_DIR.mkdir(parents=True, exist_ok=True)
 
-    # A backup can contain several independent state files.  Snapshot the raw
-    # originals before replacing any of them so a late disk/sharing failure does
-    # not leave the application in a half-restored state (especially positions).
-    originals: dict[str, tuple[bool, bytes | None]] = {}
-    for member in payloads:
-        target = BACKUP_MEMBERS[member]
-        existed = target.exists()
-        originals[member] = (existed, _read_backup_member(target) if existed else None)
-
-    restored: list[str] = []
-    try:
-        for member, data in payloads.items():
+    with HISTORY_LOCK:
+        # A backup can contain several independent state files. Snapshot the raw
+        # originals before replacing any of them so a late disk/sharing failure
+        # cannot leave the application in a half-restored state.
+        originals: dict[str, tuple[bool, bytes | None]] = {}
+        for member in payloads:
             target = BACKUP_MEMBERS[member]
-            if target == HISTORY_FILE:
-                with HISTORY_LOCK:
-                    save_json(target, data, raise_errors=True)
-            else:
+            existed = target.exists()
+            raw = _read_backup_member(target) if existed else None
+            originals[member] = (existed, raw)
+
+        restored: list[str] = []
+        try:
+            for member, data in payloads.items():
+                target = BACKUP_MEMBERS[member]
                 save_json(target, data, raise_errors=True)
-            restored.append(member)
-    except Exception:
-        for member in reversed(restored):
-            target = BACKUP_MEMBERS[member]
-            existed, raw = originals.get(member, (False, None))
-            try:
-                if existed and raw is not None:
-                    # Parse the previous JSON and restore it through the same
-                    # atomic save path used by normal application state writes.
-                    previous = json.loads(raw.decode("utf-8-sig"))
-                    if target == HISTORY_FILE:
-                        with HISTORY_LOCK:
-                            save_json(target, previous, raise_errors=True)
-                    else:
+                restored.append(member)
+        except Exception:
+            for member in reversed(restored):
+                target = BACKUP_MEMBERS[member]
+                existed, raw = originals.get(member, (False, None))
+                try:
+                    if existed and raw is not None:
+                        previous = json.loads(raw.decode("utf-8-sig"))
                         save_json(target, previous, raise_errors=True)
-                elif not existed:
-                    if target == HISTORY_FILE:
-                        with HISTORY_LOCK:
-                            target.unlink(missing_ok=True)
-                    else:
+                    elif not existed:
                         target.unlink(missing_ok=True)
-            except Exception:
-                # Preserve the original restore exception; callers can retry from
-                # the still-valid ZIP and the UI keeps persistence suspended.
-                pass
-        raise
-    return restored
-
+                except Exception:
+                    # Preserve the original restore exception; callers can retry
+                    # from the still-valid ZIP and UI persistence remains intact.
+                    pass
+            raise
+        return restored
 
 def clear_history() -> bool:
     with HISTORY_LOCK:

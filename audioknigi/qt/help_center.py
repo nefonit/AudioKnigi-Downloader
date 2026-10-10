@@ -1044,7 +1044,7 @@ def _format_help_body_html(title: str, body: str) -> str:
         shortcut = re.compile(
             r"(?<![\w+])(?:(?:Ctrl|Strg)(?:\+(?:Shift|Umschalt)|\+Alt)?\+[A-Za-z0-9…]+|"
             r"(?:Ctrl|Strg)\+(?:Shift|Umschalt)\+Tab|(?:Ctrl|Strg)\+Tab|"
-            r"(?:Shift|Umschalt)\+F\d+|Alt\+↓|F\d+|Enter|Space|Leertaste|Пробіл|Esc)(?![\w+])",
+            r"(?:Shift|Umschalt)\+F\d+|Alt\+↓|F\d+|Enter|Space|Leertaste|Пробел|Пробіл|Esc)(?![\w+])",
             re.I,
         )
         return shortcut.sub(lambda match: f"<kbd>{match.group(0)}</kbd>", text)

@@ -9,7 +9,8 @@ from PySide6.QtCore import Slot, Qt, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCursor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import QComboBox, QFileDialog, QLineEdit, QMessageBox, QPlainTextEdit, QSlider, QTextEdit, QToolTip
 from ...metadata import APP_VERSION
-from ...core import CRASH_REPORT_FILE, DEFAULT_OUTPUT, resolve_executable
+from ...core import DEFAULT_OUTPUT, resolve_executable
+from ...crash_report import read_current_crash_report
 from ...i18n import tr
 from ...logging_utils import ERROR_LOG_FILE, app_logger, tail_error_log
 from ...network_dns import DNS_MODE_CLOUDFLARE, dns_runtime_status
@@ -136,8 +137,8 @@ class AccessibilityUiMixin:
         dns_status = dns_runtime_status()
         dns_advice = ""
         if str(dns_status.get("mode") or "") == DNS_MODE_CLOUDFLARE:
-            dns_advice = self._l(
-                " В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS."
+            dns_advice = " " + self._l(
+                "В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS."
             )
         message = self._l(
             "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.{dns_advice}\n\nИсточники: {details}",
@@ -202,16 +203,20 @@ class AccessibilityUiMixin:
         return topics.get(self.tabs.currentIndex(), "start")
 
     def show_context_help(self, _checked=False, *, topic: str | None = None):
-        dialog = QtHelpCenter(self, language=self.language, topic=topic or self._current_help_topic(), copy_report_callback=self.copy_last_crash_report)
+        dialog = QtHelpCenter(
+            self,
+            language=self.language,
+            topic=topic or self._current_help_topic(),
+            copy_report_callback=self.copy_last_crash_report,
+        )
         dialog.exec()
 
+    def show_shortcuts_help(self, _checked=False):
+        """Open the keyboard-shortcuts topic from QAction.triggered(bool)."""
+        self.show_context_help(topic="shortcuts")
+
     def copy_last_crash_report(self) -> str:
-        crash_text = ""
-        try:
-            if CRASH_REPORT_FILE.is_file():
-                crash_text = CRASH_REPORT_FILE.read_text(encoding="utf-8", errors="replace").strip()
-        except Exception:
-            crash_text = ""
+        crash_text = read_current_crash_report()
         errors_text = tail_error_log(200).strip()
         parts = []
         if crash_text:
@@ -490,7 +495,7 @@ class AccessibilityUiMixin:
         help_menu.addAction(help_action)
         shortcuts_action = QAction(self._l("Горячие клавиши"), self)
         shortcuts_action.setShortcut(QKeySequence("F1"))
-        shortcuts_action.triggered.connect(lambda: self.show_context_help(topic="shortcuts"))
+        shortcuts_action.triggered.connect(self.show_shortcuts_help)
         help_menu.addAction(shortcuts_action)
         help_menu.addSeparator()
 

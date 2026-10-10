@@ -1,6 +1,5 @@
 {
   "de": {
-    " В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": " Unter Einstellungen > Download und Netzwerk können Sie DNS „Automatisch“ wählen, damit bei einem Cloudflare-Ausfall System-DNS verwendet wird.",
     "+ Добавить URL…": "+ URL hinzufügen…",
     "+30 с": "+30 s",
     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare-DNS ist vorübergehend nicht verfügbar. Die App ist automatisch auf System-DNS umgestiegen. Cloudflare wird später automatisch erneut geprüft.",
@@ -56,6 +55,7 @@
     "В буфере нет поддерживаемой ссылки аудиокниги.": "Die Zwischenablage enthält keinen unterstützten Hörbuch-Link.",
     "В выбранной папке нет поддерживаемых аудиофайлов.": "Der ausgewählte Ordner enthält keine unterstützten Audiodateien.",
     "В истории нет поддерживаемой ссылки для этой книги.": "Im Verlauf ist für dieses Buch kein unterstützter Link vorhanden.",
+    "В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": "Unter Einstellungen > Download und Netzwerk können Sie DNS „Automatisch“ wählen, damit bei einem Cloudflare-Ausfall System-DNS verwendet wird.",
     "В новой озвучке другое количество частей. Выберите нужные части заново перед скачиванием.": "Die neue Sprecherfassung hat eine andere Anzahl von Teilen. Wählen Sie die gewünschten Teile vor dem Download erneut aus.",
     "В очереди сейчас ничего не скачивается.": "In der Warteschlange wird derzeit nichts heruntergeladen.",
     "В перетаскиваемых данных нет поддерживаемых ссылок.": "Die abgelegten Daten enthalten keine unterstützten Links.",
@@ -583,7 +583,6 @@
     "▶ Воспроизвести": "▶ Abspielen"
   },
   "en": {
-    " В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": " In Settings > Download and network, choose DNS “Automatic” to use system DNS when Cloudflare fails.",
     "+ Добавить URL…": "+ Add URL…",
     "+30 с": "+30 s",
     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare DNS is temporarily unavailable. The app automatically switched to system DNS. Cloudflare will be checked again automatically.",
@@ -639,6 +638,7 @@
     "В буфере нет поддерживаемой ссылки аудиокниги.": "The clipboard does not contain a supported audiobook link.",
     "В выбранной папке нет поддерживаемых аудиофайлов.": "The selected folder contains no supported audio files.",
     "В истории нет поддерживаемой ссылки для этой книги.": "History has no supported link for this book.",
+    "В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": "In Settings > Download and network, choose DNS “Automatic” to use system DNS when Cloudflare fails.",
     "В новой озвучке другое количество частей. Выберите нужные части заново перед скачиванием.": "The new narration has a different number of parts. Select the parts you want again before downloading.",
     "В очереди сейчас ничего не скачивается.": "Nothing is currently downloading in the queue.",
     "В перетаскиваемых данных нет поддерживаемых ссылок.": "The dropped data contains no supported links.",
@@ -1166,7 +1166,6 @@
     "▶ Воспроизвести": "▶ Play"
   },
   "uk": {
-    " В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": " У налаштуваннях «Завантаження та мережа» можна вибрати DNS «Автоматично», щоб у разі збою Cloudflare використовувати системний DNS.",
     "+ Добавить URL…": "+ Додати URL…",
     "+30 с": "+30 с",
     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare DNS тимчасово недоступний. Програма автоматично перейшла на системний DNS. Cloudflare буде перевірено знову автоматично.",
@@ -1222,6 +1221,7 @@
     "В буфере нет поддерживаемой ссылки аудиокниги.": "У буфері немає підтримуваного посилання на аудіокнигу.",
     "В выбранной папке нет поддерживаемых аудиофайлов.": "У вибраній папці немає підтримуваних аудіофайлів.",
     "В истории нет поддерживаемой ссылки для этой книги.": "В історії немає підтримуваного посилання для цієї книги.",
+    "В настройках «Загрузка и сеть» можно выбрать DNS «Автоматически», чтобы при сбое Cloudflare использовать системный DNS.": "У налаштуваннях «Завантаження та мережа» можна вибрати DNS «Автоматично», щоб у разі збою Cloudflare використовувати системний DNS.",
     "В новой озвучке другое количество частей. Выберите нужные части заново перед скачиванием.": "У новому озвученні інша кількість частин. Перед завантаженням виберіть потрібні частини знову.",
     "В очереди сейчас ничего не скачивается.": "Зараз у черзі нічого не завантажується.",
     "В перетаскиваемых данных нет поддерживаемых ссылок.": "У перетягнутих даних немає підтримуваних посилань.",

@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.12.42 Round 86
+
+- Hardened history-restore locking, remote ffprobe reaping, CP1251/coauthor parsing, blocked-source health, subprocess cancellation ownership, Easy-mode queue state, missing-media skip decisions, stable/localized accessibility contracts, keyboard context-menu placement, UI-scale baseline handling, blank-title templates, queue focus, event-sound shutdown, and tiny speed-graph bounds; added domain-based regressions for the reviewed audit findings.
+
+## 4.12.42 Round 85
+
+- Hardened RangeUnsupported fallback against stale single-stream partials, unified shared-timeline issue indices, ensured cancelled ffprobe processes are reaped, and removed leading-space localization catalog hacks; added regression coverage for reviewed Range/loudnorm contracts.
+
+## 4.12.42 Round 84
+
+- Restored per-launch Qt runtime/session diagnostics, filtered stale cross-version crash reports, and fixed the F1 keyboard-shortcuts Help Center action so QAction.triggered(bool) cannot raise a callback-signature TypeError for keyboard/screen-reader users.
+
+## 4.12.42 Round 83
+
+- Hardened support-bundle HTTP-route redaction, legacy settings/queue booleans and aliases, safe missing-media indices, backup history locking, malformed queue URLs, full-MP3 naming/copy cleanup, Easy/Advanced operation blocking, Qt focus safety, and legacy player-rate normalization.
+
+## 4.12.42 Round 82
+
+- Added a one-shot HTTP 416 restart guard for single-stream resume downloads, corrected Russian/English/German/Ukrainian search-result pluralization, and added domain-based regression coverage after test consolidation.
+
 ## 4.12.42 Round 81
 
 - Hardened single-stream completeness checks, mapping-backed track planning, callable UI dispatch, Cloudflare 503 source-health handling, runtime/help localization, keyboard context-menu placement, accessibility exports, and Ukrainian shortcut rendering; documented stale/architectural audit findings.

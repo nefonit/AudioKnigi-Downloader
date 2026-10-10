@@ -15,7 +15,6 @@
   "audioknigi/download/media.py:_log_ffmpeg_failure:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/download/media.py:_probe_audio_info:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/media.py:_probe_audio_info:Exception#2": "best-effort optional parsing/probing fallback; caller handles absence",
-  "audioknigi/download/media.py:_probe_audio_info:Exception#3": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/download/media.py:_run_ffmpeg:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/download/media.py:_run_ffmpeg:Exception#2": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/download/media.py:_run_ffmpeg:Exception#3": "reviewed compatibility boundary; intentionally non-fatal",

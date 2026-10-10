@@ -198,7 +198,7 @@ def test_round59_source_contracts():
     assert 'tag_jobs = []' in book_flow
     assert '_queued_configure = Signal(object, object, object)' in event_sounds
     assert 'def set_selected_indices' in track_model
-    assert 'self.dataChanged.emit(left, right, [])' in track_model
+    assert 'Qt.ItemDataRole.CheckStateRole' in track_model and 'Qt.ItemDataRole.AccessibleTextRole' in track_model
     assert 'previous_selection = list(self.track_model.selected_indices())' in clipboard
     assert 'self.queue_table.clearSelection()' in queue
     assert '_pending_narration_selected_all' in analysis
@@ -1152,8 +1152,8 @@ def test_blank_track_titles_keep_unique_template_fallbacks():
 def test_speed_graph_reserves_label_area_using_font_metrics():
     source = (ROOT / 'audioknigi/qt/speed_graph.py').read_text(encoding='utf-8')
     assert 'metrics = painter.fontMetrics()' in source
-    assert 'label_baseline = max(2, metrics.ascent() + 2)' in source
-    assert 'graph_top = max(7, metrics.height() + 4)' in source
+    assert 'label_baseline = min(max(2, metrics.ascent() + 2), max(2, self.height() - 2))' in source
+    assert 'graph_top = min(max(7, metrics.height() + 4), max(1, self.height() - 3))' in source
     assert 'painter.drawText(7, label_baseline' in source
 
 
@@ -1436,3 +1436,66 @@ def test_qt_refactor_contracts_are_present_without_importing_pyside():
     assert 'self._l("Неподдерживаемая ссылка")' in main_source
     assert 'from ..accessibility_audit import audit_accessibility_window' in accessibility_source
     assert audit_source.count('"download_options"') >= 2
+
+# Post-consolidation: Round 85 external audit follow-up.
+def test_shared_source_timeline_error_exposes_normalized_track_indices():
+    exc = SharedSourceTimelineError({
+        "reason": "non_increasing_middle_boundary",
+        "track_index": "7",
+        "expected_end": 10.0,
+        "actual_duration": 0.0,
+    })
+    assert exc.issue["track_indices"] == [7]
+    assert exc.issue["reason"] == "non_increasing_middle_boundary"
+
+
+# Post-consolidation: Round 86 external audit follow-up.
+def test_analysis_duration_probe_reaps_process_killed_by_cancel_coordinator(monkeypatch):
+    import subprocess as _subprocess
+    from audioknigi.services import book_analysis_service as module
+
+    service = BookAnalysisService()
+    communicate_calls = []
+
+    class FakeProc:
+        def __init__(self):
+            self.returncode = None
+            self.stdout = None
+            self.stderr = None
+        def poll(self):
+            return self.returncode
+        def kill(self):
+            self.returncode = -9
+        def communicate(self, timeout=None):
+            communicate_calls.append(timeout)
+            if len(communicate_calls) == 1:
+                service.cancel_event.set()
+                raise _subprocess.TimeoutExpired(cmd="ffprobe", timeout=timeout)
+            return ("", "")
+    fake = FakeProc()
+
+    monkeypatch.setattr(module, "resolve_executable", lambda _name: "ffprobe")
+    monkeypatch.setattr(module.subprocess, "Popen", lambda *_args, **_kwargs: fake)
+
+    with pytest.raises(Cancelled):
+        service._probe_remote_duration("https://example.invalid/audio.mp3")
+
+    # First communicate times out, cancellation kills the process, and finally
+    # still communicates/reaps the already-dead child.
+    assert fake.returncode == -9
+    assert len(communicate_calls) >= 2
+    assert fake not in service._duration_probe_processes
+
+
+def test_blank_track_title_does_not_duplicate_number_when_template_already_has_number():
+    from audioknigi.templates import render_track_filename
+    book = Book(
+        url="https://example.invalid/book",
+        title="Book",
+        tracks=[Track(index=1, title="", file="x")],
+    )
+    assert render_track_filename(
+        "{Track_Number} - {Track_Title}.mp3", book, book.tracks[0]
+    ) == "01.mp3"
+    # Track_Title-only still needs a unique fallback.
+    assert render_track_filename("{Track_Title}.mp3", book, book.tracks[0]) == "track-01.mp3"

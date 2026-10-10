@@ -870,3 +870,219 @@ def test_cover_fetch_rejects_non_http_schemes_without_network(monkeypatch):
     monkeypatch.setattr(module, 'get_http_session', explode)
     assert fetch_cover_bytes('data:image/png;base64,AAAA') is None
     assert fetch_cover_bytes('file:///tmp/cover.jpg') is None
+
+# Round 82: post-consolidation audit follow-up
+
+def test_single_stream_416_discards_stale_part_and_restarts_only_once(monkeypatch, tmp_path):
+    calls = []
+
+    class Response:
+        def __init__(self, status_code, headers, chunks=()):
+            self.status_code = status_code
+            self.headers = headers
+            self._chunks = list(chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(f"HTTP {self.status_code}")
+
+        def iter_content(self, chunk_size=0):
+            yield from self._chunks
+
+    responses = [
+        Response(416, {"content-range": "bytes */10"}),
+        Response(200, {"content-length": "5"}, [b"fresh"]),
+    ]
+
+    class Session:
+        def get(self, _url, *, headers, **_kwargs):
+            calls.append(dict(headers))
+            return responses.pop(0)
+
+    monkeypatch.setattr(network_module__report_followup_round43_20260920, "get_http_session", lambda: Session())
+
+    class Limiter:
+        def consume(self, *_args, **_kwargs):
+            pass
+
+    class Harness(NetworkDownloadMixin):
+        cancel_event = None
+        _suppress_source_transfer_ui = True
+
+        def _check_cancel(self):
+            pass
+
+        def _get_bandwidth_limiter(self):
+            return Limiter()
+
+        def record_transfer_metrics(self, *_args):
+            pass
+
+        def set_progress(self, *_args):
+            pass
+
+        def set_status(self, *_args):
+            pass
+
+    target = tmp_path / "source.mp3"
+    part = target.with_name(target.name + ".part")
+    part.write_bytes(b"stale")
+
+    assert Harness()._download_single("https://cdn.invalid/source.mp3", target, "https://example.invalid/") == target
+    assert target.read_bytes() == b"fresh"
+    assert len(calls) == 2
+    assert calls[0]["Range"] == "bytes=5-"
+    assert "Range" not in calls[1]
+
+
+def test_single_stream_416_on_zero_offset_retry_surfaces_error_without_recursing(monkeypatch, tmp_path):
+    calls = []
+
+    class Response:
+        status_code = 416
+        headers = {"content-range": "bytes */10"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def raise_for_status(self):
+            raise requests.HTTPError("HTTP 416")
+
+        def iter_content(self, chunk_size=0):
+            return iter(())
+
+    class Session:
+        def get(self, _url, *, headers, **_kwargs):
+            calls.append(dict(headers))
+            return Response()
+
+    monkeypatch.setattr(network_module__report_followup_round43_20260920, "get_http_session", lambda: Session())
+
+    class Limiter:
+        def consume(self, *_args, **_kwargs):
+            pass
+
+    class Harness(NetworkDownloadMixin):
+        cancel_event = None
+        _suppress_source_transfer_ui = True
+
+        def _check_cancel(self):
+            pass
+
+        def _get_bandwidth_limiter(self):
+            return Limiter()
+
+        def record_transfer_metrics(self, *_args):
+            pass
+
+        def set_progress(self, *_args):
+            pass
+
+        def set_status(self, *_args):
+            pass
+
+    target = tmp_path / "source.mp3"
+    target.with_name(target.name + ".part").write_bytes(b"stale")
+
+    with pytest.raises(RuntimeError, match="Сетевая ошибка"):
+        Harness()._download_single("https://cdn.invalid/source.mp3", target, "https://example.invalid/")
+
+    assert len(calls) == 2
+    assert "Range" in calls[0]
+    assert "Range" not in calls[1]
+
+# Post-consolidation: Round 85 external audit follow-up.
+def test_range_unsupported_fallback_discards_stale_single_stream_part(tmp_path):
+    from audioknigi.download.errors import RangeUnsupported
+
+    class Harness(NetworkDownloadMixin):
+        runtime_segment_count = "2"
+        runtime_segment_threshold_mb = 1
+
+        def _range_info(self, _url, _referer):
+            return True, 20 * 1024 * 1024
+
+        def _download_segmented(self, *_args, **_kwargs):
+            raise RangeUnsupported("server rejected ranges")
+
+        def _download_single(self, _url, target, _referer):
+            part = Path(target).with_name(Path(target).name + ".part")
+            assert not part.exists()
+            return Path(target)
+
+        def log(self, *_args, **_kwargs):
+            pass
+
+    target = tmp_path / "book.mp3"
+    part = target.with_name(target.name + ".part")
+    part.write_bytes(b"stale-old-stream")
+    Path(str(part) + ".seg000").write_bytes(b"range-state")
+
+    assert Harness()._download_with_resume("https://example.invalid/book.mp3", target, "") == target
+    assert not part.exists()
+
+
+def test_segment_worker_accounts_dequeued_job_even_when_download_fails():
+    source = (ROOT / "audioknigi/download/network.py").read_text(encoding="utf-8")
+    start = source.index("def worker(worker_id):")
+    end = source.index("self.log(\n            f\"Сегментированная загрузка", start)
+    block = source[start:end]
+    assert "finally:\n                    jobs.task_done()" in block
+
+
+# Post-consolidation: Round 86 external audit follow-up.
+@pytest.mark.parametrize("status", [401, 451])
+def test_source_health_blocked_http_status_is_still_network_reachable(monkeypatch, status):
+    class Response:
+        status_code = status
+        def close(self):
+            pass
+
+    class Session:
+        def __init__(self):
+            self.headers = {}
+            self.trust_env = True
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return False
+        def get(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setattr(source_health_service.requests, "Session", Session)
+    item = source_health_service._probe_source("example.invalid", timeout=1.0)
+    assert item.reachable is True
+    assert item.blocked is True
+    assert item.status_code == status
+    assert item.error == ""
+
+
+def test_parallel_cancel_claims_subprocess_snapshot_once():
+    import weakref
+
+    class Proc:
+        def __init__(self):
+            self.kills = 0
+        def poll(self):
+            return None
+        def kill(self):
+            self.kills += 1
+
+    harness = NetworkDownloadMixin()
+    harness._active_subprocess_lock = threading.RLock()
+    harness._active_subprocesses = weakref.WeakSet()
+    proc = Proc()
+    harness._active_subprocesses.add(proc)
+
+    assert harness._cancel_active_subprocesses() == 1
+    assert harness._cancel_active_subprocesses() == 0
+    assert proc.kills == 1

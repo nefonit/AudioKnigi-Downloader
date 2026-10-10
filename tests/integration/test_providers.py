@@ -1797,3 +1797,27 @@ def test_book_analysis_service_has_real_knigavuhe_fetch_binding():
     source = (ROOT / 'audioknigi' / 'services' / 'book_analysis_service.py').read_text(encoding='utf-8')
     assert 'from ..knigavuhe import fetch_book as fetch_knigavuhe_book' in source
     assert 'fallback = fetch_knigavuhe_book(' in source
+
+
+# Post-consolidation: Round 86 external audit follow-up.
+def test_audioknigi_response_has_explicit_cp1251_fallback():
+    class Response:
+        encoding = "ISO-8859-1"
+        apparent_encoding = ""
+        content = "<title>Гомер — Илиада</title>".encode("cp1251")
+
+    decoded = audioknigi_search._response_html_text(Response())
+    assert "Гомер" in decoded
+    assert "Илиада" in decoded
+
+
+def test_audioknigi_explicit_multi_author_prefix_accepts_one_word_names():
+    title, authors = audioknigi_search._split_audioknigi_title("Гомер, Платон - Антология")
+    assert title == "Антология"
+    assert authors == "Гомер, Платон"
+
+
+def test_single_one_word_author_prefix_was_already_supported():
+    title, author = audioknigi_search._split_audioknigi_title("Гомер - Илиада")
+    assert title == "Илиада"
+    assert author == "Гомер"

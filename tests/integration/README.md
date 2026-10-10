@@ -3,23 +3,25 @@
 The historical round-oriented integration modules were consolidated by behavior domain.
 Round/audit history remains in `audits/4.12/rounds/` and Git history.
 
+Current Round 86 integration total: **899 collected cases**. The original consolidation preserved **856** cases; forty-three post-consolidation collected regression cases from forty-two test functions were then added directly to the relevant domain modules.
+
 ## Domain files
 
 - `test_quality_gates.py` — 32 collected cases (32 test functions), sourced from 15 historical modules.
-- `test_privacy_diagnostics.py` — 46 collected cases (46 test functions), sourced from 34 historical modules.
+- `test_privacy_diagnostics.py` — 52 collected cases (52 test functions), sourced from 34 historical modules.
 - `test_build_release.py` — 36 collected cases (36 test functions), sourced from 23 historical modules.
-- `test_localization.py` — 78 collected cases (72 test functions), sourced from 42 historical modules.
-- `test_accessibility.py` — 53 collected cases (53 test functions), sourced from 35 historical modules.
+- `test_localization.py` — 80 collected cases (74 test functions), sourced from 42 historical modules.
+- `test_accessibility.py` — 62 collected cases (62 test functions), sourced from 35 historical modules.
 - `test_player.py` — 31 collected cases (31 test functions), sourced from 25 historical modules.
-- `test_settings_contract.py` — 42 collected cases (42 test functions), sourced from 33 historical modules.
-- `test_queue_history.py` — 59 collected cases (59 test functions), sourced from 36 historical modules.
-- `test_providers.py` — 153 collected cases (150 test functions), sourced from 58 historical modules.
+- `test_settings_contract.py` — 45 collected cases (45 test functions), sourced from 33 historical modules.
+- `test_queue_history.py` — 64 collected cases (64 test functions), sourced from 36 historical modules.
+- `test_providers.py` — 156 collected cases (153 test functions), sourced from 58 historical modules.
 - `test_search.py` — 29 collected cases (29 test functions), sourced from 19 historical modules.
-- `test_network.py` — 47 collected cases (47 test functions), sourced from 31 historical modules.
-- `test_media_processing.py` — 71 collected cases (71 test functions), sourced from 44 historical modules.
-- `test_download_flow.py` — 32 collected cases (32 test functions), sourced from 25 historical modules.
+- `test_network.py` — 54 collected cases (53 test functions), sourced from 31 historical modules.
+- `test_media_processing.py` — 73 collected cases (73 test functions), sourced from 44 historical modules.
+- `test_download_flow.py` — 35 collected cases (35 test functions), sourced from 25 historical modules.
 - `test_qt_ui.py` — 39 collected cases (39 test functions), sourced from 22 historical modules.
-- `test_core_services.py` — 108 collected cases (95 test functions), sourced from 52 historical modules.
+- `test_core_services.py` — 111 collected cases (98 test functions), sourced from 52 historical modules.
 
 ## Historical file mapping
 

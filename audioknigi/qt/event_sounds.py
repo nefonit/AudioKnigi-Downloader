@@ -413,6 +413,19 @@ class QtEventSoundManager(QObject):
             thread.join(timeout=0.75)
         if thread is not None and not thread.is_alive():
             self._system_thread = None
+        # The worker can observe _system_shutdown during its queue timeout and
+        # exit just before the sentinel is enqueued. Balance that orphaned queue
+        # item so Queue.join() can never hang during tests or shutdown tooling.
+        while True:
+            try:
+                self._system_sound_queue.get_nowait()
+            except queue.Empty:
+                break
+            else:
+                try:
+                    self._system_sound_queue.task_done()
+                except ValueError:
+                    pass
 
 
 __all__ = ["QtEventSoundManager", "EVENT_FILES", "SUPPORTED_SOUND_EVENTS", "SYSTEM_ONLY_EVENTS"]

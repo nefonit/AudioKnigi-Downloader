@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 import json
 import os
+import re
 import shutil
 import threading
 import time
@@ -30,6 +31,7 @@ from .logging_utils import app_logger
 from .i18n import tr as i18n_tr
 from .models import Book, Track
 from .sources import normalize_supported_url
+from .templates import render_track_filename
 from .services.download_request import DownloadRequest
 from .services.library_service import HISTORY_LOCK
 from .config.settings import normalize_settings
@@ -419,12 +421,31 @@ class _DownloadEngine(DownloaderMixin):
             if normalized_track_template == "{Track_Number}":
                 title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
                 return folder / f"{title_name}.mp3"
+
+            # A whole-book output is not a numbered chapter. Remove a leading
+            # Track_Number token (and its visual separator) from ordinary
+            # per-track templates such as ``{Track_Number} - {Track_Title}``.
+            full_template = re.sub(
+                r"^\s*\{Track_Number\}\s*(?:[-–—_.]+\s*)?",
+                "",
+                track_template,
+                flags=re.IGNORECASE,
+            ).strip()
+            if not full_template or full_template.casefold() == ".mp3":
+                title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
+                return folder / f"{title_name}.mp3"
             synthetic = Track(
                 index=1,
                 title=str(getattr(book, "title", "") or "audiobook"),
                 file="",
             )
-            return folder / self._track_filename(book, synthetic)
+            return folder / render_track_filename(
+                full_template,
+                book,
+                synthetic,
+                ext=".mp3",
+                language=getattr(self, "runtime_language", "ru"),
+            )
         title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
         return folder / f"{title_name}.mp3"
 
@@ -658,7 +679,18 @@ class _DownloadEngine(DownloaderMixin):
             if self.runtime_delete_source:
                 replace_with_retry(source_target, target)
             else:
-                shutil.copy2(source_target, target)
+                try:
+                    shutil.copy2(source_target, target)
+                except Exception:
+                    # copy2() may leave a truncated destination on ENOSPC, AV
+                    # interference or sharing violations. Keep the fully
+                    # downloaded hidden source for retry, but never expose the
+                    # partial final MP3 as a completed-looking file.
+                    try:
+                        unlink_with_retry(target, missing_ok=True)
+                    except OSError:
+                        pass
+                    raise
                 source_suffix = self._retained_source_suffix(source_url, info)
                 retained = self._retained_full_source_path(folder, title_name, source_suffix, target)
                 try:

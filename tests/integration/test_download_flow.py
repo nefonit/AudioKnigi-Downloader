@@ -521,3 +521,64 @@ def test_download_book_info_uses_dynamic_track_number_width():
     source = (ROOT / 'audioknigi' / 'download' / 'media.py').read_text(encoding='utf-8')
     assert 'width = track_number_width(book)' in source
     assert "{row['index']:0{width}d}" in source
+
+# Post-consolidation: Round 83 external audit follow-up.
+def test_download_errors_filter_boolean_malformed_and_negative_indices():
+    from audioknigi.download.errors import MissingMediaSourceError, MissingSelectedTracksError
+
+    media = MissingMediaSourceError('missing', track_indices=[True, False, None, '3', 'bad', -1, 0, 2])
+    selected = MissingSelectedTracksError([True, False, None, '3', 'bad', -1, 0, 2])
+    assert media.track_indices == [0, 2, 3]
+    assert selected.track_indices == [0, 2, 3]
+
+
+def test_full_mp3_custom_track_number_prefix_is_removed(tmp_path):
+    engine = _DownloadEngine.__new__(_DownloadEngine)
+    engine.runtime_use_templates = True
+    engine.runtime_track_template = '{Track_Number} - {Track_Title}.mp3'
+    engine.runtime_language = 'en'
+    book = Book(url='https://example.test/book', title='My Book', tracks=[Track(index=1, title='One', file='x')])
+    assert engine._full_mp3_target(book, tmp_path).name == 'My Book.mp3'
+
+
+def test_full_mp3_failed_retained_copy_removes_partial_target_but_keeps_source(monkeypatch, tmp_path):
+    import audioknigi.download_engine as download_engine_module
+
+    book = Book(
+        url='https://audioknigi.com.ua/book/1',
+        title='Demo',
+        tracks=[Track(index=1, title='One', file='https://cdn.example/demo.mp3')],
+        remote_size=8,
+    )
+    request = DownloadRequest(book=book, selected_indices=None, output_dir=tmp_path)
+    engine = _DownloadEngine(
+        request,
+        {'delete_source': False, 'embed_tags': False, 'save_sidecars': False, 'audio_preset': 'copy'},
+        threading.Event(),
+        DownloadCallbacks(),
+    )
+    monkeypatch.setattr(engine, '_write_resume_manifest', lambda *a, **k: None)
+    monkeypatch.setattr(engine, '_book_folder', lambda _book, create=True: tmp_path)
+    monkeypatch.setattr(engine, '_disk_free_for_path', lambda _path: 10 ** 9)
+    monkeypatch.setattr(engine, 'set_stage', lambda *a, **k: None)
+    monkeypatch.setattr(engine, 'set_status', lambda *a, **k: None)
+    monkeypatch.setattr(engine, 'set_progress', lambda *a, **k: None)
+    monkeypatch.setattr(engine, '_download_source_with_fallback', lambda _url, _fallback, target, _referer: Path(target).write_bytes(b'complete-source'))
+    monkeypatch.setattr(engine, '_cached_probe_audio_info', lambda _path: {'codec': 'mp3', 'bit_rate': 128000})
+    monkeypatch.setattr(engine, '_effective_mp3_profile', lambda _path: (True, None, None))
+
+    real_copy2 = download_engine_module.shutil.copy2
+
+    def failing_copy(source, target, *args, **kwargs):
+        Path(target).write_bytes(b'partial')
+        raise OSError('disk full')
+
+    monkeypatch.setattr(download_engine_module.shutil, 'copy2', failing_copy)
+    with pytest.raises(OSError, match='disk full'):
+        engine.run_full_mp3()
+
+    target = tmp_path / 'Demo.mp3'
+    source_target = tmp_path / '.Demo.full-source'
+    assert not target.exists()
+    assert source_target.read_bytes() == b'complete-source'
+    monkeypatch.setattr(download_engine_module.shutil, 'copy2', real_copy2)

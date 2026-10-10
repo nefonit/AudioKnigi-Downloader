@@ -649,3 +649,71 @@ def test_download_request_uses_normalized_settings(tmp_path):
     request = build_download_request(book, {'output_dir': str(tmp_path), 'auto_chunk_min_kbps': 512}, [1])
     assert request.output_dir == tmp_path
     assert request.selected_indices == [1]
+
+# Post-consolidation: Round 83 external audit follow-up.
+def test_appsettings_legacy_alias_delete_targets_canonical_storage():
+    from audioknigi.config.settings import AppSettings
+
+    settings = AppSettings({'normalization_mode': 'single', 'auto_chunk_min_kbytes_per_sec': 512})
+    del settings['normalize_audio']
+    assert 'normalization_mode' not in settings
+    with pytest.raises(KeyError):
+        _ = settings['normalize_audio']
+
+    del settings['auto_chunk_min_kbps']
+    assert 'auto_chunk_min_kbytes_per_sec' not in settings
+    with pytest.raises(KeyError):
+        _ = settings['auto_chunk_min_kbps']
+
+
+def test_settings_safe_bool_accepts_german_yes_no():
+    from audioknigi.config.settings import _safe_bool
+
+    assert _safe_bool('ja') is True
+    assert _safe_bool('JA') is True
+    assert _safe_bool('nein', True) is False
+
+
+def test_settings_sync_uses_nearest_supported_player_rate_for_legacy_value():
+    from audioknigi.qt.settings_sync import SettingsSyncMixin
+
+    class Combo:
+        def __init__(self):
+            self.values = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+            self.current = 0
+
+        def findData(self, value):
+            try:
+                return self.values.index(value)
+            except ValueError:
+                return -1
+
+        def count(self):
+            return len(self.values)
+
+        def itemData(self, index):
+            return self.values[index]
+
+        def setCurrentIndex(self, index):
+            self.current = index
+
+        def currentData(self):
+            return self.values[self.current]
+
+    class Harness(SettingsSyncMixin):
+        def __init__(self):
+            self.settings = {'player_rate': 1.1}
+            self.player_rate_combo = Combo()
+
+        def _set_combo_data(self, _widget, _value):
+            pass
+
+        def _apply_large_mode(self):
+            pass
+
+        def _apply_source_visibility(self):
+            pass
+
+    harness = Harness()
+    harness._apply_settings_to_qt_controls()
+    assert harness.player_rate_combo.currentData() == 1.0

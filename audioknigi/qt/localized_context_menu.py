@@ -97,7 +97,12 @@ def _global_menu_position(widget: QWidget, pos: QPoint):
             if isinstance(widget, QLineEdit):
                 return widget.mapToGlobal(widget.rect().bottomLeft())
             if isinstance(widget, (QPlainTextEdit, QTextEdit)):
-                return widget.viewport().mapToGlobal(widget.cursorRect().bottomLeft())
+                viewport = widget.viewport()
+                point = widget.cursorRect().bottomLeft()
+                visible = viewport.rect()
+                point.setX(max(visible.left(), min(visible.right(), point.x())))
+                point.setY(max(visible.top(), min(visible.bottom(), point.y())))
+                return viewport.mapToGlobal(point)
             return QCursor.pos()
         viewport = widget.viewport() if isinstance(widget, (QPlainTextEdit, QTextEdit)) else widget
         return viewport.mapToGlobal(pos)

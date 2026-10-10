@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ..core import CRASH_REPORT_FILE, SETTINGS_FILE, load_json
+from ..crash_report import crash_report_is_current
 from ..metadata import APP_VERSION
 from ..logging_utils import APP_LOG_FILE, ERROR_LOG_FILE
 from ..services.queue_service import QT_QUEUE_FILE
@@ -61,7 +62,18 @@ _EMBEDDED_POSIX_PATH_RE = re.compile(
     r"(?P<prefix>^|[\s=\(\[\{,;])(?P<path>/(?!/)(?:[^/\s|;\r\n\"']+/)*[^/\s|;\r\n\"']+)",
     re.MULTILINE,
 )
+_HTTP_METHOD_BEFORE_PATH_RE = re.compile(
+    r"(?i)\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|CONNECT|TRACE)\s+$"
+)
 
+
+def _redact_posix_match(match: re.Match[str]) -> str:
+    """Redact local absolute POSIX paths without mangling HTTP request targets."""
+    path_start = match.start("path")
+    before_path = match.string[max(0, path_start - 16):path_start]
+    if _HTTP_METHOD_BEFORE_PATH_RE.search(before_path):
+        return match.group(0)
+    return match.group("prefix") + "<configured-path>"
 
 
 def _is_secret_key(key: str) -> bool:
@@ -100,14 +112,8 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
     text = _EMBEDDED_UNC_FILE_RE.sub("<configured-path>", text)
     text = _EMBEDDED_DRIVE_PATH_RE.sub("<configured-path>", text)
     text = _EMBEDDED_UNC_PATH_RE.sub("<configured-path>", text)
-    text = _EMBEDDED_POSIX_FILE_RE.sub(
-        lambda match: match.group("prefix") + "<configured-path>",
-        text,
-    )
-    text = _EMBEDDED_POSIX_PATH_RE.sub(
-        lambda match: match.group("prefix") + "<configured-path>",
-        text,
-    )
+    text = _EMBEDDED_POSIX_FILE_RE.sub(_redact_posix_match, text)
+    text = _EMBEDDED_POSIX_PATH_RE.sub(_redact_posix_match, text)
 
     try:
         home_path = Path.home()
@@ -301,6 +307,8 @@ def create_support_bundle(destination: str | Path, *, settings: Mapping[str, Any
         ):
             target_path = Path(path)
             if target_path.is_file():
+                if name == "last_crash_report.txt" and not crash_report_is_current(target_path):
+                    continue
                 archive.writestr(
                     f"diagnostics/{name}",
                     _sanitize_log_bytes(_tail(target_path, privacy_safe=True)),

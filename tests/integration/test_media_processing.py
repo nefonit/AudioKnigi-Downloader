@@ -557,8 +557,9 @@ def test_missing_media_wait_and_dialog_have_bounded_failure_paths() -> None:
     analysis = (ROOT / 'audioknigi/qt/mixins/analysis_download.py').read_text(encoding='utf-8')
     assert 'MISSING_MEDIA_DECISION_TIMEOUT_SECONDS' in workers
     assert 'prompt.resolve("stop")' in workers
-    assert 'box.finished.connect' in analysis
+    assert 'box.finished.connect' not in analysis
     assert 'box.destroyed.connect' in analysis
+    assert 'clicked_button = box.clickedButton()' in analysis
 
 
 # Origin: test_report_followup_round2_20260915.py
@@ -1264,3 +1265,68 @@ def test_parallel_split_reports_progress_inside_same_lock():
     report_line = next((line for line in block[lock_pos:].splitlines() if 'report(split_text)' in line))
     assert len(stage_line) - len(stage_line.lstrip()) > lock_indent
     assert len(report_line) - len(report_line.lstrip()) > lock_indent
+
+# Post-consolidation: Round 85 external audit follow-up.
+def test_probe_audio_info_cancellation_kills_and_reaps_ffprobe(monkeypatch):
+    import audioknigi.download.media as media_module
+
+    calls = []
+
+    class Stream:
+        def close(self):
+            calls.append("close")
+
+    class Proc:
+        def __init__(self):
+            self.returncode = None
+            self.stdin = None
+            self.stdout = Stream()
+            self.stderr = None
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            calls.append("kill")
+
+        def communicate(self, timeout=None):
+            calls.append(("communicate", timeout))
+            self.returncode = -9
+            return "", ""
+
+    proc = Proc()
+    monkeypatch.setattr(media_module, "resolve_executable", lambda _name: "ffprobe")
+    monkeypatch.setattr(media_module.subprocess, "Popen", lambda *_args, **_kwargs: proc)
+
+    class Harness(MediaProcessingMixin):
+        def _register_active_subprocess(self, _proc):
+            calls.append("register")
+
+        def _unregister_active_subprocess(self, _proc):
+            calls.append("unregister")
+
+        def _check_cancel(self):
+            raise Cancelled()
+
+    with pytest.raises(Cancelled):
+        Harness()._probe_audio_info("book.mp3")
+
+    assert "kill" in calls
+    assert any(isinstance(item, tuple) and item[0] == "communicate" for item in calls)
+    assert "unregister" in calls
+    assert "close" in calls
+
+
+def test_loudnorm_parser_skips_trailing_non_json_brace_after_valid_stats(monkeypatch):
+    import audioknigi.download.media as media_module
+
+    stats = '{"input_i":"-23.0","input_lra":"3.5","input_tp":"-1.2","input_thresh":"-33.0","target_offset":"0.2"}'
+
+    class Dummy(MediaProcessingMixin):
+        def _run_ffmpeg_capture(self, _cmd, timeout=0):
+            return stats + "\n[ffmpeg summary] trailing {not-json"
+
+    monkeypatch.setattr(media_module, "resolve_executable", lambda _name: "ffmpeg")
+    value = Dummy()._measure_loudnorm("source.mp3")
+    assert "measured_I=-23.0" in value
+    assert "offset=0.2" in value

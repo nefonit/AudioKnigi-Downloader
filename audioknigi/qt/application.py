@@ -12,7 +12,8 @@ from ..core import resource_path, safe_int
 from ..metadata import APP_VERSION
 from ..config.settings import load_app_settings, normalize_settings, save_app_settings
 from ..crash_report import build_report
-from ..logging_utils import app_logger
+from ..logging_utils import app_logger, log_runtime_context
+from ..diagnostics.session import write_session_state
 from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy
 from .main_window import AudioKnigiQtWindow
 from .onboarding import QtFirstRunWizard
@@ -25,6 +26,13 @@ def apply_ui_scale(app: QApplication, settings: dict) -> None:
     base_font = getattr(app, "_audioknigi_base_font_py", None)
     if not isinstance(base_font, QFont):
         base_font = QFont(app.font())
+        # Some platform themes expose an application font without an explicit
+        # point/pixel size. Resolve that native size once and store the resolved
+        # font as the immutable scaling baseline.
+        if base_font.pointSizeF() <= 0 and base_font.pixelSize() <= 0:
+            effective = float(QFontInfo(base_font).pointSizeF())
+            if effective > 0:
+                base_font.setPointSizeF(effective)
         app._audioknigi_base_font_py = QFont(base_font)
         app.setProperty("audioknigi_base_font", QFont(base_font))
     else:
@@ -46,6 +54,7 @@ def apply_ui_scale(app: QApplication, settings: dict) -> None:
         if effective > 0:
             base_font.setPointSizeF(effective * multiplier)
     app.setFont(base_font)
+
 
 
 def create_application(argv=None, *, settings: dict | None = None) -> QApplication:
@@ -84,6 +93,12 @@ def run_qt(argv=None) -> int:
             pass
         return 2
     settings = load_app_settings().to_dict()
+    log_runtime_context(
+        version=APP_VERSION,
+        language=str(settings.get("language", "ru") or "ru"),
+        ui_mode=str(settings.get("ui_mode", "easy") or "easy"),
+    )
+    write_session_state(running=True, settings=settings)
     install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))
     app = create_application(clean_argv, settings=settings)
     original_excepthook = sys.excepthook
@@ -164,6 +179,13 @@ def run_qt(argv=None) -> int:
             threading.excepthook = original_thread_excepthook
         if focus_tracer is not None:
             focus_tracer.close()
+        final_settings = getattr(window, "settings", settings)
+        if not isinstance(final_settings, dict):
+            try:
+                final_settings = final_settings.to_dict()
+            except Exception:
+                final_settings = settings
+        write_session_state(running=False, settings=final_settings)
 
 
 __all__ = ["apply_ui_scale", "create_application", "run_qt"]

@@ -43,7 +43,7 @@ class QueueTask:
 
     @property
     def url(self) -> str:
-        return self.request.book.url
+        return str(getattr(getattr(self.request, "book", None), "url", "") or "")
 
 
 def _track_from_dict(data: dict[str, Any]) -> Track:
@@ -69,7 +69,7 @@ def _track_from_dict(data: dict[str, Any]) -> Track:
         selected = allowed.get("selected")
         if isinstance(selected, str):
             allowed["selected"] = selected.strip().casefold() not in {
-                "", "0", "false", "no", "off", "нет", "ні",
+                "", "0", "false", "no", "off", "нет", "ні", "nein",
             }
         else:
             allowed["selected"] = bool(selected)
@@ -223,9 +223,9 @@ def _optional_persisted_bool(data: dict[str, Any], key: str) -> bool | None:
     if isinstance(value, (int, float)):
         return bool(value)
     text = str(value).strip().casefold()
-    if text in {"1", "true", "yes", "on", "да", "так"}:
+    if text in {"1", "true", "yes", "on", "да", "так", "ja"}:
         return True
-    if text in {"0", "false", "no", "off", "нет", "ні"}:
+    if text in {"0", "false", "no", "off", "нет", "ні", "nein"}:
         return False
     return False
 
