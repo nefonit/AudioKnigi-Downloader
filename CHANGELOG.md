@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.12.42 Round 89
+
+- Completed runtime localization for disk-space, segmented-download, playlist-selection and FFmpeg failure paths; added localized first-run button accessibility descriptions for screen readers; and documented reviewed false-positive settings/MRO/executor/package-layout findings.
+
+## 4.12.42 Round 88
+
+- Hardened corrupt queue booleans, exact backup rollback, Qt event-sound loading, deleted-window session shutdown, bulk-selection accessibility roles, queue zero-value narration, bounded close waits and large error-log tails; simplified the single-book runtime regex and documented reviewed false-positive concurrency/network findings.
+
+## 4.12.42 Round 87
+
+- Aligned `AppSettings.__delitem__` alias errors with the requested MutableMapping key, corrected Ukrainian chapter/narration terminology, and added missing EN/DE/UK runtime translations for FFmpeg-not-found, FFmpeg timeout, and expired-playlist refresh failures; retained reviewed network/privacy/timeline/remote-size behavior as intentional contracts.
+
 ## 4.12.42 Round 86
 
 - Hardened history-restore locking, remote ffprobe reaping, CP1251/coauthor parsing, blocked-source health, subprocess cancellation ownership, Easy-mode queue state, missing-media skip decisions, stable/localized accessibility contracts, keyboard context-menu placement, UI-scale baseline handling, blank-title templates, queue focus, event-sound shutdown, and tiny speed-graph bounds; added domain-based regressions for the reviewed audit findings.
