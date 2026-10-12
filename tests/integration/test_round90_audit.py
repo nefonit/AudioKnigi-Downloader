@@ -89,3 +89,32 @@ def test_skipped_parts_runtime_translation_uses_captured_suffix():
     assert translated == "Download completed. Unavailable parts were skipped: 2, 4"
     assert "2, 4" in localize_runtime_text("uk", source)
     assert "2, 4" in localize_runtime_text("de", source)
+
+
+def test_support_bundle_windows_path_multiline_keeps_following_diagnostics():
+    from audioknigi.diagnostics.support_bundle import _privacy_path
+
+    message = "Failed: C:\\Users\\Alice\\My Books\\recording.mp3\\nRetrying source lookup"
+    redacted = _privacy_path(message, collapse_whole_path=False)
+    assert "Alice" not in redacted
+    assert "My Books" not in redacted
+    assert "<configured-path>" in redacted
+    assert "Retrying source lookup" in redacted
+
+
+def test_support_bundle_windows_file_path_preserves_error_suffix():
+    from audioknigi.diagnostics.support_bundle import _privacy_path
+
+    message = "Failed: C:\\Users\\Alice\\My Books\\recording.mp3: decoder error"
+    redacted = _privacy_path(message, collapse_whole_path=False)
+    assert redacted.endswith(": decoder error")
+    assert "Alice" not in redacted
+
+
+def test_support_bundle_ambiguous_windows_directory_path_stays_private():
+    from audioknigi.diagnostics.support_bundle import _privacy_path
+
+    message = "Cannot use C:\\Users\\Alice\\My Books Access denied"
+    redacted = _privacy_path(message, collapse_whole_path=False)
+    assert "Alice" not in redacted
+    assert "My Books" not in redacted
