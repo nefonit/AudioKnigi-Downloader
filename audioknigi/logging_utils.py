@@ -19,9 +19,11 @@ def sanitize_log_text(value: object) -> str:
 
     # Hide explicit secrets before replacing URLs so non-URL occurrences are
     # still sanitized and the rules remain independently testable.
+    # Mask entire quoted values (including spaces), as well as unquoted ones.
+    # Keep the key visible for diagnostics without exposing credentials.
     text = re.sub(
-        r"(?i)\b((?:[a-z0-9]+[_-])*(?:api[_ -]?key|token|authorization|cookie|cookies|password|secret))\s*[:=]\s*\S+",
-        r"\1=<hidden>",
+        r"""(?i)((?:["']?)\b(?:[a-z0-9]+[_-])*(?:api[_ -]?key|token|authorization|cookie|cookies|password|secret)\b(?:["']?)\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^&\s,;]+)""",
+        lambda match: match.group(1) + '"<hidden>"',
         text,
     )
     text = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._~+/-]+=*", "Bearer <hidden>", text)
