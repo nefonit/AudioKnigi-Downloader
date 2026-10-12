@@ -227,7 +227,10 @@ def _optional_persisted_bool(data: dict[str, Any], key: str) -> bool | None:
         return True
     if text in {"0", "false", "no", "off", "нет", "ні", "nein"}:
         return False
-    return False
+    # Unknown/corrupt persisted text means "not specified", not an explicit
+    # false override. This lets callers inherit the current application
+    # setting instead of silently disabling a feature.
+    return None
 
 
 def _parse_created_at(value: Any) -> float:
