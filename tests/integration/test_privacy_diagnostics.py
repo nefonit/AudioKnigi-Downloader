@@ -745,3 +745,20 @@ def test_help_center_crash_copy_uses_current_build_filter_source_contract():
     block = source[source.index('def copy_last_crash_report'):source.index('def open_error_log')]
     assert 'read_current_crash_report()' in block
     assert 'CRASH_REPORT_FILE.read_text' not in block
+
+
+# Round 88: external-audit follow-up (2026-10-10)
+
+def test_tail_error_log_reads_a_bounded_suffix(tmp_path, monkeypatch):
+    import audioknigi.logging_utils as logging_utils
+
+    path = tmp_path / "errors.log"
+    rows = [f"row-{index:05d}-" + ("x" * 200) for index in range(4000)]
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(logging_utils, "ERROR_LOG_FILE", path)
+
+    tail = logging_utils.tail_error_log(5)
+    assert rows[-1] in tail
+    assert rows[-5] in tail
+    assert rows[0] not in tail
+    assert len(tail.splitlines()) == 5
