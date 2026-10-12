@@ -208,7 +208,10 @@ class TrackTableModel(QAbstractTableModel):
         )
 
     def set_selected_indices(self, indices) -> None:
-        wanted = {safe_int(value, -1) for value in (indices or [])}
+        if indices is None:
+            self.set_all_selected(True)
+            return
+        wanted = {safe_int(value, -1) for value in indices}
         changed = False
         for track in self._tracks:
             selected = self._safe_track_index(track) in wanted
