@@ -115,3 +115,37 @@ def test_support_bundle_ambiguous_windows_directory_path_stays_private():
     redacted = _privacy_path(message, collapse_whole_path=False)
     assert "Alice" not in redacted
     assert "My Books" not in redacted
+
+
+def test_runtime_exact_catalog_has_no_duplicate_json_keys():
+    """Reject silent override of a previous translation during json.loads."""
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8")
+
+    def reject_duplicate_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"Duplicate localization key: {key}")
+            result[key] = value
+        return result
+
+    json.loads(source, object_pairs_hook=reject_duplicate_keys)
+
+
+def test_disk_space_errors_have_runtime_translations():
+    from audioknigi.i18n import localize_runtime_text
+
+    originals = (
+        "Не удалось определить свободное место на диске.\n\n"
+        "Проверьте папку сохранения и доступ к диску, затем повторите загрузку.",
+        "Не удалось определить свободное место на диске. "
+        "Проверьте папку сохранения и доступ к диску.",
+    )
+    for original in originals:
+        for language in ("de", "en", "uk"):
+            rendered = localize_runtime_text(language, original)
+            assert rendered != original
+            if "\n\n" in original:
+                assert "\n\n" in rendered
