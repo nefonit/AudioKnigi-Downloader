@@ -72,3 +72,20 @@ def test_runtime_status_translations_include_refresh_and_loudness():
         "Качественная нормализация: анализ громкости…",
     ):
         assert set(("en", "de", "uk")).issubset(translations[phrase])
+
+
+def test_download_request_rejects_invalid_indices_explicitly():
+    import pytest
+    from audioknigi.services.download_request import DownloadRequest
+    for invalid in (None, -1, True, "not-a-number"):
+        with pytest.raises(ValueError):
+            DownloadRequest.track_index(invalid)
+
+
+def test_skipped_parts_runtime_translation_uses_captured_suffix():
+    from audioknigi.i18n import localize_runtime_text
+    source = "Скачивание завершено. Пропущены недоступные части: 2, 4"
+    translated = localize_runtime_text("en", source)
+    assert translated == "Download completed. Unavailable parts were skipped: 2, 4"
+    assert "2, 4" in localize_runtime_text("uk", source)
+    assert "2, 4" in localize_runtime_text("de", source)
