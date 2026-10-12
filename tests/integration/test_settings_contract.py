@@ -717,3 +717,31 @@ def test_settings_sync_uses_nearest_supported_player_rate_for_legacy_value():
     harness = Harness()
     harness._apply_settings_to_qt_controls()
     assert harness.player_rate_combo.currentData() == 1.0
+
+
+# Post-consolidation: Round 87 external audit follow-up.
+def test_appsettings_alias_delete_missing_key_reports_requested_alias():
+    settings = AppSettings({'theme': 'dark'})
+    del settings['normalization_mode']
+    with pytest.raises(KeyError) as excinfo:
+        del settings['normalize_audio']
+    assert excinfo.value.args == ('normalize_audio',)
+
+    del settings['auto_chunk_min_kbytes_per_sec']
+    with pytest.raises(KeyError) as excinfo:
+        del settings['auto_chunk_min_kbps']
+    assert excinfo.value.args == ('auto_chunk_min_kbps',)
+
+
+# Post-consolidation: Round 89 external audit follow-up.
+def test_appsettings_mapping_get_returns_default_after_legacy_alias_target_is_deleted():
+    settings = AppSettings({'normalization_mode': 'single', 'auto_chunk_min_kbytes_per_sec': 512})
+    del settings['normalize_audio']
+    del settings['auto_chunk_min_kbps']
+
+    assert settings.get('normalize_audio', False) is False
+    assert settings.get('auto_chunk_min_kbps', 256) == 256
+    with pytest.raises(KeyError):
+        _ = settings['normalize_audio']
+    with pytest.raises(KeyError):
+        _ = settings['auto_chunk_min_kbps']
