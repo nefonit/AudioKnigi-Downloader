@@ -95,10 +95,11 @@
         "test_qt_application_restores_session_header_and_lifecycle_markers_source_contract",
         "test_stale_crash_report_is_not_presented_as_current",
         "test_support_bundle_omits_stale_other_version_crash_report",
-        "test_help_center_crash_copy_uses_current_build_filter_source_contract"
+        "test_help_center_crash_copy_uses_current_build_filter_source_contract",
+        "test_tail_error_log_reads_a_bounded_suffix"
       ],
-      "test_functions": 52,
-      "collected_cases": 52
+      "test_functions": 53,
+      "collected_cases": 53
     },
     "test_build_release.py": {
       "source_files": 23,
@@ -219,10 +220,14 @@
         "test_missing_file_loaded_literal_is_translated_in_all_non_russian_languages",
         "test_runtime_regex_supports_multiline_capture",
         "test_search_result_pluralization_has_correct_singular_and_few_forms",
-        "test_runtime_localization_does_not_require_leading_space_catalog_keys"
+        "test_runtime_localization_does_not_require_leading_space_catalog_keys",
+        "test_round87_runtime_ffmpeg_and_playlist_failures_are_localized",
+        "test_round87_ukrainian_help_uses_consistent_book_and_narration_terms",
+        "test_single_book_runtime_regex_has_only_the_dynamic_sources_capture",
+        "test_round89_download_failure_runtime_messages_are_localized"
       ],
-      "test_functions": 74,
-      "collected_cases": 80
+      "test_functions": 78,
+      "collected_cases": 84
     },
     "test_accessibility.py": {
       "source_files": 35,
@@ -288,10 +293,11 @@
         "test_missing_media_skip_is_resolved_only_after_clicked_button_is_known",
         "test_queue_move_and_easy_mode_preserve_single_accessible_focus_context",
         "test_ui_scale_uses_resolved_immutable_baseline_and_speed_graph_clamps_bounds",
-        "test_event_sound_shutdown_balances_unconsumed_sentinel_source_contract"
+        "test_event_sound_shutdown_balances_unconsumed_sentinel_source_contract",
+        "test_first_run_wizard_buttons_keep_localized_accessible_descriptions"
       ],
-      "test_functions": 62,
-      "collected_cases": 62
+      "test_functions": 63,
+      "collected_cases": 63
     },
     "test_player.py": {
       "source_files": 25,
@@ -378,10 +384,12 @@
         "test_download_request_uses_normalized_settings",
         "test_appsettings_legacy_alias_delete_targets_canonical_storage",
         "test_settings_safe_bool_accepts_german_yes_no",
-        "test_settings_sync_uses_nearest_supported_player_rate_for_legacy_value"
+        "test_settings_sync_uses_nearest_supported_player_rate_for_legacy_value",
+        "test_appsettings_alias_delete_missing_key_reports_requested_alias",
+        "test_appsettings_mapping_get_returns_default_after_legacy_alias_target_is_deleted"
       ],
-      "test_functions": 45,
-      "collected_cases": 45
+      "test_functions": 47,
+      "collected_cases": 47
     },
     "test_queue_history.py": {
       "source_files": 36,
@@ -449,10 +457,12 @@
         "test_queue_task_url_fails_closed_for_missing_legacy_book",
         "test_restore_backup_snapshots_history_under_history_lock",
         "test_restore_backup_holds_history_lock_for_entire_transaction",
-        "test_queue_empty_selection_contract_remains_explicit_not_all_tracks"
+        "test_queue_empty_selection_contract_remains_explicit_not_all_tracks",
+        "test_unknown_persisted_optional_bool_is_unspecified_not_false",
+        "test_restore_backup_rollback_restores_exact_empty_original_bytes"
       ],
-      "test_functions": 64,
-      "collected_cases": 64
+      "test_functions": 66,
+      "collected_cases": 66
     },
     "test_providers.py": {
       "source_files": 58,
@@ -873,10 +883,15 @@
         "test_support_tail_drops_partial_line_that_can_hide_windows_path_prefix",
         "test_delayed_window_callbacks_use_lifecycle_safe_scheduler",
         "test_extra_catalog_terms_still_keep_stable_two_word_title_phrase",
-        "test_qt_worker_callbacks_are_signal_emitters_not_widget_methods"
+        "test_qt_worker_callbacks_are_signal_emitters_not_widget_methods",
+        "test_qt_application_session_shutdown_survives_deleted_window_wrapper",
+        "test_event_sound_does_not_seek_while_media_is_loading",
+        "test_bulk_track_selection_emits_explicit_accessibility_roles",
+        "test_queue_accessible_text_preserves_numeric_zero",
+        "test_exit_final_wait_uses_one_shared_deadline_for_all_threads"
       ],
-      "test_functions": 39,
-      "collected_cases": 39
+      "test_functions": 44,
+      "collected_cases": 44
     },
     "test_core_services.py": {
       "source_files": 52,
@@ -984,6 +999,6 @@
       "collected_cases": 111
     }
   },
-  "collected_integration_cases": 899,
-  "post_consolidation_test_functions": 42
+  "collected_integration_cases": 914,
+  "post_consolidation_test_functions": 57
 }
