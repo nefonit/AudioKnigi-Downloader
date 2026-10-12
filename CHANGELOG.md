@@ -2,6 +2,7 @@
 
 ## 4.12.42 Round 90
 
+- Full independent verification of the 2026-10-12 audit: reviewed 28 claims, found no new confirmed production-code defect, added offline audit contract tests; 922 of 922 non-accessibility tests passed, Qt/NVDA/JAWS acceptance still pending.
 - Audit follow-up: added EN/DE/UK translations for disk-space detection errors and regression coverage for duplicate JSON locale keys; confirmed raw regex compatibility and retained existing runtime behavior.
 - Hardened crash-report path handling, log credential redaction, partial settings saves, Qt output-directory button callbacks, disk preflight track selection, loudnorm fallback, runtime localization, and skipped-part translation. Added focused regression tests and audit documentation; Windows NVDA/JAWS acceptance remains pending.
 - Follow-up regression validation: restored strict disk preflight selection and locale prefix compatibility, translated loudnorm fallback diagnostics, and stabilized metadata-only provider tests without changing runtime network behavior. All 905 non-Qt-accessibility tests passed in five independent groups; Windows NVDA/JAWS verification pending.
