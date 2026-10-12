@@ -1,14 +1,14 @@
 [
   [
-    "^Найдена (1) книга, источников: (.+)\\.$",
+    "^Найдена 1 книга, источников: (.+)\\.$",
     {
-      "de": "1 Buch gefunden, Quellen: {1}.",
-      "en": "Found 1 book, sources: {1}.",
-      "uk": "Знайдено 1 книгу, джерел: {1}."
+      "de": "1 Buch gefunden, Quellen: {0}.",
+      "en": "Found 1 book, sources: {0}.",
+      "uk": "Знайдено 1 книгу, джерел: {0}."
     }
   ],
   [
-    "^Найдена (1) книга\\.$",
+    "^Найдена 1 книга\\.$",
     {
       "de": "1 Buch gefunden.",
       "en": "Found 1 book.",
@@ -613,6 +613,38 @@
       "de": "Download abgebrochen: {0} von {1} empfangen.",
       "en": "Download was interrupted: received {0} of {1}.",
       "uk": "Завантаження перервалося: отримано {0} із {1}."
+    }
+  ],
+  [
+    "^FFmpeg превысил лимит времени (.+) секунд\\.$",
+    {
+      "de": "FFmpeg hat das Zeitlimit von {0} Sekunden überschritten.",
+      "en": "FFmpeg exceeded the time limit of {0} seconds.",
+      "uk": "FFmpeg перевищив ліміт часу {0} секунд."
+    }
+  ],
+  [
+    "^Недостаточно свободного места\\.\\r?\\n+Нужно примерно: (.+)\\r?\\nСвободно: (.+)$",
+    {
+      "de": "Nicht genügend freier Speicherplatz.\nBenötigt ca.: {0}\nFrei: {1}",
+      "en": "Not enough free disk space.\nEstimated required: {0}\nFree: {1}",
+      "uk": "Недостатньо вільного місця.\nПотрібно приблизно: {0}\nВільно: {1}"
+    }
+  ],
+  [
+    "^Сегмент скачан не полностью: (.+) вместо (.+) байт$",
+    {
+      "de": "Segment unvollständig heruntergeladen: {0} statt {1} Byte.",
+      "en": "Segment download incomplete: {0} instead of {1} bytes.",
+      "uk": "Сегмент завантажено не повністю: {0} замість {1} байт."
+    }
+  ],
+  [
+    "^Сегмент не продвигается: (.+) из (.+) байт\\.$",
+    {
+      "de": "Segment macht keinen Fortschritt: {0} von {1} Byte.",
+      "en": "Segment is not making progress: {0} of {1} bytes.",
+      "uk": "Сегмент не просувається: {0} із {1} байт."
     }
   ]
 ]
