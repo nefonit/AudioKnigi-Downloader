@@ -565,7 +565,9 @@ class ProbeMixin:
                     raise ValueError(f"Invalid selected track index: {value!r}")
                 number = safe_int(raw_value, -1)
                 if number < 0:
-                    raise ValueError(f"Invalid selected track index: {value!r}")
+                    # Optional/uninitialized indices are ignored during disk
+                    # estimation, consistent with the download selection flow.
+                    continue
                 wanted.add(number)
             chosen = tracks if select_all else [
                 t for t in tracks if safe_int(track_field(t, "index", None), -1) in wanted
