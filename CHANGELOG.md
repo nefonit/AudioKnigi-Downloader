@@ -1737,3 +1737,11 @@ Verification: 184/184 active tests pass; localization audit PASS; full parity 61
 
 - First-run wizard, listening-position resume, library covers, duplicate detection, site-structure diagnostics, Help Center, accessibility and RU/UK/DE/EN localization foundation.
 
+
+### Round 90 — 2026-10-12 20:21 audit verification
+- Corrected legacy onboarding migration on partial settings save and full-book `None` selection in Qt track table.
+- Restored numbered help steps, queue-reanalysis error reporting, and keyboard context-menu scrolling.
+- Strengthened truncated shared-source detection when the last chapter has a known duration; improved analysis cancellation.
+- Debounced player-volume persistence; added Windows-safe acceptance report replacement; adjusted disk-space translations and German tray text.
+- Added 13 regression tests and a 25-point review in `audits/4.12/rounds/REPORT_20261012_202128_VERIFICATION.md`.
+- Verified 919 non-accessibility tests across four groups. Windows Qt + NVDA/JAWS manual testing remains a release gate.
