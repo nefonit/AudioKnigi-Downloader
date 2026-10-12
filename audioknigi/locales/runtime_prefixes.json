@@ -83,5 +83,10 @@
     "de": "FFmpeg wurde mit einem Fehler beendet:\n",
     "en": "FFmpeg exited with an error:\n",
     "uk": "FFmpeg завершився з помилкою:\n"
+  },
+  "Скачивание завершено. Пропущены недоступные части: ": {
+    "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
+    "en": "Download completed. Unavailable parts were skipped: ",
+    "uk": "Завантаження завершено. Пропущено недоступні частини: "
   }
 }
