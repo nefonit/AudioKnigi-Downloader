@@ -54,6 +54,8 @@ def _iter_completed_cancellable(futures, cancel_event):
     pending = set(futures)
     while pending:
         if cancel_event is not None and cancel_event.is_set():
+            for future in pending:
+                future.cancel()
             raise Cancelled("Операция отменена пользователем")
         done, pending = wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)
         for future in done:
@@ -425,17 +427,21 @@ class BookAnalysisService:
         ]
         if len(sources) != 1:
             return book
-        if ends:
-            expected_end = max(ends)
-        else:
-            starts = [
-                parsed
-                for track in tracks
-                if (parsed := parse_time_seconds(getattr(track, "start", None))) is not None
-            ]
-            if not starts:
-                return book
-            expected_end = max(starts)
+        starts = [
+            parsed
+            for track in tracks
+            if (parsed := parse_time_seconds(getattr(track, "start", None))) is not None
+        ]
+        expected_end = max([*ends, *starts], default=0.0)
+        # A shared-file playlist may omit the final chapter end. Only extend
+        # the lower bound when the final chapter has a known duration.
+        if tracks:
+            final = tracks[-1]
+            last_start = parse_time_seconds(getattr(final, "start", None))
+            last_end = parse_time_seconds(getattr(final, "end", None))
+            last_duration = effective_track_duration(final)
+            if last_start is not None and last_end is None and last_duration is not None and last_duration > 0:
+                expected_end = max(expected_end, last_start + last_duration)
         if expected_end <= 0:
             return book
         actual = self._probe_remote_duration(sources[0], str(getattr(book, "url", "") or ""))
