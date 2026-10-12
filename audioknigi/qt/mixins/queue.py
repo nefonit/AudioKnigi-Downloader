@@ -312,7 +312,8 @@ class QueueUiMixin:
                 row_summary = self._queue_row_summary(row)
                 for col, value in enumerate(values):
                     item = QTableWidgetItem(str(value))
-                    accessible_text = f"{localized_headers[col]}: {value or self._l('нет')}"
+                    spoken_value = self._l("нет") if value in ("", None) else value
+                    accessible_text = f"{localized_headers[col]}: {spoken_value}"
                     item.setData(Qt.ItemDataRole.AccessibleTextRole, accessible_text)
                     item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, row_summary)
                     self.queue_table.setItem(row, col, item)
