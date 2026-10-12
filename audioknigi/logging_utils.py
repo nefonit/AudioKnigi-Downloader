@@ -17,6 +17,16 @@ ERROR_LOG_FILE = APP_DIR / "errors.log"
 def sanitize_log_text(value: object) -> str:
     text = str(value) if value is not None else ""
 
+    # HTTP authentication and cookies may contain multiple whitespace-separated
+    # fields (e.g. "Authorization: Bearer <token>"). Redact the *entire* header
+    # value before the generic key=value sanitizer, which otherwise masks only
+    # the initial scheme and leaks the credential following it.
+    text = re.sub(
+        r"(?im)(?<![A-Za-z0-9_-])((?:proxy-authorization|authorization|set-cookie|cookie)\s*:\s*)[^\r\n]*",
+        lambda match: match.group(1) + "<hidden>",
+        text,
+    )
+
     # Hide explicit secrets before replacing URLs so non-URL occurrences are
     # still sanitized and the rules remain independently testable.
     # Mask entire quoted values (including spaces), as well as unquoted ones.
