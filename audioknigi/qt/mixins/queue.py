@@ -210,6 +210,8 @@ class QueueUiMixin:
     def _show_queue_context_menu(self, pos):
         if pos is None:
             current = self.queue_table.currentIndex()
+            if current.isValid():
+                self.queue_table.scrollTo(current, QAbstractItemView.ScrollHint.EnsureVisible)
             pos = self.queue_table.visualRect(current).center() if current.isValid() else self.queue_table.viewport().rect().center()
         row = self.queue_table.rowAt(int(pos.y()))
         if row >= 0:
