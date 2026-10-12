@@ -152,11 +152,26 @@ def log_exception(context: str, exc_info=None, *, level: int = logging.ERROR) ->
 
 
 def tail_error_log(max_lines: int = 200) -> str:
-    """Return the newest privacy-sanitized error log lines for support reports."""
+    """Return a bounded tail of the privacy-sanitized error log.
+
+    Reading only the newest bytes prevents Help Center's crash-report action
+    from freezing the GUI when an error loop has grown the file very large.
+    """
     try:
         if not ERROR_LOG_FILE.is_file():
             return ""
-        lines = ERROR_LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+        limit = 512 * 1024
+        with ERROR_LOG_FILE.open("rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            start = max(0, size - limit)
+            handle.seek(start)
+            payload = handle.read(limit)
+        if start > 0:
+            newline = payload.find(b"\n")
+            if newline >= 0:
+                payload = payload[newline + 1:]
+        lines = payload.decode("utf-8", errors="replace").splitlines()
         return "\n".join(lines[-max(1, int(max_lines)):])
     except Exception:
         return ""
