@@ -1686,12 +1686,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_optional_metadata_does_not_erase_existing_title(monkeypatch):
     service = BookAnalysisService()
+    # This metadata parser test must not perform a real remote file-size probe.
+    service.options.fetch_remote_size = False
     monkeypatch.setattr(analysis_module, 'extract_metadata_from_html', lambda _html, _title: ('', '', ''))
     book = service._parse_playlist_data(url='https://audioknigi.com.ua/demo', html_text='<script>new Playerjs({title:"Recovered Title"})</script>', page_title='Fallback Title', playlist_url='https://audioknigi.com.ua/list.pl.txt', playlist_text='[{"file":"track.mp3","title":"One"}]')
     assert book.title == 'Recovered Title'
 
 def test_playlist_object_wrapper_is_supported_and_wrong_object_shape_is_explicit(monkeypatch):
     service = BookAnalysisService()
+    service.options.fetch_remote_size = False
     monkeypatch.setattr(analysis_module, 'extract_metadata_from_html', lambda _html, title: (title, '', ''))
     kwargs = dict(url='https://audioknigi.com.ua/demo', html_text='<script>new Playerjs({title:"Demo"})</script>', page_title='Demo', playlist_url='https://audioknigi.com.ua/list.pl.txt')
     book = service._parse_playlist_data(**kwargs, playlist_text='{"playlist":[{"file":"track.mp3","title":"One"}]}')
