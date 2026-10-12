@@ -871,3 +871,61 @@ def test_runtime_localization_does_not_require_leading_space_catalog_keys():
     accessibility_ui = (ROOT / "audioknigi/qt/mixins/accessibility_ui.py").read_text(encoding="utf-8")
     assert 'self.set_status(f"{ready_text} {tray_text}")' in main_window
     assert 'dns_advice = " " + self._l(' in accessibility_ui
+
+
+# Post-consolidation: Round 87 external audit follow-up.
+def test_round87_runtime_ffmpeg_and_playlist_failures_are_localized():
+    from audioknigi.i18n import localize_runtime_text
+
+    assert localize_runtime_text('en', 'FFmpeg не найден.') == 'FFmpeg was not found.'
+    assert localize_runtime_text('de', 'FFmpeg не найден. Установите FFmpeg или добавьте его в PATH.').startswith('FFmpeg wurde nicht gefunden.')
+    assert localize_runtime_text('uk', 'FFmpeg превысил лимит времени 30 секунд.') == 'FFmpeg перевищив ліміт часу 30 секунд.'
+    stale = 'Аудиоссылка устарела (HTTP 404/410), а получить свежий плейлист не удалось: timeout'
+    assert localize_runtime_text('en', stale) == 'The audio link expired (HTTP 404/410), and a fresh playlist could not be retrieved: timeout'
+
+
+def test_round87_ukrainian_help_uses_consistent_book_and_narration_terms():
+    from audioknigi.i18n import ui_text
+
+    assert ui_text('uk', 'Для этой аудиокниги список глав пока недоступен') == 'Для цієї аудіокниги список розділів поки недоступний'
+    assert ui_text('uk', 'Список глав появится\nпосле открытия книги') == 'Список розділів з’явиться\nпісля відкриття книги'
+    search_hint = 'Поиск: введите минимум 3 символа. Стрелками выберите результат и нажмите Enter. Если есть несколько озвучек, выберите чтеца.'
+    assert 'варіантів озвучення' in ui_text('uk', search_hint)
+    ready_hint = 'Результаты готовы. Стрелками выберите книгу и нажмите Enter. Если показан список озвучек, выберите чтеца — анализ начнётся автоматически.'
+    assert 'список озвучень' in ui_text('uk', ready_hint)
+
+
+# Round 88: external-audit follow-up (2026-10-10)
+
+def test_single_book_runtime_regex_has_only_the_dynamic_sources_capture():
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    catalog = json.loads((root / "audioknigi/locales/runtime_regex.json").read_text(encoding="utf-8"))
+    rows = {pattern: translations for pattern, translations in catalog}
+    pattern = r"^Найдена 1 книга, источников: (.+)\.$"
+    assert pattern in rows
+    assert "(1)" not in pattern
+    assert rows[pattern]["en"] == "Found 1 book, sources: {0}."
+    assert rows[pattern]["de"] == "1 Buch gefunden, Quellen: {0}."
+    assert rows[pattern]["uk"] == "Знайдено 1 книгу, джерел: {0}."
+
+
+# Post-consolidation: Round 89 external audit follow-up.
+def test_round89_download_failure_runtime_messages_are_localized():
+    cases = [
+        ('en', 'Недостаточно свободного места.\nНужно примерно: 2.0 GB\nСвободно: 1.0 GB', 'Not enough free disk space'),
+        ('de', 'Auto-Chunker остановился до завершения всех Range-задач.', 'Auto-Chunker wurde beendet'),
+        ('uk', 'Ошибка объединения сегментов: итоговый размер не совпадает.', 'Помилка об’єднання сегментів'),
+        ('en', 'Не указан адрес аудиофайла.', 'Audio file URL was not specified'),
+        ('de', 'Слишком много повторных Range-запросов для одного сегмента.', 'Zu viele wiederholte Range-Anfragen'),
+        ('en', 'Сегмент скачан не полностью: 10 вместо 20 байт', 'Segment download incomplete: 10 instead of 20 bytes'),
+        ('uk', 'Сегмент не продвигается: 10 из 20 байт.', 'Сегмент не просувається: 10 із 20 байт'),
+        ('en', 'После обновления плейлиста исчезли выбранные части: 2, 4', 'Selected parts disappeared after refreshing the playlist: 2, 4'),
+        ('de', 'FFmpeg завершился с ошибкой:\nInvalid data found', 'FFmpeg wurde mit einem Fehler beendet:\nInvalid data found'),
+    ]
+    for language, source, expected in cases:
+        translated = localize_runtime_text(language, source)
+        assert translated != source
+        assert expected in translated
