@@ -300,7 +300,15 @@ class AnalysisDownloadUiMixin:
             self._pending_narration_selected_all = False
             self._pending_narration_track_count = 0
             self._queue_after_analysis = False
+            failed_task_id = self._queue_reanalyze_task_id
             self._queue_reanalyze_task_id = None
+            if failed_task_id:
+                for task in self.queue_tasks:
+                    if task.id == failed_task_id:
+                        task.last_error = str(payload)
+                        self._persist_queue()
+                        self._refresh_queue()
+                        break
             self._download_after_analysis = False
             self._full_mp3_after_analysis = False
             self.book_summary.setText(self._rt("Не удалось проанализировать книгу."))
