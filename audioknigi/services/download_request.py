@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+import math
+from numbers import Number
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +43,16 @@ class DownloadRequest:
             raw = getattr(value, "index", value)
         if isinstance(raw, bool):
             raise ValueError(f"Некорректный индекс части: {raw!r}")
+        # safe_int intentionally truncates fractional floats for other callers;
+        # chapter selection must never silently round them to a *different* chapter.
+        if isinstance(raw, Number) and not isinstance(raw, int):
+            try:
+                # This also rejects fractional Decimal/Fraction values supplied
+                # by integrations instead of rounding down via safe_int.
+                if not math.isfinite(float(raw)) or raw != int(raw):
+                    raise ValueError(f"Некорректный индекс части: {raw!r}")
+            except (TypeError, ValueError, OverflowError):
+                raise ValueError(f"Некорректный индекс части: {raw!r}") from None
         number = safe_int(raw, -1)
         if number < 0:
             raise ValueError(f"Некорректный индекс части: {raw!r}")
