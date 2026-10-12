@@ -297,14 +297,23 @@ class QtEventSoundManager(QObject):
                     player.stop()
                 except RuntimeError:
                     pass
-                if player.position() > 0:
-                    player.setPosition(0)
+
+            media_status = player.mediaStatus()
+            # On Windows/WMF, seeking while setSource() is still asynchronous
+            # can invalidate the backend. Reset only after Qt has a real media
+            # timeline (or after a previously completed cached cue).
+            seekable_states = {
+                QMediaPlayer.MediaStatus.LoadedMedia,
+                QMediaPlayer.MediaStatus.BufferedMedia,
+                QMediaPlayer.MediaStatus.EndOfMedia,
+            }
+            if player.position() > 0 and media_status in seekable_states:
+                player.setPosition(0)
 
             loading_states = {
                 QMediaPlayer.MediaStatus.NoMedia,
                 QMediaPlayer.MediaStatus.LoadingMedia,
             }
-            media_status = player.mediaStatus()
             if media_status == QMediaPlayer.MediaStatus.InvalidMedia:
                 self._retire_player(key)
                 return self.play_system(event) if allow_system_fallback else False
