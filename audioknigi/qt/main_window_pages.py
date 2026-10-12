@@ -420,7 +420,7 @@ class MainWindowPagesMixin:
         configure_accessible(self.output_edit, name=self._l("Папка для аудиокниг"), identifier="output_dir")
         browse = QPushButton(self._l("Выбрать папку"))
         configure_accessible(browse, name=self._l("Выбрать папку для аудиокниг"), identifier="browse_output")
-        browse.clicked.connect(self._choose_output_dir)
+        browse.clicked.connect(lambda _checked=False: self._choose_output_dir())
         output_row = QWidget()
         output_layout = QHBoxLayout(output_row)
         output_layout.setContentsMargins(0, 0, 0, 0)
