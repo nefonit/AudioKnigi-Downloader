@@ -626,9 +626,9 @@
   [
     "^Недостаточно свободного места\\.\\r?\\n+Нужно примерно: (.+)\\r?\\nСвободно: (.+)$",
     {
-      "de": "Nicht genügend freier Speicherplatz.\nBenötigt ca.: {0}\nFrei: {1}",
-      "en": "Not enough free disk space.\nEstimated required: {0}\nFree: {1}",
-      "uk": "Недостатньо вільного місця.\nПотрібно приблизно: {0}\nВільно: {1}"
+      "de": "Nicht genügend freier Speicherplatz.\n\nBenötigt ca.: {0}\nFrei: {1}",
+      "en": "Not enough free disk space.\n\nEstimated required: {0}\nFree: {1}",
+      "uk": "Недостатньо вільного місця.\n\nПотрібно приблизно: {0}\nВільно: {1}"
     }
   ],
   [
