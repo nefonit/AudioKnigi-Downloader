@@ -268,7 +268,15 @@ def save_app_settings(settings: Mapping[str, Any], path: Path = SETTINGS_FILE) -
     # A save represents current user intent, not an old profile being loaded.
     # Mark the legacy 125% migration as completed before normalization so an
     # explicitly selected 125% value in a newly-created mapping is not reset.
-    payload = dict(settings or {})
+    incoming = dict(settings or {})
+    existing = load_json(path, {})
+    if not isinstance(existing, dict):
+        existing = {}
+    # A partial save must not mark the initial setup complete, nor discard
+    # unrelated persisted user preferences.
+    payload = {**existing, **incoming}
+    if "first_run_complete" not in payload:
+        payload["first_run_complete"] = False
     payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
     normalized = normalize_settings(payload)
     return bool(save_json(path, normalized))
