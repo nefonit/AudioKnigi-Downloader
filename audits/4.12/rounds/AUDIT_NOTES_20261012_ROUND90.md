@@ -7,10 +7,10 @@ Date: 2026-10-12
 - Log sanitizer handles quoted secret values with spaces.
 - Partial settings saves preserve existing preferences and do not implicitly complete onboarding.
 - Output-directory button callback ignores the Qt checked argument.
-- Disk preflight skips negative or uninitialized selection indices.
+- Disk preflight rejects invalid *explicit* selection indices rather than silently underestimating disk space; the download request contract remains strict.
 - A missing loudnorm first-pass JSON report falls back to single-pass normalization.
 - Runtime status translations include playlist-refresh and loudness-analysis text.
-- Removed a redundant skipped-parts prefix mapping; runtime regex remains authoritative.
+- Preserved the skipped-parts prefix fallback for compatibility; the more specific runtime regex is tried first.
 - Added targeted regression tests.
 
 ## Reviewed, intentionally unchanged
@@ -32,3 +32,12 @@ Status: changes committed; full Round 90 verification not yet completed.
 - Three focused support-bundle path-boundary tests passed in a separate local validation workspace.
 - Running the full Round 89 suite in this Linux environment encountered `ModuleNotFoundError: No module named 'PySide6'` in Qt accessibility self-tests. An additional run excluding the accessibility module reached roughly 64% before the execution time limit; no full-suite pass can be claimed.
 - The exact current GitHub Round 90 revision was not recreated as a complete runnable local checkout. Full Round 90 regression validation, particularly Qt/NVDA/JAWS on Windows, is still required.
+
+## Consolidated regression check (2026-10-12, Linux)
+- The initial archived Round 90 source had 8 failing tests among 905 non-accessibility tests. Root causes: disk preflight silently ignored invalid explicit selections (3 failures), removed translation prefix contrary to compatibility contracts (2), missing localized FFmpeg loudnorm warning (2 static/historical audit failures), and a test filename containing `audit` that broke the test layout rule (1).
+- Restored strict invalid selection rejection; retained prefix fallback while preserving regex precedence; added EN/DE/UK translations for the loudnorm fallback warning; renamed the Round 90 test module from `test_round90_audit.py` to `test_round90_regressions.py`.
+- Disabled live remote-size probes in two *metadata-only test cases*; no production network behavior was changed. This prevents test hangs when offline or when external sites are slow.
+- Re-ran every non-accessibility test in five independent groups, yielding **905 passed, 0 failed**: 75 architecture/unit/quality, 122 core-services/Round90, 156 providers, 282 download/build/localization/media/network, and 270 player/privacy/Qt-contract/queue/search/settings.
+- The all-in-one run remains unverified because it stalled on external I/O in this environment. The five groups collectively cover all 905 tests collected with `--ignore=tests/integration/test_accessibility.py`.
+- `python tools/qt_localization_audit.py`: OK.
+- `PySide6` is not installed in the Linux environment, so Qt accessibility tests and Windows NVDA/JAWS acceptance remain pending. No Windows executable was tested or built here.
