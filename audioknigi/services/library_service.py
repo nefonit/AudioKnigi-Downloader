@@ -125,6 +125,30 @@ def _read_backup_member(source: Path) -> bytes | None:
     return None
 
 
+def _restore_raw_backup_member(target: Path, payload: bytes) -> None:
+    """Atomically restore the exact pre-restore bytes during rollback."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(
+        f".{target.name}.{os.getpid()}.{threading.get_ident()}.rollback.tmp"
+    )
+    try:
+        temp.write_bytes(bytes(payload))
+        for attempt in range(3):
+            try:
+                os.replace(temp, target)
+                return
+            except OSError:
+                if attempt >= 2:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+    finally:
+        try:
+            temp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def create_backup(path: Path) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,8 +240,10 @@ def restore_backup(path: Path) -> list[str]:
                 existed, raw = originals.get(member, (False, None))
                 try:
                     if existed and raw is not None:
-                        previous = json.loads(raw.decode("utf-8-sig"))
-                        save_json(target, previous, raise_errors=True)
+                        # Rollback must restore the exact original bytes, even
+                        # if the pre-existing JSON was empty/corrupt. Parsing it
+                        # again here can fail and silently lose the snapshot.
+                        _restore_raw_backup_member(target, raw)
                     elif not existed:
                         target.unlink(missing_ok=True)
                 except Exception:
