@@ -69,11 +69,6 @@
     "en": "Creating ",
     "uk": "Створюю "
   },
-  "Скачивание завершено. Пропущены недоступные части: ": {
-    "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
-    "en": "Download completed. Unavailable parts were skipped: ",
-    "uk": "Завантаження завершено. Пропущено недоступні частини: "
-  },
   "Аудиоссылка устарела (HTTP 404/410), а получить свежий плейлист не удалось: ": {
     "de": "Der Audio-Link ist abgelaufen (HTTP 404/410), und die aktuelle Playlist konnte nicht geladen werden: ",
     "en": "The audio link expired (HTTP 404/410), and a fresh playlist could not be retrieved: ",
