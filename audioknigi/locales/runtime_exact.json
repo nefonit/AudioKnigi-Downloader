@@ -638,5 +638,35 @@
     "de": "Kein Teil ausgewählt.",
     "en": "No parts selected.",
     "uk": "Не вибрано жодної частини."
+  },
+  "FFmpeg не найден.": {
+    "de": "FFmpeg wurde nicht gefunden.",
+    "en": "FFmpeg was not found.",
+    "uk": "FFmpeg не знайдено."
+  },
+  "FFmpeg не найден. Установите FFmpeg или добавьте его в PATH.": {
+    "de": "FFmpeg wurde nicht gefunden. Installieren Sie FFmpeg oder fügen Sie es zu PATH hinzu.",
+    "en": "FFmpeg was not found. Install FFmpeg or add it to PATH.",
+    "uk": "FFmpeg не знайдено. Встановіть FFmpeg або додайте його до PATH."
+  },
+  "Auto-Chunker остановился до завершения всех Range-задач.": {
+    "de": "Auto-Chunker wurde beendet, bevor alle Range-Aufgaben abgeschlossen waren.",
+    "en": "Auto-Chunker stopped before all Range tasks were completed.",
+    "uk": "Auto-Chunker зупинився до завершення всіх Range-завдань."
+  },
+  "Ошибка объединения сегментов: итоговый размер не совпадает.": {
+    "de": "Fehler beim Zusammenfügen der Segmente: Die Endgröße stimmt nicht überein.",
+    "en": "Segment merge failed: final size does not match.",
+    "uk": "Помилка об’єднання сегментів: підсумковий розмір не збігається."
+  },
+  "Не указан адрес аудиофайла.": {
+    "de": "Keine Adresse für die Audiodatei angegeben.",
+    "en": "Audio file URL was not specified.",
+    "uk": "Не вказано адресу аудіофайлу."
+  },
+  "Слишком много повторных Range-запросов для одного сегмента.": {
+    "de": "Zu viele wiederholte Range-Anfragen für ein Segment.",
+    "en": "Too many repeated Range requests for one segment.",
+    "uk": "Забагато повторних Range-запитів для одного сегмента."
   }
 }
