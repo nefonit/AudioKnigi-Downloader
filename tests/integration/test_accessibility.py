@@ -973,3 +973,23 @@ def test_event_sound_shutdown_balances_unconsumed_sentinel_source_contract():
     shutdown = source[source.index("def shutdown(self):"):source.index("__all__")]
     assert shutdown.count("self._system_sound_queue.get_nowait()") >= 2
     assert shutdown.count("self._system_sound_queue.task_done()") >= 2
+
+
+# Post-consolidation: Round 89 external audit follow-up.
+def test_first_run_wizard_buttons_keep_localized_accessible_descriptions():
+    source = (ROOT / 'audioknigi/qt/onboarding.py').read_text(encoding='utf-8')
+    assert 'self.cancel_button.setAccessibleDescription(hints["cancel"])' in source
+    assert 'self.start_button.setAccessibleDescription(hints["start"])' in source
+    assert 'self.cancel_button.setAccessibleDescription("")' not in source
+    assert 'self.start_button.setAccessibleDescription("")' not in source
+
+    tree = ast.parse(source)
+    hints = None
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == '_ONBOARDING_HINTS' for target in node.targets):
+            hints = ast.literal_eval(node.value)
+            break
+    assert hints is not None
+    for language in ('ru', 'uk', 'de', 'en'):
+        assert str(hints[language]['cancel']).strip()
+        assert str(hints[language]['start']).strip()
