@@ -547,3 +547,49 @@ def test_qt_worker_callbacks_are_signal_emitters_not_widget_methods():
     assert 'stage=self.stage.emit' in block
     assert 'progress=self.progress.emit' in block
     assert 'status=self.status.emit' in block
+
+
+# Round 88: external-audit follow-up (2026-10-10)
+
+def test_qt_application_session_shutdown_survives_deleted_window_wrapper():
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/qt/application.py").read_text(encoding="utf-8")
+    block = source[source.index("finally:", source.index("def run_qt")):]
+    assert 'final_settings = getattr(window, "settings", settings)' in block
+    assert "except RuntimeError:" in block
+    assert "write_session_state(running=False" in block
+
+
+def test_event_sound_does_not_seek_while_media_is_loading():
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/qt/event_sounds.py").read_text(encoding="utf-8")
+    block = source[source.index("def _play_event"):source.index("def _stop_players")]
+    assert "seekable_states = {" in block
+    assert "QMediaPlayer.MediaStatus.LoadedMedia" in block
+    assert "QMediaPlayer.MediaStatus.BufferedMedia" in block
+    assert "QMediaPlayer.MediaStatus.EndOfMedia" in block
+    assert "if player.position() > 0 and media_status in seekable_states:" in block
+    assert block.index("media_status = player.mediaStatus()") < block.index("player.setPosition(0)")
+
+
+def test_bulk_track_selection_emits_explicit_accessibility_roles():
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/qt/track_model.py").read_text(encoding="utf-8")
+    block = source[source.index("def set_all_selected"):source.index("__all__")]
+    assert block.count("Qt.ItemDataRole.CheckStateRole") >= 2
+    assert block.count("Qt.ItemDataRole.AccessibleTextRole") >= 2
+    assert block.count("Qt.ItemDataRole.AccessibleDescriptionRole") >= 2
+    assert "[],\n" not in block
+
+
+def test_queue_accessible_text_preserves_numeric_zero():
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/qt/mixins/queue.py").read_text(encoding="utf-8")
+    block = source[source.index("def _refresh_queue"):source.index("def add_current_to_queue")]
+    assert 'spoken_value = self._l("нет") if value in ("", None) else value' in block
+    assert "value or self._l('нет')" not in block
+
+
+def test_exit_final_wait_uses_one_shared_deadline_for_all_threads():
+    source = (Path(__file__).resolve().parents[2] / "audioknigi/qt/mixins/lifecycle.py").read_text(encoding="utf-8")
+    block = source[source.index("def _force_stop_workers_for_exit"):source.index("def _schedule_exit_poll")]
+    assert "deadline = time.monotonic() + (_EXIT_FINAL_WAIT_MS / 1000.0)" in block
+    assert "remaining = deadline - time.monotonic()" in block
+    assert "thread.wait(max(1, int(remaining * 1000)))" in block
+    assert "thread.wait(_EXIT_FINAL_WAIT_MS)" not in block
