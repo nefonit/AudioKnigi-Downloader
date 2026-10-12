@@ -4,6 +4,7 @@ import platform
 import sys
 import time
 import traceback
+from pathlib import Path
 from .core import CRASH_REPORT_FILE
 from .metadata import APP_VERSION
 from .brand import DISPLAY_NAME
