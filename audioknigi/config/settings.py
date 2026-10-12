@@ -239,7 +239,13 @@ class AppSettings(MutableMapping[str, Any]):
             "auto_chunk_min_kbps": "auto_chunk_min_kbytes_per_sec",
             "normalize_audio": "normalization_mode",
         }.get(normalized_key, normalized_key)
-        del self._data[delete_key]
+        try:
+            del self._data[delete_key]
+        except KeyError:
+            # MutableMapping callers should see the key they attempted to
+            # delete, not the canonical storage key hidden behind a legacy
+            # compatibility alias.
+            raise KeyError(normalized_key) from None
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
