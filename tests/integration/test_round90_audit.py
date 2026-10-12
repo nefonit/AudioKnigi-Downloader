@@ -29,3 +29,46 @@ def test_partial_settings_save_does_not_complete_onboarding(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8"))["first_run_complete"] is False
     assert save_app_settings({"language": "de"}, path=path)
     assert json.loads(path.read_text(encoding="utf-8"))["first_run_complete"] is False
+
+
+def test_loudnorm_missing_measurements_fall_back(monkeypatch):
+    from audioknigi.download import media
+
+    monkeypatch.setattr(media, "resolve_executable", lambda _name: "ffmpeg")
+    class Processor(media.MediaProcessingMixin):
+        def __init__(self):
+            self.messages = []
+        def _run_ffmpeg_capture(self, _cmd, timeout=None):
+            return "decoder warning without loudnorm statistics"
+        def log(self, message):
+            self.messages.append(message)
+
+    processor = Processor()
+    result = processor._measure_loudnorm("sample.mp3")
+    assert result == "loudnorm=I=-16:LRA=11:TP=-1.5:print_format=json"
+    assert any("однопроходную" in message for message in processor.messages)
+
+
+def test_disk_preflight_ignores_uninitialized_selection_indices(tmp_path):
+    from types import SimpleNamespace
+    from audioknigi.download.probe import ProbeMixin
+
+    class Probe(ProbeMixin):
+        def _book_folder(self, _book, create=False):
+            return tmp_path
+
+    book = SimpleNamespace(tracks=[], remote_size=0)
+    estimate = Probe()._estimate_required_space(book, [None, -1])
+    assert isinstance(estimate, (int, float, dict, tuple))
+
+
+def test_runtime_status_translations_include_refresh_and_loudness():
+    from pathlib import Path
+    translations = json.loads(
+        (Path(__file__).resolve().parents[2] / "audioknigi/locales/runtime_exact.json").read_text(encoding="utf-8")
+    )
+    for phrase in (
+        "Аудиоссылка устарела — обновляю плейлист…",
+        "Качественная нормализация: анализ громкости…",
+    ):
+        assert set(("en", "de", "uk")).issubset(translations[phrase])
