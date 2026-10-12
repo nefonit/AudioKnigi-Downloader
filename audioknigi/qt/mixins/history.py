@@ -128,6 +128,8 @@ class HistoryUiMixin:
     def _show_history_context_menu(self, pos):
         if pos is None:
             current = self.history_table.currentIndex()
+            if current.isValid():
+                self.history_table.scrollTo(current, QAbstractItemView.ScrollHint.EnsureVisible)
             pos = self.history_table.visualRect(current).center() if current.isValid() else self.history_table.viewport().rect().center()
         index = self.history_table.indexAt(pos)
         if index.isValid():
