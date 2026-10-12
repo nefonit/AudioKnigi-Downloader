@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from ..download.common import replace_with_retry
+
 
 ACCEPTANCE_SCHEMA = 1
 REQUIRED_AUTOMATED_GATES = ("runtime", "accessibility", "playwright_edge")
@@ -179,7 +181,7 @@ def save_report(path: str | Path, report: Mapping[str, Any]) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
     tmp.write_text(json.dumps(dict(report), ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    tmp.replace(target)
+    replace_with_retry(tmp, target)
     return target
 
 
