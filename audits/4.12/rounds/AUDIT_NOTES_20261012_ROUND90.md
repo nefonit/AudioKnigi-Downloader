@@ -21,7 +21,7 @@ Date: 2026-10-12
 - The QueueItem/QueueTask split is an intentional compatibility boundary pending external-API assessment.
 
 ## Still requiring dynamic validation
-- support_bundle.py's broad Windows path redaction must be tested with representative multiline logs and paths with spaces before narrowing the privacy filter.
+- support_bundle.py: three targeted path-privacy cases passed against the Round 89 implementation (multiline log continuation, file-path error suffix, and ambiguous directory path). The directory-path ambiguity cannot be reliably resolved without additional delimiters; preserve conservative redaction to avoid leaking names. The same tests are committed for Round 90. Full-suite validation remains outstanding.
 - Run the complete pytest suite, Qt accessibility self-test, and NVDA/JAWS manual acceptance on Windows. Passing test counts from Round 89 must not be applied to Round 90.
 - Check that strict DownloadRequest.validate behavior, partial settings save semantics, and low-disk-space fallback remain compatible with existing callers.
 
