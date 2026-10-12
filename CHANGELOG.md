@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.12.42 Round 90
+
+- Hardened crash-report path handling, log credential redaction, partial settings saves, Qt output-directory button callbacks, disk preflight track selection, loudnorm fallback, runtime localization, and skipped-part translation. Added focused regression tests and audit documentation; Windows NVDA/JAWS acceptance remains pending.
+
 ## 4.12.42 Round 89
 
 - Completed runtime localization for disk-space, segmented-download, playlist-selection and FFmpeg failure paths; added localized first-run button accessibility descriptions for screen readers; and documented reviewed false-positive settings/MRO/executor/package-layout findings.
