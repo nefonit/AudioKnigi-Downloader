@@ -186,9 +186,15 @@ class LifecycleUiMixin:
                 thread.requestInterruption()
             except RuntimeError:
                 pass
+        deadline = time.monotonic() + (_EXIT_FINAL_WAIT_MS / 1000.0)
         for thread in tuple(threads):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
             try:
-                thread.wait(_EXIT_FINAL_WAIT_MS)
+                # One shared deadline keeps closeEvent bounded even when search,
+                # analysis, download and Audiobookshelf are all still active.
+                thread.wait(max(1, int(remaining * 1000)))
             except RuntimeError:
                 pass
         return bool(self._running_exit_threads())
