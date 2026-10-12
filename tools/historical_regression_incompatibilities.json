@@ -24,6 +24,7 @@
   "test_followup_audit_20260910.py::test_full_mp3_reports_empty_source_precisely",
   "test_followup_audit_20260910.py::test_http_416_bad_partial_is_deleted_and_restarted",
   "test_followup_audit_20260910.py::test_main_window_is_split_below_four_thousand_lines_and_transient_menus_are_disposable",
+  "test_followup_audit_20260910.py::test_player_and_onboarding_defensive_guards_are_present",
   "test_followup_audit_20260910.py::test_repair_source_cache_is_keyed_by_source_url",
   "test_phase16_deep_audit_hardening_41231.py::test_close_after_cancel_sets_explicit_exit_intent",
   "test_phase16_deep_audit_hardening_41231.py::test_download_single_metrics_reset_is_in_finally",
