@@ -87,3 +87,6 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20261010_ROUND84.md` — Qt session diagnostics, stale crash-report filtering and F1 Help Center accessibility follow-up.
 - `AUDIT_NOTES_20261010_ROUND85.md` — Range fallback, ffprobe cleanup, timeline issue schema and localization-key cleanup follow-up.
 - `AUDIT_NOTES_20261010_ROUND86.md` — backup/cancellation/provider/accessibility/queue/modal-dialog hardening and regression follow-up.
+- `AUDIT_NOTES_20261010_ROUND87.md` — settings-alias and runtime/Ukrainian localization audit follow-up.
+- `AUDIT_NOTES_20261010_ROUND88.md` — queue/rollback/Qt accessibility/session/close/log-tail hardening and audit-contract verification.
+- `AUDIT_NOTES_20261011_ROUND89.md` — runtime failure localization and first-run accessibility follow-up with audit-contract verification.
