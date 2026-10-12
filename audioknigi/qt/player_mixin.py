@@ -149,6 +149,11 @@ class PlayerUiMixin:
         self.player_volume_value_label.setMinimumWidth(42)
         self.player_volume_value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         configure_accessible(self.player_volume_value_label, name=self._l("Текущая громкость плеера"), identifier="player_volume_value")
+        self._player_volume_save_timer = QTimer(self)
+        self._player_volume_save_timer.setSingleShot(True)
+        self._player_volume_save_timer.setInterval(750)
+        self._player_volume_save_timer.timeout.connect(self._persist_player_volume)
+        self.player_volume_slider.sliderReleased.connect(self._persist_player_volume)
         self.player_volume_slider.valueChanged.connect(self._player_volume_changed)
         self.player_volume_slider.sliderMoved.connect(self._on_player_volume_slider_moved)
         rate_label = QLabel(self._l("Скорость:"))
@@ -658,8 +663,18 @@ class PlayerUiMixin:
             self.player_volume_value_label.setText(f"{percent}%")
         if isinstance(getattr(self, "settings", None), MutableMapping):
             self.settings["player_volume"] = percent
+            if hasattr(self, "_player_volume_save_timer"):
+                self._player_volume_save_timer.start()
         if self.player_controller is not None:
             self.player_controller.set_volume(percent)
+
+    @Slot()
+    def _persist_player_volume(self):
+        timer = getattr(self, "_player_volume_save_timer", None)
+        if timer is not None:
+            timer.stop()
+        if isinstance(getattr(self, "settings", None), MutableMapping):
+            save_app_settings(self.settings)
 
     @Slot(int)
     def _player_rate_changed(self, _index: int):
