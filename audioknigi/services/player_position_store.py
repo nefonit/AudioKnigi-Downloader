@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import math
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -96,16 +97,19 @@ class PlayerPositionStore:
             raw = self._positions.get(key, {})
             record = dict(raw) if isinstance(raw, dict) else {}
         try:
-            position = max(0.0, float(record.get("position", 0.0) or 0.0))
+            parsed = float(record.get("position", 0.0) or 0.0)
+            position = max(0.0, parsed) if math.isfinite(parsed) else 0.0
         except (TypeError, ValueError):
             position = 0.0
         try:
-            duration_value = max(0.0, float(duration or 0.0))
+            parsed = float(duration or 0.0)
+            duration_value = max(0.0, parsed) if math.isfinite(parsed) else 0.0
         except (TypeError, ValueError):
             duration_value = 0.0
         if duration_value <= 0:
             try:
-                duration_value = max(0.0, float(record.get("duration", 0.0) or 0.0))
+                parsed = float(record.get("duration", 0.0) or 0.0)
+                duration_value = max(0.0, parsed) if math.isfinite(parsed) else 0.0
             except (TypeError, ValueError):
                 duration_value = 0.0
         guard = self._resume_guard_seconds(duration_value)
@@ -128,11 +132,13 @@ class PlayerPositionStore:
             return False
         path = Path(file_path)
         try:
-            position_value = max(0.0, float(position or 0.0))
+            parsed = float(position or 0.0)
+            position_value = max(0.0, parsed) if math.isfinite(parsed) else 0.0
         except (TypeError, ValueError):
             position_value = 0.0
         try:
-            duration_value = max(0.0, float(duration or 0.0))
+            parsed = float(duration or 0.0)
+            duration_value = max(0.0, parsed) if math.isfinite(parsed) else 0.0
         except (TypeError, ValueError):
             duration_value = 0.0
 
