@@ -195,12 +195,16 @@ class TrackTableModel(QAbstractTableModel):
             return
         for track in self._tracks:
             track.selected = bool(selected)
-        # Empty roles invalidates every cached role, including
-        # Qt.ItemDataRole.AccessibleTextRole and AccessibleDescriptionRole.
+        # Explicit roles make Windows UIA/NVDA receive bulk checkbox and
+        # accessible-row text updates immediately.
         self.dataChanged.emit(
             self.index(0, 0),
             self.index(len(self._tracks) - 1, max(0, self.columnCount() - 1)),
-            [],
+            [
+                Qt.ItemDataRole.CheckStateRole,
+                Qt.ItemDataRole.AccessibleTextRole,
+                Qt.ItemDataRole.AccessibleDescriptionRole,
+            ],
         )
 
     def set_selected_indices(self, indices) -> None:
@@ -215,7 +219,11 @@ class TrackTableModel(QAbstractTableModel):
             self.dataChanged.emit(
                 self.index(0, 0),
                 self.index(len(self._tracks) - 1, max(0, self.columnCount() - 1)),
-                [],
+                [
+                    Qt.ItemDataRole.CheckStateRole,
+                    Qt.ItemDataRole.AccessibleTextRole,
+                    Qt.ItemDataRole.AccessibleDescriptionRole,
+                ],
             )
 
 
