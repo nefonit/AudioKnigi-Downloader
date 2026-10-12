@@ -179,7 +179,12 @@ def run_qt(argv=None) -> int:
             threading.excepthook = original_thread_excepthook
         if focus_tracer is not None:
             focus_tracer.close()
-        final_settings = getattr(window, "settings", settings)
+        try:
+            final_settings = getattr(window, "settings", settings)
+        except RuntimeError:
+            # Native Qt teardown can invalidate the Shiboken wrapper before
+            # app.exec() returns. Still record a clean session shutdown.
+            final_settings = settings
         if not isinstance(final_settings, dict):
             try:
                 final_settings = final_settings.to_dict()
