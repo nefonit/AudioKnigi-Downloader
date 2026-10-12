@@ -634,7 +634,7 @@ def test_queue_string_booleans_are_parsed_semantically():
     assert _optional_persisted_bool({'flag': '0'}, 'flag') is False
     assert _optional_persisted_bool({'flag': 'true'}, 'flag') is True
     assert _optional_persisted_bool({'flag': '1'}, 'flag') is True
-    assert _optional_persisted_bool({'flag': 'unknown'}, 'flag') is False
+    assert _optional_persisted_bool({'flag': 'unknown'}, 'flag') is None
 
 def test_one_track_download_restores_selection_only_after_worker_finishes_without_announcement():
     clipboard = (ROOT / 'audioknigi/qt/mixins/clipboard.py').read_text(encoding='utf-8')
@@ -919,3 +919,54 @@ def test_queue_empty_selection_contract_remains_explicit_not_all_tracks():
     # "nothing selected" and must not silently become a full-book download.
     assert _parse_selected_indices_payload(None) is None
     assert _parse_selected_indices_payload([]) == []
+
+
+# Round 88: external-audit follow-up (2026-10-10)
+
+def test_unknown_persisted_optional_bool_is_unspecified_not_false():
+    from audioknigi.services.queue_service import _optional_persisted_bool
+
+    assert _optional_persisted_bool({"use_templates": "unknown"}, "use_templates") is None
+    assert _optional_persisted_bool({"use_templates": ""}, "use_templates") is None
+    assert _optional_persisted_bool({"use_templates": "nein"}, "use_templates") is False
+    assert _optional_persisted_bool({"use_templates": "ja"}, "use_templates") is True
+
+
+def test_restore_backup_rollback_restores_exact_empty_original_bytes(tmp_path, monkeypatch):
+    from audioknigi.services import library_service
+
+    history = tmp_path / "history.json"
+    settings = tmp_path / "settings.json"
+    history.write_bytes(b"")
+    settings.write_text('{"old": true}', encoding="utf-8")
+
+    payloads = {
+        "history.json": [{"title": "replacement"}],
+        "settings.json": {"replacement": True},
+    }
+    monkeypatch.setattr(library_service, "APP_DIR", tmp_path)
+    monkeypatch.setattr(
+        library_service,
+        "BACKUP_MEMBERS",
+        {"history.json": history, "settings.json": settings},
+    )
+    monkeypatch.setattr(library_service, "HISTORY_FILE", history)
+    monkeypatch.setattr(
+        library_service,
+        "_validated_backup_payloads",
+        lambda _path: dict(payloads),
+    )
+
+    real_save_json = library_service.save_json
+
+    def failing_save_json(path, data, *, raise_errors=False):
+        if Path(path) == settings:
+            raise OSError("simulated late restore failure")
+        return real_save_json(path, data, raise_errors=raise_errors)
+
+    monkeypatch.setattr(library_service, "save_json", failing_save_json)
+
+    with pytest.raises(OSError, match="simulated late restore failure"):
+        library_service.restore_backup(tmp_path / "backup.zip")
+
+    assert history.read_bytes() == b""
