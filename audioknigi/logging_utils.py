@@ -23,7 +23,10 @@ def sanitize_log_text(value: object) -> str:
     # Keep the key visible for diagnostics without exposing credentials.
     text = re.sub(
         r"""(?i)((?:["']?)\b(?:[a-z0-9]+[_-])*(?:api[_ -]?key|token|authorization|cookie|cookies|password|secret)\b(?:["']?)\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^&\s,;]+)""",
-        lambda match: match.group(1) + '"<hidden>"',
+        lambda match: match.group(1) + (
+            '"<hidden>"' if match.group(0)[len(match.group(1)):].startswith('"')
+            else ("\'<hidden>\'" if match.group(0)[len(match.group(1)):].startswith("\'") else "<hidden>")
+        ),
         text,
     )
     text = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._~+/-]+=*", "Bearer <hidden>", text)
