@@ -21,7 +21,7 @@ def crash_report_is_current(path=None, *, version: str = APP_VERSION) -> bool:
     also survive application upgrades.  Support bundles and the Help Center must
     not present an old-version crash as if it came from the current build.
     """
-    report_path = CRASH_REPORT_FILE if path is None else path
+    report_path = Path(CRASH_REPORT_FILE if path is None else path)
     try:
         first_line = report_path.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip()
     except (OSError, IndexError):
@@ -31,7 +31,7 @@ def crash_report_is_current(path=None, *, version: str = APP_VERSION) -> bool:
 
 def read_current_crash_report(path=None, *, version: str = APP_VERSION) -> str:
     """Read the current-build crash report or return an empty string."""
-    report_path = CRASH_REPORT_FILE if path is None else path
+    report_path = Path(CRASH_REPORT_FILE if path is None else path)
     if not crash_report_is_current(report_path, version=version):
         return ""
     try:
