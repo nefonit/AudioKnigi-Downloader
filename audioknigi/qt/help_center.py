@@ -1052,6 +1052,8 @@ def _format_help_body_html(title: str, body: str) -> str:
     blocks: list[str] = []
     paragraph: list[str] = []
     list_items: list[str] = []
+    list_kind = "ul"
+    list_start = 1
 
     def flush_paragraph() -> None:
         nonlocal paragraph
@@ -1062,7 +1064,8 @@ def _format_help_body_html(title: str, body: str) -> str:
     def flush_list() -> None:
         nonlocal list_items
         if list_items:
-            blocks.append("<ul>" + "".join(f"<li>{inline(item)}</li>" for item in list_items) + "</ul>")
+            start_attr = f' start="{list_start}"' if list_kind == "ol" and list_start != 1 else ""
+            blocks.append(f"<{list_kind}{start_attr}>" + "".join(f"<li>{inline(item)}</li>" for item in list_items) + f"</{list_kind}>")
             list_items = []
 
     for raw in raw_lines:
@@ -1075,6 +1078,12 @@ def _format_help_body_html(title: str, body: str) -> str:
         numbered = re.match(r"^\d+[.)]\s*(.+)$", line)
         if bullet or numbered:
             flush_paragraph()
+            new_kind = "ol" if numbered else "ul"
+            if list_items and new_kind != list_kind:
+                flush_list()
+            if not list_items:
+                list_kind = new_kind
+                list_start = int(re.match(r"^(\d+)", line).group(1)) if numbered else 1
             list_items.append((bullet or numbered).group(1))
         else:
             flush_list()
@@ -1087,7 +1096,7 @@ def _format_help_body_html(title: str, body: str) -> str:
       body {{ font-family: 'Segoe UI'; font-size: 10.5pt; line-height: 1.42; }}
       h2 {{ color: #4fa3ff; font-size: 15pt; margin: 0 0 12px 0; }}
       p {{ margin: 0 0 12px 0; }}
-      ul {{ margin-top: 4px; margin-bottom: 12px; padding-left: 22px; }}
+      ul, ol {{ margin-top: 4px; margin-bottom: 12px; padding-left: 22px; }}
       li {{ margin: 4px 0; }}
       kbd {{ background: #303640; border: 1px solid #596273; border-radius: 4px;
              padding: 1px 5px; color: #f3f6fa; font-family: 'Segoe UI'; font-weight: 600; }}
