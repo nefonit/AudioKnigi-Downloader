@@ -90,3 +90,4 @@ Incremental review/fix notes for the current 4.12 branch. These files are audit 
 - `AUDIT_NOTES_20261010_ROUND87.md` — settings-alias and runtime/Ukrainian localization audit follow-up.
 - `AUDIT_NOTES_20261010_ROUND88.md` — queue/rollback/Qt accessibility/session/close/log-tail hardening and audit-contract verification.
 - `AUDIT_NOTES_20261011_ROUND89.md` — runtime failure localization and first-run accessibility follow-up with audit-contract verification.
+- [Round 90 complete review of the 2026-10-12 external audit](REPORT_20261012_183838_FULL_VERIFICATION.md)
