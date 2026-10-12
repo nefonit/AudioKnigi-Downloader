@@ -41,3 +41,12 @@ Status: changes committed; full Round 90 verification not yet completed.
 - The all-in-one run remains unverified because it stalled on external I/O in this environment. The five groups collectively cover all 905 tests collected with `--ignore=tests/integration/test_accessibility.py`.
 - `python tools/qt_localization_audit.py`: OK.
 - `PySide6` is not installed in the Linux environment, so Qt accessibility tests and Windows NVDA/JAWS acceptance remain pending. No Windows executable was tested or built here.
+
+## Follow-up review: pasted audit (2026-10-12)
+- The current `runtime_exact.json` has no duplicate occurrences of `Аудиоссылка устарела — обновляю плейлист…` or `Проверить системный звук`; its entries were already deduplicated by the earlier Round 90 rewrite. Added a duplicate-key regression test to prevent a recurrence.
+- The current `runtime_exact.json` already includes the loudnorm no-statistics warning and its EN/DE/UK translations.
+- Confirmed that the disk-space-check failure text in `download/probe.py` was untranslated. Added EN/DE/UK mappings for the multiline warning and the single-line exception used by `book_flow.py` and `download_engine.py`, plus a localization test.
+- The raw-string regular expressions in `diagnostics/support_bundle.py` compile on Python 3.13 with SyntaxWarning treated as error. No regex semantics were changed based on the audit's incorrect warning claim.
+- `diagnostics/session.py` still uses supported `typing.Mapping`. Changing to `collections.abc.Mapping` would be cosmetic, not a bug fix.
+- Other findings (network parked-worker exit, source reuse, FFmpeg fallback, cancellation, and Qt safeguards) describe currently intended behavior and were not modified without a reproducible regression.
+- This review does not replace a full Windows Qt/NVDA/JAWS test.
