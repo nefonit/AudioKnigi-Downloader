@@ -678,5 +678,10 @@
     "de": "Hochwertige Normalisierung: Lautstärke wird analysiert…",
     "en": "High-quality normalization: analyzing loudness…",
     "uk": "Якісна нормалізація: аналіз гучності…"
+  },
+  "FFmpeg loudnorm не вернул статистику первого прохода; использую безопасную однопроходную нормализацию.": {
+    "de": "FFmpeg loudnorm hat keine Statistik für den ersten Durchlauf geliefert; sichere Normalisierung in einem Durchlauf wird verwendet.",
+    "en": "FFmpeg loudnorm returned no first-pass statistics; using safe single-pass normalization.",
+    "uk": "FFmpeg loudnorm не повернув статистику першого проходу; використовую безпечну однопрохідну нормалізацію."
   }
 }
