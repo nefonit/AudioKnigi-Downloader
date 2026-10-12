@@ -448,7 +448,11 @@ class MediaProcessingMixin:
                 break
             search_end = brace
         if stats is None:
-            raise RuntimeError("FFmpeg loudnorm не вернул статистику первого прохода.")
+            self.log(
+                "FFmpeg loudnorm не вернул статистику первого прохода; "
+                "использую безопасную однопроходную нормализацию."
+            )
+            return base
         required = ("input_i", "input_lra", "input_tp", "input_thresh", "target_offset")
         if any(key not in stats for key in required):
             self.log(
