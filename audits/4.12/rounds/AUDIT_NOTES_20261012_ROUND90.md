@@ -26,3 +26,9 @@ Date: 2026-10-12
 - Check that strict DownloadRequest.validate behavior, partial settings save semantics, and low-disk-space fallback remain compatible with existing callers.
 
 Status: changes committed; full Round 90 verification not yet completed.
+
+## Validation update (2026-10-12)
+- On the Round 89 source archive, 100 focused privacy/settings tests passed (`test_privacy_diagnostics.py` and `test_settings_contract.py`). These are baseline tests, not a confirmation of the subsequent Round 90 code edits.
+- Three focused support-bundle path-boundary tests passed in a separate local validation workspace.
+- Running the full Round 89 suite in this Linux environment encountered `ModuleNotFoundError: No module named 'PySide6'` in Qt accessibility self-tests. An additional run excluding the accessibility module reached roughly 64% before the execution time limit; no full-suite pass can be claimed.
+- The exact current GitHub Round 90 revision was not recreated as a complete runnable local checkout. Full Round 90 regression validation, particularly Qt/NVDA/JAWS on Windows, is still required.
