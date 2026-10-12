@@ -668,5 +668,15 @@
     "de": "Zu viele wiederholte Range-Anfragen für ein Segment.",
     "en": "Too many repeated Range requests for one segment.",
     "uk": "Забагато повторних Range-запитів для одного сегмента."
+  },
+  "Аудиоссылка устарела — обновляю плейлист…": {
+    "de": "Audio-Link ist abgelaufen — Playlist wird aktualisiert…",
+    "en": "Audio link expired — refreshing the playlist…",
+    "uk": "Аудіопосилання застаріло — оновлюю плейлист…"
+  },
+  "Качественная нормализация: анализ громкости…": {
+    "de": "Hochwertige Normalisierung: Lautstärke wird analysiert…",
+    "en": "High-quality normalization: analyzing loudness…",
+    "uk": "Якісна нормалізація: аналіз гучності…"
   }
 }
