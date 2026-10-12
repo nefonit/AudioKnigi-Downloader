@@ -275,7 +275,9 @@ def save_app_settings(settings: Mapping[str, Any], path: Path = SETTINGS_FILE) -
     # A partial save must not mark the initial setup complete, nor discard
     # unrelated persisted user preferences.
     payload = {**existing, **incoming}
-    if "first_run_complete" not in payload:
+    if not existing and "first_run_complete" not in payload:
+        # A new profile needs onboarding; existing legacy profiles must be
+        # recognized by migrate_settings without a synthetic False flag.
         payload["first_run_complete"] = False
     payload.setdefault(UI_SCALE_MIGRATION_KEY, True)
     normalized = normalize_settings(payload)
