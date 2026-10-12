@@ -101,10 +101,10 @@ _ONBOARDING_TEXT = {
 }
 
 _ONBOARDING_HINTS = {
-    "ru": {"language": "Alt+стрелка вниз открывает список языков; стрелки меняют выбор.", "folder": "Введите папку, куда сохранять загруженные аудиокниги.", "browse": "Открыть выбор папки.", "quality": "Выберите качество звука по умолчанию.", "mode": "Выберите Простой режим для основного сценария или Расширенный для всех разделов."},
-    "uk": {"language": "Alt+стрілка вниз відкриває список мов; стрілки змінюють вибір.", "folder": "Введіть папку, куди зберігати завантажені аудіокниги.", "browse": "Відкрити вибір папки.", "quality": "Оберіть якість звуку за замовчуванням.", "mode": "Оберіть Простий режим для основного сценарію або Розширений для всіх розділів."},
-    "de": {"language": "Alt+Pfeil nach unten öffnet die Sprachliste; Pfeiltasten ändern die Auswahl.", "folder": "Ordner eingeben, in dem heruntergeladene Hörbücher gespeichert werden.", "browse": "Ordnerauswahl öffnen.", "quality": "Standard-Audioqualität auswählen.", "mode": "Einfach für den Hauptablauf oder Erweitert für alle Bereiche auswählen."},
-    "en": {"language": "Alt+Down opens the language list; arrow keys change the selection.", "folder": "Enter the folder where downloaded audiobooks should be saved.", "browse": "Open a folder picker.", "quality": "Choose the default audio quality.", "mode": "Choose Simple for the main flow or Advanced for all sections."},
+    "ru": {"language": "Alt+стрелка вниз открывает список языков; стрелки меняют выбор.", "folder": "Введите папку, куда сохранять загруженные аудиокниги.", "browse": "Открыть выбор папки.", "quality": "Выберите качество звука по умолчанию.", "mode": "Выберите Простой режим для основного сценария или Расширенный для всех разделов.", "cancel": "Отменить первоначальную настройку и закрыть мастер. Enter или пробел активирует кнопку.", "start": "Сохранить выбранные параметры и открыть программу. Enter или пробел активирует кнопку."},
+    "uk": {"language": "Alt+стрілка вниз відкриває список мов; стрілки змінюють вибір.", "folder": "Введіть папку, куди зберігати завантажені аудіокниги.", "browse": "Відкрити вибір папки.", "quality": "Оберіть якість звуку за замовчуванням.", "mode": "Оберіть Простий режим для основного сценарію або Розширений для всіх розділів.", "cancel": "Скасувати початкове налаштування й закрити майстер. Enter або пробіл активує кнопку.", "start": "Зберегти вибрані параметри й відкрити програму. Enter або пробіл активує кнопку."},
+    "de": {"language": "Alt+Pfeil nach unten öffnet die Sprachliste; Pfeiltasten ändern die Auswahl.", "folder": "Ordner eingeben, in dem heruntergeladene Hörbücher gespeichert werden.", "browse": "Ordnerauswahl öffnen.", "quality": "Standard-Audioqualität auswählen.", "mode": "Einfach für den Hauptablauf oder Erweitert für alle Bereiche auswählen.", "cancel": "Ersteinrichtung abbrechen und den Assistenten schließen. Enter oder Leertaste aktiviert die Schaltfläche.", "start": "Ausgewählte Einstellungen speichern und das Programm öffnen. Enter oder Leertaste aktiviert die Schaltfläche."},
+    "en": {"language": "Alt+Down opens the language list; arrow keys change the selection.", "folder": "Enter the folder where downloaded audiobooks should be saved.", "browse": "Open a folder picker.", "quality": "Choose the default audio quality.", "mode": "Choose Simple for the main flow or Advanced for all sections.", "cancel": "Cancel first-run setup and close the wizard. Press Enter or Space to activate.", "start": "Save the selected settings and open the app. Press Enter or Space to activate."},
 }
 
 
@@ -265,11 +265,11 @@ class QtFirstRunWizard(QDialog):
         self.browse_button.setText(self._text("browse"))
         self.cancel_button.setText(self._text("cancel"))
         self.start_button.setText(self._text("start"))
-        self.cancel_button.setAccessibleName(self._text("cancel"))
-        self.cancel_button.setAccessibleDescription("")
-        self.start_button.setAccessibleName(self._text("start"))
-        self.start_button.setAccessibleDescription("")
         hints = _ONBOARDING_HINTS.get(self._language, _ONBOARDING_HINTS["ru"])
+        self.cancel_button.setAccessibleName(self._text("cancel"))
+        self.cancel_button.setAccessibleDescription(hints["cancel"])
+        self.start_button.setAccessibleName(self._text("start"))
+        self.start_button.setAccessibleDescription(hints["start"])
         self.language_combo.setAccessibleName(self._text("language").rstrip(":"))
         self.language_combo.setAccessibleDescription(hints["language"])
         self.folder_edit.setAccessibleName(self._text("folder").rstrip(":"))
