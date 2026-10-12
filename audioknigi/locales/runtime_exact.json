@@ -683,5 +683,15 @@
     "de": "FFmpeg loudnorm hat keine Statistik für den ersten Durchlauf geliefert; sichere Normalisierung in einem Durchlauf wird verwendet.",
     "en": "FFmpeg loudnorm returned no first-pass statistics; using safe single-pass normalization.",
     "uk": "FFmpeg loudnorm не повернув статистику першого проходу; використовую безпечну однопрохідну нормалізацію."
+  },
+  "Не удалось определить свободное место на диске.\n\nПроверьте папку сохранения и доступ к диску, затем повторите загрузку.": {
+    "de": "Freier Speicherplatz konnte nicht ermittelt werden.\n\nPrüfen Sie den Speicherordner und den Festplattenzugriff und wiederholen Sie den Download.",
+    "en": "Could not determine free disk space.\n\nCheck the save folder and disk access, then try downloading again.",
+    "uk": "Не вдалося визначити вільне місце на диску.\n\nПеревірте папку збереження та доступ до диска, потім повторіть завантаження."
+  },
+  "Не удалось определить свободное место на диске. Проверьте папку сохранения и доступ к диску.": {
+    "de": "Freier Speicherplatz konnte nicht ermittelt werden. Prüfen Sie den Speicherordner und den Festplattenzugriff.",
+    "en": "Could not determine free disk space. Check the save folder and disk access.",
+    "uk": "Не вдалося визначити вільне місце на диску. Перевірте папку збереження та доступ до диска."
   }
 }
