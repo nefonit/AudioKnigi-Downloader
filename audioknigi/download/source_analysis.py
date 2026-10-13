@@ -116,7 +116,7 @@ class SourceAnalysisMixin:
     def _service(self) -> BookAnalysisService:
         return BookAnalysisService(
             cancel_event=getattr(self, "cancel_event", None),
-            progress=self.log,
+            progress=getattr(self, "log", None),
             options=AnalysisOptions(
                 playwright_fallback_enabled=bool(
                     getattr(self, "runtime_playwright_fallback_enabled", True)
