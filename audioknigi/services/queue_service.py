@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 import base64
 import binascii
+import json
 import re
 import time
 import uuid
@@ -135,9 +136,14 @@ def _book_from_dict(data: dict[str, Any]) -> Book:
         _variant_from_dict(x) for x in data.get("narration_variants", []) if isinstance(x, dict)
     ]
     encoded = str(data.get("cover_cache_b64", "") or "")
-    if encoded:
+    # Reject oversized inline covers *before* allocating decoded bytes.
+    # Legitimate queue snapshots limit artwork to thumbnail-sized payloads.
+    max_encoded = ((_MAX_PERSISTED_COVER_BYTES + 2) // 3) * 4 + 4
+    if encoded and len(encoded) <= max_encoded:
         try:
             payload = base64.b64decode(encoded.encode("ascii"), validate=True)
+            if len(payload) > _MAX_PERSISTED_COVER_BYTES:
+                raise ValueError("Persisted cover exceeds size cap")
             mime = str(data.get("cover_cache_mime", "") or "image/jpeg")
             kwargs["cover_cache"] = normalize_cover_cache((payload, mime))
         except Exception:
@@ -365,14 +371,30 @@ class QueueStore:
         if not isinstance(raw, list):
             return []
         result: list[QueueTask] = []
+        invalid: list[Any] = []
         for item in raw:
             if not isinstance(item, dict):
+                invalid.append(item)
                 continue
             try:
                 result.append(task_from_dict(item))
             except Exception as exc:
-                app_logger.warning("Skipping invalid queue item: %s", exc)
-                continue
+                app_logger.warning("Cannot restore queue item (backing up raw snapshot): %s", exc)
+                invalid.append(item)
+        if invalid:
+            # Never silently discard the only remaining copy of legacy or
+            # malformed tasks. A deterministic sidecar preserves their exact
+            # raw form even if the cleaned queue is saved during this session.
+            import hashlib
+            original = json.dumps(raw, ensure_ascii=False, sort_keys=True, default=str)
+            checksum = hashlib.sha256(original.encode("utf-8")).hexdigest()[:12]
+            recovery = self.path.with_name(f"{self.path.stem}.recovery-{checksum}.json")
+            if not recovery.exists():
+                try:
+                    if not save_json(recovery, raw):
+                        app_logger.warning("Could not preserve invalid queue items at %s", recovery)
+                except Exception:
+                    app_logger.warning("Could not preserve invalid queue items at %s", recovery, exc_info=True)
         return result
 
     def save(self, tasks: list[QueueTask]) -> bool:
