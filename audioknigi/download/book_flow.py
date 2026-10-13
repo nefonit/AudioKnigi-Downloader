@@ -245,7 +245,10 @@ class BookFlowMixin:
         for value in values:
             # Primitive values (notably str) also expose an ``index`` method.
             # Only Track-like objects should use their .index attribute.
-            raw_index = value if isinstance(value, (str, int, float, bool)) else getattr(value, "index", value)
+            raw_index = (
+                value if isinstance(value, (str, int, float, bool))
+                else (value.get("index") if isinstance(value, Mapping) else getattr(value, "index", value))
+            )
             if isinstance(raw_index, bool):
                 continue
             try:
