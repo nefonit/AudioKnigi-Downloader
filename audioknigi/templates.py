@@ -142,9 +142,22 @@ def render_track_filename(template: str, book, track, ext: str = ".mp3", *, lang
     source_template = _strip_literal_template_extension(source_template)
     values = template_values(book, track=track, language=language)
     raw_title = str(_field(track, "title", "") or "").strip()
+    # Track titles from source playlists may already be filenames.
+    # Strip the audio suffix before inserting them into a composite template.
+    clean_title = raw_title
+    for suffix in sorted(AUDIO_EXTENSIONS, key=len, reverse=True):
+        if clean_title.lower().endswith(suffix):
+            clean_title = clean_title[:-len(suffix)].rstrip(" .")
+            break
+    if raw_title:
+        values["Track_Title"] = clean_title
     template_tokens = {token.casefold() for token in _TOKEN_RE.findall(source_template)}
+    numbered_title = clean_title in {
+        str(_safe_track_index(track)),
+        f"{_safe_track_index(track):0{track_number_width(book)}d}",
+    }
     blank_title_with_number = (
-        not raw_title
+        (not clean_title or numbered_title)
         and "track_number" in template_tokens
         and "track_title" in template_tokens
     )
