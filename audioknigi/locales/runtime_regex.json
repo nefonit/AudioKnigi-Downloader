@@ -1,5 +1,13 @@
 [
   [
+    "^После обновления плейлиста исчезли выбранные части: (.+?) \\(и ещё (\\d+)\\)$",
+    {
+      "en": "Selected parts disappeared after refreshing the playlist: {0} (and {1} more)",
+      "de": "Nach dem Aktualisieren der Playlist fehlen ausgewählte Teile: {0} (und {1} weitere)",
+      "uk": "Після оновлення плейлиста зникли вибрані частини: {0} (і ще {1})"
+    }
+  ],
+  [
     "^Найдена 1 книга, источников: (.+)\\.$",
     {
       "de": "1 Buch gefunden, Quellen: {0}.",
