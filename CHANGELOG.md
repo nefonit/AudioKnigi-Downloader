@@ -2,6 +2,7 @@
 
 ## 4.12.42 Round 90
 
+- 2026-10-13: reviewed all 44 findings in the latest audit. Fixed Mapping-based chapter selection, optional source-analysis logging, corrupt queue snapshot backup, oversized inline artwork, duplicate chapter number in filename templates, missing runtime translations, and queue mutation during active downloads. Added focused regression tests (901 passing in offline groups); Windows Qt/NVDA/JAWS and live-network acceptance remain outstanding.
 - Full independent verification of the 2026-10-12 audit: reviewed 28 claims, found no new confirmed production-code defect, added offline audit contract tests; 922 of 922 non-accessibility tests passed, Qt/NVDA/JAWS acceptance still pending.
 - Audit follow-up: added EN/DE/UK translations for disk-space detection errors and regression coverage for duplicate JSON locale keys; confirmed raw regex compatibility and retained existing runtime behavior.
 - Hardened crash-report path handling, log credential redaction, partial settings saves, Qt output-directory button callbacks, disk preflight track selection, loudnorm fallback, runtime localization, and skipped-part translation. Added focused regression tests and audit documentation; Windows NVDA/JAWS acceptance remains pending.
