@@ -693,5 +693,10 @@
     "de": "Freier Speicherplatz konnte nicht ermittelt werden. Prüfen Sie den Speicherordner und den Festplattenzugriff.",
     "en": "Could not determine free disk space. Check the save folder and disk access.",
     "uk": "Не вдалося визначити вільне місце на диску. Перевірте папку збереження та доступ до диска."
+  },
+  "Скачанный общий аудиофайл не покрывает все таймкоды плейлиста.": {
+    "en": "The downloaded shared audio file does not cover all playlist timecodes.",
+    "de": "Die heruntergeladene gemeinsame Audiodatei deckt nicht alle Zeitmarken der Playlist ab.",
+    "uk": "Завантажений спільний аудіофайл не охоплює всі часові позначки плейлиста."
   }
 }
