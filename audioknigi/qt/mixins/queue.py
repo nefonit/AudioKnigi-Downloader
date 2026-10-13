@@ -696,6 +696,9 @@ class QueueUiMixin:
 
     @Slot()
     def remove_queue_selected(self):
+        if self._queue_running or (self._download_thread is not None and self._download_thread.isRunning()):
+            self.set_status("Нельзя изменять очередь во время активного скачивания.", assertive=True)
+            return
         idx = self._selected_queue_index()
         if idx is None:
             return
