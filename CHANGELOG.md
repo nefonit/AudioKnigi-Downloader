@@ -1,5 +1,12 @@
 # Changelog
 
+## Round 90 — October 15 report follow-up
+
+- Fix legacy normalization values such as `"false"` and `"off"` in settings and old queue records; keep existing explicit normalization preferences.
+- Read shared-source timeline metadata and the expired-media error context from Track objects or mappings.
+- Normalize German playlist terminology; add regression tests and a 23-point audit review.
+- Verified 967 non-accessibility tests; Windows NVDA/JAWS UI acceptance is still pending.
+
 ## 4.12.42 Round 90
 
 - 2026-10-13: reviewed all 44 findings in the latest audit. Fixed Mapping-based chapter selection, optional source-analysis logging, corrupt queue snapshot backup, oversized inline artwork, duplicate chapter number in filename templates, missing runtime translations, and queue mutation during active downloads. Added focused regression tests (901 passing in offline groups); Windows Qt/NVDA/JAWS and live-network acceptance remain outstanding.
