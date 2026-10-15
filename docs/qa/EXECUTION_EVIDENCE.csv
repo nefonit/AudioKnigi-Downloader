@@ -1,9 +1,8 @@
-<PARSED TEXT FOR SHEET: 1 / 1 TABS
-TAB NAME: EXECUTION_EVIDENCE.csv>index,Date,Baseline,Claimed historical result,Original evidence,Limits
-0,2026-09-05,Архивация ранних релизов / 4.12.31,107 архивов; 456 уникальных прошлых вариантов; 445/445 исторически задокументированных текущих тестов,archive/history/RECOVERY_AUDIT.md,"Испытания относятся к ревизии даты аудита, не к Round 90"
-1,2026-09-17,Round 20,370 passed в историческом отчёте,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND20.md,Не переносить в статистику текущего SHA
-2,2026-09-23,Round 48,604/604 исторически сообщалось,audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND48.md,"Сведения в аудите/истории переписки, не новый прогон"
-3,2026-09-28,Round 58,688 passed по истории CI,audits/4.12/rounds/AUDIT_NOTES_20260928_ROUND58.md,Проверять первичные CI логи для утверждения
-4,2026-10-11,Round 89,955 runnable passed; 2 блокированы PySide6; 957 collected,audits/4.12/rounds/AUDIT_NOTES_20261011_ROUND89.md,Результат прежней ревизии
-5,2026-10-12,Round 90 / расширенная проверка,905 passed (пять независимых групп) без Qt accessibility,audits/4.12/rounds/AUDIT_NOTES_20261012_ROUND90.md,В том же файле есть более ранние ограниченные прогоны
-6,2026-10-15,Round 90 / предыдущая ревизия,"967 passed (811 + 156), исключён Qt accessibility",audits/4.12/rounds/REPORT_20261015_172446_VERIFICATION.md,"Тесты выполнены до данной ретроспективной документации, без нового Windows EXE прогона"
+Date,Baseline,Claimed historical result,Original evidence,Limits
+2026-09-05,Архивация ранних релизов / 4.12.31,107 архивов; 456 уникальных прошлых вариантов; 445/445 исторически задокументированных текущих тестов,archive/history/RECOVERY_AUDIT.md,"Испытания относятся к ревизии даты аудита, не к Round 90"
+2026-09-17,Round 20,370 passed в историческом отчёте,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND20.md,Не переносить в статистику текущего SHA
+2026-09-23,Round 48,604/604 исторически сообщалось,audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND48.md,"Сведения в аудите/истории переписки, не новый прогон"
+2026-09-28,Round 58,688 passed по истории CI,audits/4.12/rounds/AUDIT_NOTES_20260928_ROUND58.md,Проверять первичные CI логи для утверждения
+2026-10-11,Round 89,955 runnable passed; 2 блокированы PySide6; 957 collected,audits/4.12/rounds/AUDIT_NOTES_20261011_ROUND89.md,Результат прежней ревизии
+2026-10-12,Round 90 / расширенная проверка,905 passed (пять независимых групп) без Qt accessibility,audits/4.12/rounds/AUDIT_NOTES_20261012_ROUND90.md,В том же файле есть более ранние ограниченные прогоны
+2026-10-15,Round 90 / предыдущая ревизия,"967 passed (811 + 156), исключён Qt accessibility",audits/4.12/rounds/REPORT_20261015_172446_VERIFICATION.md,"Тесты выполнены до данной ретроспективной документации, без нового Windows EXE прогона"
