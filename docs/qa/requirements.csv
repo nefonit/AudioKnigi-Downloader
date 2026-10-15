@@ -1,0 +1,16 @@
+<PARSED TEXT FOR SHEET: 1 / 1 TABS
+TAB NAME: requirements.csv>index,ID,Область,Требование/критерий,Приоритет,Основание,Автоматизированное покрытие,Статус требования
+0,RQ-SRC-01,Источники и анализ,"Поиск, выбор провайдера, метаданные, варианты озвучки",P1,audioknigi/providers/; audioknigi/services/book_analysis_service.py,test_providers.py; test_search.py,Выведено из действующих функций; требует утверждения владельцем
+1,RQ-DL-01,Загрузка глав,"Выбор частей, скачивание, полная книга, возобновление",P1,audioknigi/download/; audioknigi/download_engine.py,test_download_flow.py; test_network.py,Выведено из действующих функций; требует утверждения владельцем
+2,RQ-NET-01,Сеть и отмена,"Range/HTTP, DNS, Cloudflare, пауза/отмена",P1,audioknigi/download/network.py; audioknigi/network_dns.py,test_network.py; test_download_flow.py,Выведено из действующих функций; требует утверждения владельцем
+3,RQ-AUD-01,Аудио/FFmpeg,"MP3, сегментация, нормализация, битрейт, теги",P2,audioknigi/download/media.py,test_media_processing.py,Выведено из действующих функций; требует утверждения владельцем
+4,RQ-Q-01,Очередь,"Постановка, сохранение, повтор, отмена, восстановление",P1,audioknigi/services/queue_service.py,test_queue_history.py,Выведено из действующих функций; требует утверждения владельцем
+5,RQ-H-01,История/резервные копии,"История, экспорт CSV, дубликаты, резервные копии",P2,audioknigi/services/library_service.py,test_queue_history.py,Выведено из действующих функций; требует утверждения владельцем
+6,RQ-P-01,Плеер,"Воспроизведение, позиция, скорость, громкость, медиа-клавиши",P1,audioknigi/qt/player_controller.py,test_player.py,Выведено из действующих функций; требует утверждения владельцем
+7,RQ-CFG-01,Настройки,"Миграция, запись, первый запуск, темы и масштаб",P2,audioknigi/config/settings.py,test_settings_contract.py,Выведено из действующих функций; требует утверждения владельцем
+8,RQ-I18N-01,Локализация,"RU/UK/DE/EN, динамический текст, справка",P2,audioknigi/i18n.py; audioknigi/locales/,test_localization.py,Выведено из действующих функций; требует утверждения владельцем
+9,RQ-AX-01,Доступность,"NVDA/JAWS, клавиатура, фокус, объявления, F1",P1,audioknigi/qt/accessibility.py,test_accessibility.py; test_qt_ui.py,Выведено из действующих функций; требует утверждения владельцем
+10,RQ-UI-01,Интерфейс,"Простой/расширенный режим, поиск, таблица глав",P2,audioknigi/qt/main_window.py,test_qt_ui.py,Выведено из действующих функций; требует утверждения владельцем
+11,RQ-SEC-01,Приватность/диагностика,"Редакция логов, диагностика, crash/support ZIP",P1,audioknigi/diagnostics/; audioknigi/logging_utils.py,test_privacy_diagnostics.py,Выведено из действующих функций; требует утверждения владельцем
+12,RQ-REL-01,Устойчивость/файлы,"Аварийное закрытие, диск, повреждённый JSON",P1,audioknigi/services/; audioknigi/download/,test_core_services.py; test_queue_history.py,Выведено из действующих функций; требует утверждения владельцем
+13,RQ-BLD-01,Сборка и установка,"Windows EXE, упакованные файлы, обновление",P2,build_qt_exe.bat; .github/workflows/,test_build_release.py; test_quality_gates.py,Выведено из действующих функций; требует утверждения владельцем
