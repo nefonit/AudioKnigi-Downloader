@@ -75,7 +75,7 @@
     "uk": "Аудіопосилання застаріло (HTTP 404/410), а отримати свіжий плейлист не вдалося: "
   },
   "После обновления плейлиста исчезли выбранные части: ": {
-    "de": "Nach der Aktualisierung der Wiedergabeliste fehlen die ausgewählten Teile: ",
+    "de": "Nach der Aktualisierung der Playlist fehlen die ausgewählten Teile: ",
     "en": "Selected parts disappeared after refreshing the playlist: ",
     "uk": "Після оновлення плейлиста зникли вибрані частини: "
   },
