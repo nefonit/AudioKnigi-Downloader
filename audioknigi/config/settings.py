@@ -89,7 +89,7 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     # Older 4.x profiles used a boolean ``normalize_audio`` switch before the
     # explicit off/single/two_pass mode was introduced. Preserve that user
     # choice as the legacy one-pass mode when no canonical mode exists yet.
-    if "normalization_mode" not in raw and bool(raw.get("normalize_audio", False)):
+    if "normalization_mode" not in raw and _safe_bool(raw.get("normalize_audio"), False):
         raw["normalization_mode"] = "single"
     # The old boolean was a persistence-only compatibility key.  Once its value
     # has been migrated into normalization_mode, do not keep writing it back to
