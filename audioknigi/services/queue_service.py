@@ -300,9 +300,9 @@ def task_from_dict(data: dict[str, Any]) -> QueueTask:
             naming_mode=str(data.get("naming_mode", "number") or "number"),
             audio_preset=str(data.get("audio_preset", "copy") or "copy"),
             normalization_mode=(
-                str(data.get("normalization_mode") or "single")
-                if (data.get("normalization_mode") or bool(data.get("normalize_audio", False)))
-                else "off"
+                str(data.get("normalization_mode"))
+                if data.get("normalization_mode")
+                else ("single" if _optional_persisted_bool(data, "normalize_audio") is True else "off")
             ),
             use_templates=_optional_persisted_bool(data, "use_templates"),
             folder_template=_optional_persisted_text(data, "folder_template"),
