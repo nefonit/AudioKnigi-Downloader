@@ -1,0 +1,90 @@
+<PARSED TEXT FOR SHEET: 1 / 1 TABS
+TAB NAME: HISTORY_EVIDENCE.csv>index,Round ID,Date,Source path,Section headings,Evidence classification
+0,R02,20260915,audits/4.12/rounds/AUDIT_NOTES_20260915_ROUND2.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+1,R03,20260915,audits/4.12/rounds/AUDIT_NOTES_20260915_ROUND3.md,Confirmed and fixed; Reviewed but intentionally not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+2,R04,20260915,audits/4.12/rounds/AUDIT_NOTES_20260915_ROUND4.md,Reported failure; Root cause; Fix; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+3,R05,20260915,audits/4.12/rounds/AUDIT_NOTES_20260915_ROUND5.md,Confirmed defects fixed; Reviewed but intentionally not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+4,R06,20260915,audits/4.12/rounds/AUDIT_NOTES_20260915_ROUND6.md,Confirmed defects fixed; Reviewed but intentionally not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+5,R07,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND7.md,Confirmed defects fixed; Report items intentionally not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+6,R08,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND8.md,Confirmed build failure; Fix; Verification in this environment; Verification,Историческое свидетельство; результаты см. в первоисточнике
+7,R09,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND9.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+8,R10,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND10.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+9,R11,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND11.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+10,R12,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND12.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+11,R13,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND13.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+12,R14,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND14.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+13,R15,20260916,audits/4.12/rounds/AUDIT_NOTES_20260916_ROUND15.md,Confirmed and fixed; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+14,R16,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND16.md,Request; What changed; Deliberately not changed; Regression coverage; Verification; Platform note,Историческое свидетельство; результаты см. в первоисточнике
+15,R17,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND17.md,Confirmed and fixed; Reviewed but not changed; Regression coverage; Final verification,Историческое свидетельство; результаты см. в первоисточнике
+16,R18,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND18.md,Confirmed and fixed; Reviewed but not changed; Regression coverage; Final verification,Историческое свидетельство; результаты см. в первоисточнике
+17,R19,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND19.md,Confirmed fixes; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+18,R20,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND20.md,Confirmed fixes; Reviewed but not changed; Verification,Историческое свидетельство; результаты см. в первоисточнике
+19,R21,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND21.md,Confirmed and fixed; Reviewed but intentionally not changed; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+20,R22,20260917,audits/4.12/rounds/AUDIT_NOTES_20260917_ROUND22.md,Confirmed and fixed; Reviewed but intentionally not changed; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+21,R23,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND23.md,,Историческое свидетельство; результаты см. в первоисточнике
+22,R24,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND24.md,Confirmed and fixed; Reviewed and intentionally retained; Verification,Историческое свидетельство; результаты см. в первоисточнике
+23,R25,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND25.md,Fix; Verification,Историческое свидетельство; результаты см. в первоисточнике
+24,R26,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND26.md,Root cause isolation; Fix; Verification; Verification,Историческое свидетельство; результаты см. в первоисточнике
+25,R27,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND27.md,Fix; Expected Windows diagnostic; Verification,Историческое свидетельство; результаты см. в первоисточнике
+26,R28,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND28.md,Fix; Expected Windows diagnostic; Verification,Историческое свидетельство; результаты см. в первоисточнике
+27,R29,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND29.md,Fix; Verification; Verification,Историческое свидетельство; результаты см. в первоисточнике
+28,R30,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND30.md,Fix; Verification,Историческое свидетельство; результаты см. в первоисточнике
+29,R31,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND31.md,Changes; Verification,Историческое свидетельство; результаты см. в первоисточнике
+30,R32,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND32.md,Confirmed and fixed; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+31,R33,20260918,audits/4.12/rounds/AUDIT_NOTES_20260918_ROUND33.md,Confirmed and fixed; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+32,R34,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND34.md,Confirmed and fixed; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+33,R35,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND35.md,Changes; Root contract; Verification,Историческое свидетельство; результаты см. в первоисточнике
+34,R36,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND36.md,UI; audioknigi.com.ua titles and search relevance; Annotation contract; Verification,Историческое свидетельство; результаты см. в первоисточнике
+35,R37,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND37.md,Knigavuhe relevance; Audioknigi coauthor/title normalization; Verification,Историческое свидетельство; результаты см. в первоисточнике
+36,R38,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND38.md,Audioknigi multi-author title normalization; Keyboard/accessibility follow-up; Verification; Environment note,Историческое свидетельство; результаты см. в первоисточнике
+37,R39,20260919,audits/4.12/rounds/AUDIT_NOTES_20260919_ROUND39.md,Production design pass; Verification,Историческое свидетельство; результаты см. в первоисточнике
+38,R40,20260920,audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND40.md,Applied; Accessibility; Verification,Историческое свидетельство; результаты см. в первоисточнике
+39,R41,20260920,audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND41.md,Layout policy; Tables; Window chrome; Accessibility; Verification,Историческое свидетельство; результаты см. в первоисточнике
+40,R42,20260920,audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND42.md,System theme; Settings layout; Event sound checks; External keyboard focus; Verification; Windows system-theme follow-up; Light-theme visual accessibility follow-up,Историческое свидетельство; результаты см. в первоисточнике
+41,R43,20260920,audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND43.md,Confirmed fixes; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+42,R44,20260920,audits/4.12/rounds/AUDIT_NOTES_20260920_ROUND44.md,Confirmed fixes; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+43,R45,20260921,audits/4.12/rounds/AUDIT_NOTES_20260921_ROUND45.md,Confirmed fixes; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+44,R46,20260922,audits/4.12/rounds/AUDIT_NOTES_20260922_ROUND46.md,Confirmed fixes; Reviewed and intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+45,R47,20260923,audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND47.md,Confirmed fixes; Reviewed but intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+46,R48,20260923,audits/4.12/rounds/AUDIT_NOTES_20260923_ROUND48.md,Confirmed layout failures; Fixes; Verification,Историческое свидетельство; результаты см. в первоисточнике
+47,R49,20260924,audits/4.12/rounds/AUDIT_NOTES_20260924_ROUND49.md,Confirmed fixes; Reviewed and intentionally unchanged; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+48,R50,20260924,audits/4.12/rounds/AUDIT_NOTES_20260924_ROUND50.md,Confirmed fixes; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+49,R51,20260924,audits/4.12/rounds/AUDIT_NOTES_20260924_ROUND51.md,Confirmed fixes; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+50,R52,20260924,audits/4.12/rounds/AUDIT_NOTES_20260924_ROUND52.md,Confirmed fixes; Reviewed and intentionally unchanged; Windows 10 / Windows 11 source review; Regression coverage; Verification,Историческое свидетельство; результаты см. в первоисточнике
+51,R53,20260926,audits/4.12/rounds/AUDIT_NOTES_20260926_ROUND53.md,Confirmed fixes; Intentionally unchanged; Verification,Историческое свидетельство; результаты см. в первоисточнике
+52,R54,20260926,audits/4.12/rounds/AUDIT_NOTES_20260926_ROUND54.md,Fixed; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+53,R55,20260926,audits/4.12/rounds/AUDIT_NOTES_20260926_ROUND55.md,Accessibility and guidance; Source availability and blocking guidance; Search; Narration and download hand-off; Help Center; Localization and verification,Историческое свидетельство; результаты см. в первоисточнике
+54,R56,20260926,audits/4.12/rounds/AUDIT_NOTES_20260926_ROUND56.md,Root cause; Fix; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+55,R57,20260926,audits/4.12/rounds/AUDIT_NOTES_20260926_ROUND57.md,Root cause; Fix; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+56,R58,20260928,audits/4.12/rounds/AUDIT_NOTES_20260928_ROUND58.md,DNS modes; Circuit breaker and latency bound; Unified consumers; Accessibility and user feedback; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+57,R59,20260928,audits/4.12/rounds/AUDIT_NOTES_20260928_ROUND59.md,Confirmed and fixed; Reviewed but not treated as current bugs; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+58,R60,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND60.md,Confirmed and fixed; Cancellation boundary; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+59,R61,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND61.md,,Историческое свидетельство; результаты см. в первоисточнике
+60,R62,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND62.md,,Историческое свидетельство; результаты см. в первоисточнике
+61,R63,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND63.md,,Историческое свидетельство; результаты см. в первоисточнике
+62,R64,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND64.md,,Историческое свидетельство; результаты см. в первоисточнике
+63,R65,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND65.md,,Историческое свидетельство; результаты см. в первоисточнике
+64,R66,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND66.md,,Историческое свидетельство; результаты см. в первоисточнике
+65,R67,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND67.md,,Историческое свидетельство; результаты см. в первоисточнике
+66,R68,20260929,audits/4.12/rounds/AUDIT_NOTES_20260929_ROUND68.md,,Историческое свидетельство; результаты см. в первоисточнике
+67,R69,20260930,audits/4.12/rounds/AUDIT_NOTES_20260930_ROUND69.md,,Историческое свидетельство; результаты см. в первоисточнике
+68,R70,20260930,audits/4.12/rounds/AUDIT_NOTES_20260930_ROUND70.md,,Историческое свидетельство; результаты см. в первоисточнике
+69,R71,20260930,audits/4.12/rounds/AUDIT_NOTES_20260930_ROUND71.md,,Историческое свидетельство; результаты см. в первоисточнике
+70,R72,20261002,audits/4.12/rounds/AUDIT_NOTES_20261002_ROUND72.md,,Историческое свидетельство; результаты см. в первоисточнике
+71,R73,20261002,audits/4.12/rounds/AUDIT_NOTES_20261002_ROUND73.md,,Историческое свидетельство; результаты см. в первоисточнике
+72,R74,20261002,audits/4.12/rounds/AUDIT_NOTES_20261002_ROUND74.md,,Историческое свидетельство; результаты см. в первоисточнике
+73,R76,20261003,audits/4.12/rounds/AUDIT_NOTES_20261003_ROUND76.md,,Историческое свидетельство; результаты см. в первоисточнике
+74,R77,20261004,audits/4.12/rounds/AUDIT_NOTES_20261004_ROUND77.md,,Историческое свидетельство; результаты см. в первоисточнике
+75,R78,20261005,audits/4.12/rounds/AUDIT_NOTES_20261005_ROUND78.md,,Историческое свидетельство; результаты см. в первоисточнике
+76,R79,20261005,audits/4.12/rounds/AUDIT_NOTES_20261005_ROUND79.md,,Историческое свидетельство; результаты см. в первоисточнике
+77,R80,20261005,audits/4.12/rounds/AUDIT_NOTES_20261005_ROUND80.md,,Историческое свидетельство; результаты см. в первоисточнике
+78,R81,20261006,audits/4.12/rounds/AUDIT_NOTES_20261006_ROUND81.md,,Историческое свидетельство; результаты см. в первоисточнике
+79,R82,20261008,audits/4.12/rounds/AUDIT_NOTES_20261008_ROUND82.md,,Историческое свидетельство; результаты см. в первоисточнике
+80,R83,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND83.md,,Историческое свидетельство; результаты см. в первоисточнике
+81,R84,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND84.md,,Историческое свидетельство; результаты см. в первоисточнике
+82,R85,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND85.md,Confirmed fixes; Reviewed findings that did not justify runtime changes; Regression coverage added; Validation baseline,Историческое свидетельство; результаты см. в первоисточнике
+83,R86,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND86.md,Confirmed fixes; Reviewed findings that did not justify runtime changes; Regression coverage added; Validation baseline,Историческое свидетельство; результаты см. в первоисточнике
+84,R87,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND87.md,Confirmed fixes; Reviewed and intentionally unchanged; Validation baseline,Историческое свидетельство; результаты см. в первоисточнике
+85,R88,20261010,audits/4.12/rounds/AUDIT_NOTES_20261010_ROUND88.md,Confirmed fixes; Reviewed findings intentionally left unchanged; Regression coverage,Историческое свидетельство; результаты см. в первоисточнике
+86,R89,20261011,audits/4.12/rounds/AUDIT_NOTES_20261011_ROUND89.md,Confirmed fixes; Reviewed findings kept unchanged; Regression baseline,Историческое свидетельство; результаты см. в первоисточнике
+87,R90,20261012,audits/4.12/rounds/AUDIT_NOTES_20261012_ROUND90.md,"Implemented and committed; Reviewed, intentionally unchanged; Still requiring dynamic validation; Validation update (2026-10-12); Consolidated regression check (2026-10-12, Linux); Follow-up review: pasted audit (2026-10-12)",Историческое свидетельство; результаты см. в первоисточнике
