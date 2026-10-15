@@ -830,10 +830,10 @@ class BookFlowMixin:
                             raise
                         except Exception as exc:
                             if self._is_expired_media_error(exc):
-                                track_index = safe_int(getattr(tr, "index", None), -1)
+                                track_index = safe_int(tr.get("index") if isinstance(tr, Mapping) else getattr(tr, "index", None), -1)
                                 raise MissingMediaSourceError(
                                     str(exc),
-                                    source_url=getattr(tr, "file", ""),
+                                    source_url=tr.get("file", "") if isinstance(tr, Mapping) else getattr(tr, "file", ""),
                                     track_indices=[track_index] if track_index >= 0 else [],
                                 ) from exc
                             raise
