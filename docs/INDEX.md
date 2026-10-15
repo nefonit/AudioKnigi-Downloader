@@ -27,6 +27,10 @@ Current documentation is organized by purpose. Historical migration documents ar
 - `history/` — historical release markers retained for traceability.
 - `../archive/` — historical tests, source variants, retired-branch audits and one-off migration tooling.
 
+## QA and release testing
+
+- [`qa/README.md`](qa/README.md) — test strategy, test plan, detailed test cases, checklists, requirements traceability, historical verification/defect evidence, risks and release readiness. The QA pack is retrospective and does not represent Windows NVDA/JAWS release acceptance.
+
 ## Audit evidence
 
 Current branch audit/review evidence is cataloged in [`../audits/INDEX.md`](../audits/INDEX.md). Incremental 4.12 round notes are indexed in [`../audits/4.12/rounds/INDEX.md`](../audits/4.12/rounds/INDEX.md). New audit reports belong under `audits/<current-branch>/`, never in the repository root.
