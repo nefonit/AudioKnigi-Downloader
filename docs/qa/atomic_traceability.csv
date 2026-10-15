@@ -1,81 +1,80 @@
-<PARSED TEXT FOR SHEET: 1 / 1 TABS
-TAB NAME: atomic_traceability.csv>index,Requirement ID,Test case,Checklist,Auto module,Status,Risk
-0,FR-SRC-001,TC-SRC-001,CL-SRC-001,test_providers.py; test_search.py,Design linked; execution Not Run,P1
-1,FR-SRC-002,TC-SRC-002,CL-SRC-002,test_providers.py; test_search.py,Design linked; execution Not Run,P1
-2,FR-SRC-003,TC-SRC-003,CL-SRC-003,test_providers.py; test_search.py,Design linked; execution Not Run,P2
-3,FR-SRC-004,TC-SRC-004,CL-SRC-004,test_providers.py; test_search.py,Design linked; execution Not Run,P2
-4,FR-SRC-005,TC-SRC-005,CL-SRC-005,test_providers.py; test_search.py,Design linked; execution Not Run,P2
-5,FR-SRC-006,TC-SRC-006,CL-SRC-006,test_providers.py; test_search.py,Design linked; execution Not Run,P2
-6,FR-DL-001,TC-DL-001,CL-DL-001,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-7,FR-DL-002,TC-DL-002,CL-DL-002,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-8,FR-DL-003,TC-DL-003,CL-DL-003,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-9,FR-DL-004,TC-DL-004,CL-DL-004,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-10,FR-DL-005,TC-DL-005,CL-DL-005,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-11,FR-DL-006,TC-DL-006,CL-DL-006,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-12,FR-DL-007,TC-DL-007,CL-DL-007,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-13,FR-DL-008,TC-DL-008,CL-DL-008,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-14,FR-DL-009,TC-DL-009,CL-DL-009,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-15,FR-DL-010,TC-DL-010,CL-DL-010,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
-16,FR-NET-001,TC-NET-001,CL-NET-001,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
-17,FR-NET-002,TC-NET-002,CL-NET-002,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
-18,FR-NET-003,TC-NET-003,CL-NET-003,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
-19,FR-NET-004,TC-NET-004,CL-NET-004,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
-20,FR-NET-005,TC-NET-005,CL-NET-005,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
-21,FR-AUD-001,TC-AUD-001,CL-AUD-001,test_media_processing.py,Design linked; execution Not Run,P1
-22,FR-AUD-002,TC-AUD-002,CL-AUD-002,test_media_processing.py,Design linked; execution Not Run,P1
-23,FR-AUD-003,TC-AUD-003,CL-AUD-003,test_media_processing.py,Design linked; execution Not Run,P2
-24,FR-AUD-004,TC-AUD-004,CL-AUD-004,test_media_processing.py,Design linked; execution Not Run,P2
-25,FR-AUD-005,TC-AUD-005,CL-AUD-005,test_media_processing.py,Design linked; execution Not Run,P2
-26,FR-AUD-006,TC-AUD-006,CL-AUD-006,test_media_processing.py,Design linked; execution Not Run,P2
-27,FR-AUD-007,TC-AUD-007,CL-AUD-007,test_media_processing.py,Design linked; execution Not Run,P2
-28,FR-Q-001,TC-Q-001,CL-Q-001,test_queue_history.py,Design linked; execution Not Run,P1
-29,FR-Q-002,TC-Q-002,CL-Q-002,test_queue_history.py,Design linked; execution Not Run,P1
-30,FR-Q-003,TC-Q-003,CL-Q-003,test_queue_history.py,Design linked; execution Not Run,P1
-31,FR-Q-004,TC-Q-004,CL-Q-004,test_queue_history.py,Design linked; execution Not Run,P1
-32,FR-Q-005,TC-Q-005,CL-Q-005,test_queue_history.py,Design linked; execution Not Run,P1
-33,FR-Q-006,TC-Q-006,CL-Q-006,test_queue_history.py,Design linked; execution Not Run,P1
-34,FR-Q-007,TC-Q-007,CL-Q-007,test_queue_history.py,Design linked; execution Not Run,P1
-35,FR-H-001,TC-H-001,CL-H-001,test_queue_history.py,Design linked; execution Not Run,P1
-36,FR-H-002,TC-H-002,CL-H-002,test_queue_history.py,Design linked; execution Not Run,P1
-37,FR-H-003,TC-H-003,CL-H-003,test_queue_history.py,Design linked; execution Not Run,P2
-38,FR-H-004,TC-H-004,CL-H-004,test_queue_history.py,Design linked; execution Not Run,P2
-39,FR-P-001,TC-P-001,CL-P-001,test_player.py,Design linked; execution Not Run,P1
-40,FR-P-002,TC-P-002,CL-P-002,test_player.py,Design linked; execution Not Run,P1
-41,FR-P-003,TC-P-003,CL-P-003,test_player.py,Design linked; execution Not Run,P2
-42,FR-P-004,TC-P-004,CL-P-004,test_player.py,Design linked; execution Not Run,P2
-43,FR-P-005,TC-P-005,CL-P-005,test_player.py,Design linked; execution Not Run,P2
-44,FR-P-006,TC-P-006,CL-P-006,test_player.py,Design linked; execution Not Run,P2
-45,FR-CFG-001,TC-CFG-001,CL-CFG-001,test_settings_contract.py,Design linked; execution Not Run,P1
-46,FR-CFG-002,TC-CFG-002,CL-CFG-002,test_settings_contract.py,Design linked; execution Not Run,P1
-47,FR-CFG-003,TC-CFG-003,CL-CFG-003,test_settings_contract.py,Design linked; execution Not Run,P2
-48,FR-CFG-004,TC-CFG-004,CL-CFG-004,test_settings_contract.py,Design linked; execution Not Run,P2
-49,FR-CFG-005,TC-CFG-005,CL-CFG-005,test_settings_contract.py,Design linked; execution Not Run,P2
-50,FR-CFG-006,TC-CFG-006,CL-CFG-006,test_settings_contract.py,Design linked; execution Not Run,P2
-51,FR-I18N-001,TC-I18N-001,CL-I18N-001,test_localization.py,Design linked; execution Not Run,P1
-52,FR-I18N-002,TC-I18N-002,CL-I18N-002,test_localization.py,Design linked; execution Not Run,P1
-53,FR-I18N-003,TC-I18N-003,CL-I18N-003,test_localization.py,Design linked; execution Not Run,P2
-54,FR-I18N-004,TC-I18N-004,CL-I18N-004,test_localization.py,Design linked; execution Not Run,P2
-55,FR-I18N-005,TC-I18N-005,CL-I18N-005,test_localization.py,Design linked; execution Not Run,P2
-56,FR-AX-001,TC-AX-001,CL-AX-001,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-57,FR-AX-002,TC-AX-002,CL-AX-002,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-58,FR-AX-003,TC-AX-003,CL-AX-003,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-59,FR-AX-004,TC-AX-004,CL-AX-004,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-60,FR-AX-005,TC-AX-005,CL-AX-005,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-61,FR-AX-006,TC-AX-006,CL-AX-006,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-62,FR-AX-007,TC-AX-007,CL-AX-007,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
-63,FR-UI-001,TC-UI-001,CL-UI-001,test_qt_ui.py,Design linked; execution Not Run,P1
-64,FR-UI-002,TC-UI-002,CL-UI-002,test_qt_ui.py,Design linked; execution Not Run,P1
-65,FR-UI-003,TC-UI-003,CL-UI-003,test_qt_ui.py,Design linked; execution Not Run,P2
-66,FR-UI-004,TC-UI-004,CL-UI-004,test_qt_ui.py,Design linked; execution Not Run,P2
-67,FR-SEC-001,TC-SEC-001,CL-SEC-001,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
-68,FR-SEC-002,TC-SEC-002,CL-SEC-002,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
-69,FR-SEC-003,TC-SEC-003,CL-SEC-003,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
-70,FR-SEC-004,TC-SEC-004,CL-SEC-004,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
-71,FR-REL-001,TC-REL-001,CL-REL-001,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
-72,FR-REL-002,TC-REL-002,CL-REL-002,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
-73,FR-REL-003,TC-REL-003,CL-REL-003,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
-74,FR-REL-004,TC-REL-004,CL-REL-004,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
-75,FR-BLD-001,TC-BLD-001,CL-BLD-001,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P1
-76,FR-BLD-002,TC-BLD-002,CL-BLD-002,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P1
-77,FR-BLD-003,TC-BLD-003,CL-BLD-003,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P2
-78,FR-BLD-004,TC-BLD-004,CL-BLD-004,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P2
+Requirement ID,Test case,Checklist,Auto module,Status,Risk
+FR-SRC-001,TC-SRC-001,CL-SRC-001,test_providers.py; test_search.py,Design linked; execution Not Run,P1
+FR-SRC-002,TC-SRC-002,CL-SRC-002,test_providers.py; test_search.py,Design linked; execution Not Run,P1
+FR-SRC-003,TC-SRC-003,CL-SRC-003,test_providers.py; test_search.py,Design linked; execution Not Run,P2
+FR-SRC-004,TC-SRC-004,CL-SRC-004,test_providers.py; test_search.py,Design linked; execution Not Run,P2
+FR-SRC-005,TC-SRC-005,CL-SRC-005,test_providers.py; test_search.py,Design linked; execution Not Run,P2
+FR-SRC-006,TC-SRC-006,CL-SRC-006,test_providers.py; test_search.py,Design linked; execution Not Run,P2
+FR-DL-001,TC-DL-001,CL-DL-001,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-002,TC-DL-002,CL-DL-002,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-003,TC-DL-003,CL-DL-003,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-004,TC-DL-004,CL-DL-004,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-005,TC-DL-005,CL-DL-005,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-006,TC-DL-006,CL-DL-006,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-007,TC-DL-007,CL-DL-007,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-008,TC-DL-008,CL-DL-008,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-009,TC-DL-009,CL-DL-009,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-DL-010,TC-DL-010,CL-DL-010,test_download_flow.py; test_network.py,Design linked; execution Not Run,P1
+FR-NET-001,TC-NET-001,CL-NET-001,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
+FR-NET-002,TC-NET-002,CL-NET-002,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
+FR-NET-003,TC-NET-003,CL-NET-003,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
+FR-NET-004,TC-NET-004,CL-NET-004,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
+FR-NET-005,TC-NET-005,CL-NET-005,test_network.py; test_download_flow.py,Design linked; execution Not Run,P1
+FR-AUD-001,TC-AUD-001,CL-AUD-001,test_media_processing.py,Design linked; execution Not Run,P1
+FR-AUD-002,TC-AUD-002,CL-AUD-002,test_media_processing.py,Design linked; execution Not Run,P1
+FR-AUD-003,TC-AUD-003,CL-AUD-003,test_media_processing.py,Design linked; execution Not Run,P2
+FR-AUD-004,TC-AUD-004,CL-AUD-004,test_media_processing.py,Design linked; execution Not Run,P2
+FR-AUD-005,TC-AUD-005,CL-AUD-005,test_media_processing.py,Design linked; execution Not Run,P2
+FR-AUD-006,TC-AUD-006,CL-AUD-006,test_media_processing.py,Design linked; execution Not Run,P2
+FR-AUD-007,TC-AUD-007,CL-AUD-007,test_media_processing.py,Design linked; execution Not Run,P2
+FR-Q-001,TC-Q-001,CL-Q-001,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-002,TC-Q-002,CL-Q-002,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-003,TC-Q-003,CL-Q-003,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-004,TC-Q-004,CL-Q-004,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-005,TC-Q-005,CL-Q-005,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-006,TC-Q-006,CL-Q-006,test_queue_history.py,Design linked; execution Not Run,P1
+FR-Q-007,TC-Q-007,CL-Q-007,test_queue_history.py,Design linked; execution Not Run,P1
+FR-H-001,TC-H-001,CL-H-001,test_queue_history.py,Design linked; execution Not Run,P1
+FR-H-002,TC-H-002,CL-H-002,test_queue_history.py,Design linked; execution Not Run,P1
+FR-H-003,TC-H-003,CL-H-003,test_queue_history.py,Design linked; execution Not Run,P2
+FR-H-004,TC-H-004,CL-H-004,test_queue_history.py,Design linked; execution Not Run,P2
+FR-P-001,TC-P-001,CL-P-001,test_player.py,Design linked; execution Not Run,P1
+FR-P-002,TC-P-002,CL-P-002,test_player.py,Design linked; execution Not Run,P1
+FR-P-003,TC-P-003,CL-P-003,test_player.py,Design linked; execution Not Run,P2
+FR-P-004,TC-P-004,CL-P-004,test_player.py,Design linked; execution Not Run,P2
+FR-P-005,TC-P-005,CL-P-005,test_player.py,Design linked; execution Not Run,P2
+FR-P-006,TC-P-006,CL-P-006,test_player.py,Design linked; execution Not Run,P2
+FR-CFG-001,TC-CFG-001,CL-CFG-001,test_settings_contract.py,Design linked; execution Not Run,P1
+FR-CFG-002,TC-CFG-002,CL-CFG-002,test_settings_contract.py,Design linked; execution Not Run,P1
+FR-CFG-003,TC-CFG-003,CL-CFG-003,test_settings_contract.py,Design linked; execution Not Run,P2
+FR-CFG-004,TC-CFG-004,CL-CFG-004,test_settings_contract.py,Design linked; execution Not Run,P2
+FR-CFG-005,TC-CFG-005,CL-CFG-005,test_settings_contract.py,Design linked; execution Not Run,P2
+FR-CFG-006,TC-CFG-006,CL-CFG-006,test_settings_contract.py,Design linked; execution Not Run,P2
+FR-I18N-001,TC-I18N-001,CL-I18N-001,test_localization.py,Design linked; execution Not Run,P1
+FR-I18N-002,TC-I18N-002,CL-I18N-002,test_localization.py,Design linked; execution Not Run,P1
+FR-I18N-003,TC-I18N-003,CL-I18N-003,test_localization.py,Design linked; execution Not Run,P2
+FR-I18N-004,TC-I18N-004,CL-I18N-004,test_localization.py,Design linked; execution Not Run,P2
+FR-I18N-005,TC-I18N-005,CL-I18N-005,test_localization.py,Design linked; execution Not Run,P2
+FR-AX-001,TC-AX-001,CL-AX-001,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-002,TC-AX-002,CL-AX-002,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-003,TC-AX-003,CL-AX-003,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-004,TC-AX-004,CL-AX-004,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-005,TC-AX-005,CL-AX-005,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-006,TC-AX-006,CL-AX-006,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-AX-007,TC-AX-007,CL-AX-007,test_accessibility.py; test_qt_ui.py,Design linked; execution Not Run,P1
+FR-UI-001,TC-UI-001,CL-UI-001,test_qt_ui.py,Design linked; execution Not Run,P1
+FR-UI-002,TC-UI-002,CL-UI-002,test_qt_ui.py,Design linked; execution Not Run,P1
+FR-UI-003,TC-UI-003,CL-UI-003,test_qt_ui.py,Design linked; execution Not Run,P2
+FR-UI-004,TC-UI-004,CL-UI-004,test_qt_ui.py,Design linked; execution Not Run,P2
+FR-SEC-001,TC-SEC-001,CL-SEC-001,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
+FR-SEC-002,TC-SEC-002,CL-SEC-002,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
+FR-SEC-003,TC-SEC-003,CL-SEC-003,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
+FR-SEC-004,TC-SEC-004,CL-SEC-004,test_privacy_diagnostics.py,Design linked; execution Not Run,P1
+FR-REL-001,TC-REL-001,CL-REL-001,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
+FR-REL-002,TC-REL-002,CL-REL-002,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
+FR-REL-003,TC-REL-003,CL-REL-003,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
+FR-REL-004,TC-REL-004,CL-REL-004,test_core_services.py; test_queue_history.py,Design linked; execution Not Run,P1
+FR-BLD-001,TC-BLD-001,CL-BLD-001,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P1
+FR-BLD-002,TC-BLD-002,CL-BLD-002,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P1
+FR-BLD-003,TC-BLD-003,CL-BLD-003,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P2
+FR-BLD-004,TC-BLD-004,CL-BLD-004,test_build_release.py; test_quality_gates.py,Design linked; execution Not Run,P2
