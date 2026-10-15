@@ -761,7 +761,7 @@ class ProbeMixin:
         """
         groups = {}
         for track in list(getattr(book, "tracks", []) or []):
-            source = str(getattr(track, "file", "") or "").strip()
+            source = str((track.get("file", "") if isinstance(track, Mapping) else getattr(track, "file", "")) or "").strip()
             if not source:
                 continue
             groups.setdefault(source, []).append(track)
@@ -770,7 +770,7 @@ class ProbeMixin:
             if len(tracks) < 2:
                 continue
             ends = [
-                parse_time_seconds(getattr(track, "end", None))
+                parse_time_seconds(track.get("end") if isinstance(track, Mapping) else getattr(track, "end", None))
                 for track in tracks
             ]
             ends = [float(value) for value in ends if value is not None and float(value) > 0]
@@ -780,7 +780,7 @@ class ProbeMixin:
                 # Some shared-source playlists expose only chapter starts. The
                 # last start is still a hard lower bound for source duration.
                 starts = [
-                    parse_time_seconds(getattr(track, "start", None))
+                    parse_time_seconds(track.get("start") if isinstance(track, Mapping) else getattr(track, "start", None))
                     for track in tracks
                 ]
                 starts = [float(value) for value in starts if value is not None and float(value) > 0]
@@ -801,7 +801,7 @@ class ProbeMixin:
                     "source": source,
                     "expected_end": expected_end,
                     "actual_duration": float(actual),
-                    "track_indices": [int(getattr(track, "index", 0) or 0) for track in tracks],
+                    "track_indices": [safe_int(track.get("index") if isinstance(track, Mapping) else getattr(track, "index", 0), 0) for track in tracks],
                     "reason": "duration_short",
                 }
 
@@ -818,7 +818,7 @@ class ProbeMixin:
                         "source": source,
                         "expected_end": expected_end,
                         "actual_duration": float(actual or 0.0),
-                        "track_indices": [int(getattr(track, "index", 0) or 0) for track in tracks],
+                        "track_indices": [safe_int(track.get("index") if isinstance(track, Mapping) else getattr(track, "index", 0), 0) for track in tracks],
                         "reason": "no_packets_near_expected_end",
                         "probe_start": probe_start,
                     }
