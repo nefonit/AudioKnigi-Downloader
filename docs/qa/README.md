@@ -42,3 +42,9 @@ AudioKnigi Downloader 4.12.42 | QA Baseline v1.0 | 2026-10-15
 
 - [54-item source-based review and unresolved Windows/network risks](../../audits/4.12/rounds/REPORT_20261030_193239_VERIFICATION.md)
 - The report includes 967 passing targeted/core/provider tests, while real Windows Qt and screen-reader acceptance remain pending.
+
+## 2026-10-30 — проверка 29 условных рисков
+
+- [План проверки 29 рисков с 29 тест-кейсами и критериями PASS](RISK_VERIFICATION_PLAN_20261030.md)
+- На момент подготовки плана: 14 P1 и 15 P2, все тесты `Not Run`. План не означает подтверждение или устранение рисков.
+- Windows/Qt/NVDA/JAWS проверки должны быть выполнены на целевом EXE с отдельным тестовым профилем.
