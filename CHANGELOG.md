@@ -1,3 +1,10 @@
+## Round 90 — October 30 report verification
+
+- Reviewed 54 numbered findings and additional assertions in the October 30 external audit, distinguishing reproduced defects from static risks and unsupported claims.
+- Fixed EndOfMedia synchronous completion reentry that could recreate the old chapter position and overwrite state of the next chapter.
+- Fixed numeric source chapter labels with two digits when output numbering needs three; added ID3 runtime-error translations.
+- Added 3 regression checks; 811 core/unit/integration and 156 provider tests passed (967 total). Windows/PySide6/NVDA/JAWS acceptance remains pending.
+
 # Changelog
 
 ## Round 90 — October 15 report follow-up
