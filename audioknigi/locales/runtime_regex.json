@@ -654,5 +654,13 @@
       "en": "Segment is not making progress: {0} of {1} bytes.",
       "uk": "Сегмент не просувається: {0} із {1} байт."
     }
+  ],
+  [
+    "^Не удалось записать ID3 в (.+): (.+)$",
+    {
+      "de": "ID3-Tags für {0} konnten nicht geschrieben werden: {1}",
+      "en": "Could not write ID3 tags to {0}: {1}",
+      "uk": "Не вдалося записати ID3 у {0}: {1}"
+    }
   ]
 ]
