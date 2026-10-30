@@ -152,10 +152,13 @@ def render_track_filename(template: str, book, track, ext: str = ".mp3", *, lang
     if raw_title:
         values["Track_Title"] = clean_title
     template_tokens = {token.casefold() for token in _TOKEN_RE.findall(source_template)}
-    numbered_title = clean_title in {
-        str(_safe_track_index(track)),
-        f"{_safe_track_index(track):0{track_number_width(book)}d}",
-    }
+    # Numeric track labels may come from a playlist with a fixed two-digit
+    # width even when this book needs three digits for the output filename.
+    # Compare numeric identity, not just the exact zero-padding width.
+    numbered_title = (
+        bool(clean_title) and len(clean_title) <= 12 and clean_title.isascii()
+        and clean_title.isdecimal() and int(clean_title) == _safe_track_index(track)
+    )
     blank_title_with_number = (
         (not clean_title or numbered_title)
         and "track_number" in template_tokens
