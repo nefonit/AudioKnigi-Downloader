@@ -25,3 +25,11 @@ AudioKnigi Downloader 4.12.42 | QA Baseline v1.0 | 2026-10-15
 ## Шаблон новой записи прогона
 
 `Run ID | Дата UTC | Коммит | Build SHA256 | Windows/Python/Qt | Команда | Collected | Pass | Fail | Skip | Blocked | Logs URL | Исполнитель | Подпись`.
+
+## 2026-10-30 — Round 90 external report verification (new execution)
+
+- Baseline: `main`, source snapshot before October 30 fixes, then corrected working copy.
+- Evidence: `audits/4.12/rounds/REPORT_20261030_193239_VERIFICATION.md`.
+- Execution: 811 unit/core/integration passed, 3 deselected; 156 provider tests passed. 967 passed total; excludes Windows/PySide6 accessibility and live-source acceptance.
+- Confirmed/covered: synchronous EndOfMedia state race, inconsistent numeric track-title padding, and missing dynamic ID3 translation.
+- Manual test cases are **Not Run**; this evidence does not authorize production release.
