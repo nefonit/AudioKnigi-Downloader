@@ -321,14 +321,18 @@ class QtPlayerController(QObject):
                 self._at_end = True
                 self.error.emit(self.player.errorString() or "Не удалось воспроизвести выбранный аудиофайл.")
                 return
+            # completed.emit() may synchronously load the next chapter. Mark
+            # the old chapter complete *before* notifying listeners so load()
+            # cannot resurrect its just-cleared saved position. Also do not
+            # mutate the new chapter's state after the reentrant signal.
             path = self.current_path
-            if path is not None:
-                self.store.clear(path)
-                self.completed.emit(str(path))
             self._pending_resume_ms = 0
             self._pending_autoplay = False
             self._resume_applied = True
             self._at_end = True
+            if path is not None:
+                self.store.clear(path)
+                self.completed.emit(str(path))
         elif status == QMediaPlayer.MediaStatus.InvalidMedia:
             message = self.player.errorString() or "Qt не смог воспроизвести выбранный аудиофайл."
             self.error.emit(message)
