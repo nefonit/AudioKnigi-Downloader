@@ -37,3 +37,8 @@ AudioKnigi Downloader 4.12.42 | QA Baseline v1.0 | 2026-10-15
 ## Известные ограничения
 
 Не проведено подтверждённое ручное Windows+NVDA/JAWS тестирование на указанном SHA; нет сертификата релизной приёмки EXE; часть сетевых тестов в разных ревизиях сознательно исключалась или зависала. Поэтому статус текущей версии — **не утверждён для production**.
+
+## October 30 external report verification
+
+- [54-item source-based review and unresolved Windows/network risks](../../audits/4.12/rounds/REPORT_20261030_193239_VERIFICATION.md)
+- The report includes 967 passing targeted/core/provider tests, while real Windows Qt and screen-reader acceptance remain pending.
