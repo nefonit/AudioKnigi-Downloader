@@ -23,7 +23,30 @@ jobs:
           set -euo pipefail
           for i in $(seq -w 1 25); do
             echo "Applying patch ${i}"
-            patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
+            if [ "${i}" = "01" ]; then
+              if ! patch --batch --forward -p1 -i "migration/v19/patches/01.patch"; then
+                # Earlier QA commits changed the end of this localization file.
+                test -f audioknigi/locales/runtime_exact.json.rej
+                test "$(find . -name '*.rej' | wc -l)" -eq 1
+                rm audioknigi/locales/runtime_exact.json.rej
+                python - <<'PY'
+                import json
+                from pathlib import Path
+                p = Path("audioknigi/locales/runtime_exact.json")
+                s = p.read_text(encoding="utf-8").rstrip()
+                key = "Поддерживаются audioknigi.com.ua, knigavuhe.org, poleknig.com и akniga.org."
+                if key not in json.loads(s):
+                    s = s[:-1].rstrip() + ',\n  ' + json.dumps(key, ensure_ascii=False) + ': {\n'
+                    s += '    "de": "Unterstützt werden audioknigi.com.ua, knigavuhe.org, poleknig.com und akniga.org.",\n'
+                    s += '    "en": "Supported sources are audioknigi.com.ua, knigavuhe.org, poleknig.com, and akniga.org.",\n'
+                    s += '    "uk": "Підтримуються audioknigi.com.ua, knigavuhe.org, poleknig.com та akniga.org."\n'
+                    s += '  }\n}\n'
+                    p.write_text(s, encoding="utf-8")
+                PY
+              fi
+            else
+              patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
+            fi
           done
           python -m compileall -q audioknigi audioknigi_qt.py
       - name: Verify V19 critical source blobs
