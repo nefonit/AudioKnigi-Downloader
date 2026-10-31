@@ -1,5 +1,7 @@
 # V21: providers and download entrypoints
 
+> **Historical V21 snapshot.** V22 subsequently moved `download_engine.py` to `download/engine.py` behind a compatibility alias. For current owners, consult [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) and [ROOT_MODULES_V22.md](ROOT_MODULES_V22.md).
+
 All the auxiliary source parsers were extracted from the original 715-line `providers/extra_sources.py` into `providers/sources_ext/`.
 
 | New module | Responsibility |

@@ -26,15 +26,15 @@ Do not add feature modules, audit reports, temporary scripts, or historical snap
   - `media.py` — FFmpeg conversion, splitting, normalization, tagging and covers;
   - `book_flow.py` — book-level orchestration;
   - `common.py`, `errors.py` — shared helpers/contracts.
-- `downloader.py` — compatibility facade composing the focused download mixins.
-- `download_engine.py` — GUI-neutral request orchestration, duplicate preflight, resume manifests and full-MP3 coordination.
+- `download/downloader.py` — implementation facade composing the focused download mixins; package-root `downloader.py` is a compatibility alias.
+- `download/engine.py` — GUI-neutral request orchestration, duplicate preflight, resume manifests and full-MP3 coordination; package-root `download_engine.py` is a compatibility alias.
 - `providers/` — common `SourceProvider` interface, provider adapters, registry, and provider-specific low-level search adapters.
 - `services/` — GUI-independent application use cases (analysis, search orchestration, requests, queue, library, player positions). `search_service` consumes the provider registry; provider search implementations must not import `services.search_service`, which avoids the previous search-cycle workaround. Audioknigi book fetching still delegates lazily to the headless analysis service, whose implementation does not import the provider registry.
 - `qt/` — PySide6 interface. `qt/mixins/` groups main-window behavior by responsibility; `main_window.py` composes the application window and common state.
 - `locales/` — external JSON localization catalogs packaged with the Python distribution.
-- `i18n.py` — compact localization loader plus compatibility bridge for older Russian literal keys.
-- `qt_runtime_audit.py` — package-level runtime-boundary assertion used by both source and frozen Qt self-tests; it stays in the package root because it validates the package boundary rather than rendering UI.
-- Source-specific parsers live in `parsers/`, networking in `network/`, shared runtime in `engine/`, and domain models in `domain/`. The original package-root files are compatibility aliases.
+- `localization/i18n.py` — localization loader and bridge for older Russian literal keys; package-root `i18n.py` remains an import alias.
+- `qt/runtime_audit.py` — implementation of the Qt runtime-boundary assertion; package-root `qt_runtime_audit.py` remains a backwards-compatible import alias.
+- Source-specific parsers live in `parsers/`, networking in `network/`, shared runtime in `engine/`, domain models in `domain/`, branding/version information in `identity/`, and Audiobookshelf integration in `connectors/`. The original package-root files are compatibility aliases. See `docs/architecture/ROOT_MODULES_V22.md`.
 
 ## Tests
 
@@ -58,6 +58,7 @@ Active tests live only under `tests/` and are grouped by behavior:
 - unused-import audit for the refactored downloader/Qt-mixin layers;
 - undefined-global audit for split-module imports/constants that `compileall` cannot detect;
 - historical-regression compatibility gate;
+- documentation link and architecture-boundary checks in `tests/architecture/`;
 - frozen-module and Windows accessibility acceptance checks.
 
 One-off migration tools belong under `archive/tools/`.

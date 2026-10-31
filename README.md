@@ -67,12 +67,12 @@ The current repository is organized by responsibility instead of migration phase
 - `audioknigi/providers/` — common `SourceProvider` interface, adapters, and registry.
 - `audioknigi/services/` — GUI-independent analysis/search/queue/library/player-position services.
 - `audioknigi/diagnostics/` — redacted support-bundle generation.
-- `audioknigi/locales/` + `audioknigi/i18n.py` — stable message-ID catalogs plus compatibility translation for older literals.
+- `audioknigi/locales/` + `audioknigi/localization/i18n.py` — stable message-ID catalogs plus compatibility translation for older literals; `audioknigi/i18n.py` is a backwards-compatible alias.
 - `audioknigi/qt/mixins/` — focused main-window behaviors; `main_window.py` is composition/common state rather than a 4000-line controller.
 - `tests/unit/`, `tests/integration/`, `tests/architecture/` — active tests grouped by behavior.
 - `tests/fixtures/providers/` — deterministic sanitized source fixtures.
 - `archive/` — historical tests, source variants, retired audits, and one-off migration tooling; retained in the developer repository only, not in the production-source package.
-- `audioknigi/qt_runtime_audit.py` — package-level runtime-boundary assertion used by source/frozen self-tests.
+- `audioknigi/qt/runtime_audit.py` — package-level runtime-boundary assertion used by source/frozen self-tests; `audioknigi/qt_runtime_audit.py` is a backwards-compatible alias.
 - `tools/` — active release and quality gates only.
 - `audits/4.12/rounds/` — incremental current-branch review/fix evidence; historical material stays under `archive/`.
 
@@ -117,13 +117,14 @@ Persistent controls have stable accessibility identifiers, dynamic dialogs are c
 
 ## Versioning and history
 
-The Python version source of truth is `audioknigi/version.py`; runtime consumers import the consolidated metadata facade in `audioknigi/metadata.py`. Earlier migration phases remain under `docs/migration/`, `docs/history/`, and `archive/` as historical evidence only.
+The Python version source of truth is `audioknigi/identity/version.py`; runtime consumers may continue importing the backwards-compatible `audioknigi.version` and `audioknigi.metadata` aliases. Earlier migration phases remain under `docs/migration/`, `docs/history/`, and `archive/` as historical evidence only.
 
 Release history is in `CHANGELOG.md`.
 
-## V19 source distributions
+## Source distributions
 
-- `AudioKnigi_V19_Production_Source.zip`: compact Python/Windows source for runtime and reproducible Windows EXE build; **not** a precompiled executable. No tests, audit snapshots or historical variants.
-- `AudioKnigi_V19_Developers.zip`: complete developer checkout with source, active tests, tooling, docs, CI, and quarantined historical evidence in `archive/`.
+Use `python tools/package_source_release.py --root . --profile production --output AudioKnigi_Production_Source.zip` to create buildable Windows/Python production source without tests, audit snapshots, or historical variants. This is **source code, not a precompiled executable**.
 
-Keep entrypoints at the root for compatibility (`audioknigi_qt.py`, `run.bat`, `build_qt_exe.bat`). Feature modules belong under `audioknigi/`, tests under `tests/`, and dated notes under `docs/releases/`.
+Use `python tools/package_source_release.py --root . --profile developer --output AudioKnigi_Developers.zip` for a full developer checkout including tests, documentation, CI configuration, and archived evidence. Both profiles exclude local runtime state, build caches, and `.orig` editor backups.
+
+Keep launch/build entrypoints at the repository root for compatibility. New implementation code belongs in responsibility-specific packages under `audioknigi/`. The V19 guide documents the original restructuring; the current canonical directory map is `docs/architecture/PROJECT_STRUCTURE.md`.
