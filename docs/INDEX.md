@@ -11,6 +11,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 - [`architecture/TRANSFER_POLICY_V28.md`](architecture/TRANSFER_POLICY_V28.md) — HTTP throughput policy extraction with resume compatibility.
 - [`architecture/HTTP_RESUME_V29.md`](architecture/HTTP_RESUME_V29.md) — safe HTTP 206/416 resume validation and connection-loss regressions.
 - [`architecture/RANGE_RETRY_V30.md`](architecture/RANGE_RETRY_V30.md) — bounded Retry-After and network-error recovery for Range segments.
+- [`architecture/RANGE_INTEGRITY_V31.md`](architecture/RANGE_INTEGRITY_V31.md) — validate declared HTTP 206 segment body sizes and rollback malformed responses.
 - [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.
