@@ -838,5 +838,30 @@
     "de": "Akniga-Sammlung wird geöffnet. Wählen Sie ein Buch aus den Ergebnissen.",
     "en": "Opening Akniga collection. Select a book from the results.",
     "uk": "Відкриваю добірку Akniga. Виберіть книгу серед результатів."
+  },
+  "HLS: кодек не подходит для прямого MP3-копирования; перекодирую один раз.": {
+    "de": "HLS: Der Codec ist nicht für direktes MP3-Kopieren geeignet; ich kodiere einmal neu.",
+    "en": "HLS: codec is not suitable for direct MP3 copying; re-encoding once.",
+    "uk": "HLS: кодек не підходить для прямого копіювання MP3; перекодовую один раз."
+  },
+  "HLS: локальная сборка не удалась; повторяю через обычный FFmpeg-поток.": {
+    "de": "HLS: Lokales Zusammenfügen fehlgeschlagen; erneuter Versuch über den normalen FFmpeg-Stream.",
+    "en": "HLS: local assembly failed; retrying via the standard FFmpeg stream.",
+    "uk": "HLS: локальне збирання не вдалося; повторюю через звичайний потік FFmpeg."
+  },
+  "HLS: параллельная загрузка недоступна; пробую обычный FFmpeg-поток.": {
+    "de": "HLS: Paralleler Download nicht verfügbar; ich versuche den normalen FFmpeg-Stream.",
+    "en": "HLS: parallel download unavailable; trying the standard FFmpeg stream.",
+    "uk": "HLS: паралельне завантаження недоступне; пробую звичайний потік FFmpeg."
+  },
+  "HLS: сегменты загружены параллельно, собираю аудио локально.": {
+    "de": "HLS: Segmente parallel heruntergeladen; Audiodatei wird lokal zusammengesetzt.",
+    "en": "HLS: segments downloaded in parallel; assembling audio locally.",
+    "uk": "HLS: сегменти завантажено паралельно; збираю аудіо локально."
+  },
+  "Поддерживаются адреса отдельных книг восьми источников. Для подборки Akniga вставьте ссылку в поиск.": {
+    "de": "Links zu einzelnen Büchern aus acht Quellen werden unterstützt. Für eine Akniga-Sammlung fügen Sie den Link in die Suche ein.",
+    "en": "Links to individual books from eight sources are supported. Paste an Akniga collection link into Search.",
+    "uk": "Підтримуються посилання на окремі книги з восьми джерел. Для добірки Akniga вставте посилання в пошук."
   }
 }
