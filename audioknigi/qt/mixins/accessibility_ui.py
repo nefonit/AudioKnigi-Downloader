@@ -115,12 +115,14 @@ class AccessibilityUiMixin:
         self._source_health_running = True
         owner_ref = weakref.ref(self)
         relay_ref = weakref.ref(self._worker_ui_relay)
+        manual = bool(getattr(self, "_manual_network_check", False))
+        search_requested = bool(getattr(self, "_manual_search_check", False))
+        search_query = str(getattr(self, "_source_search_query", "Поттер"))
 
         def run_check() -> None:
             try:
-                manual = bool(getattr(self, "_manual_network_check", False))
-                if manual and bool(getattr(self, "_manual_search_check", False)):
-                    outcome = check_source_search(str(getattr(self, "_source_search_query", "Поттер")))
+                if manual and search_requested:
+                    outcome = check_source_search(search_query)
                 else:
                     outcome = check_source_health(timeout=8.0 if manual else 3.0, detailed=manual)
                 relay = relay_ref()
@@ -681,15 +683,19 @@ class AccessibilityUiMixin:
         easy_search_return.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         easy_search_enter = QShortcut(QKeySequence("Enter"), self.easy_search_table, activated=self.use_selected_result)
         easy_search_enter.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        # Retain Python wrappers and callbacks for the entire window lifetime.
+        self._widget_shortcuts = [track_space, search_return, search_enter, easy_search_return, easy_search_enter]
         for table in (self.search_table, self.easy_search_table):
             menu_shortcut = QShortcut(QKeySequence("Shift+F10"), table, activated=lambda t=table: self._show_search_context_menu(t, None))
             menu_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            self._widget_shortcuts.append(menu_shortcut)
         track_menu = QShortcut(QKeySequence("Shift+F10"), self.track_table, activated=lambda: self._show_track_context_menu(None))
         track_menu.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         history_menu = QShortcut(QKeySequence("Shift+F10"), self.history_table, activated=lambda: self._show_history_context_menu(None))
         history_menu.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         queue_menu = QShortcut(QKeySequence("Shift+F10"), self.queue_table, activated=lambda: self._show_queue_context_menu(None))
         queue_menu.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._widget_shortcuts.extend([track_menu, history_menu, queue_menu])
         for number, tab_index in enumerate([self.TAB_BOOK, self.TAB_SEARCH, self.TAB_QUEUE, self.TAB_HISTORY, self.TAB_SETTINGS, self.TAB_PLAYER], start=1):
             self._add_window_shortcut(f"Alt+{number}", lambda i=tab_index: self._activate_tab(i))
         for number, tab_index in enumerate([self.TAB_BOOK, self.TAB_SEARCH, self.TAB_QUEUE, self.TAB_HISTORY, self.TAB_SETTINGS, self.TAB_PLAYER], start=1):

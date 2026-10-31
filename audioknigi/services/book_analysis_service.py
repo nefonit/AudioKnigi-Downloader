@@ -435,6 +435,8 @@ class BookAnalysisService:
         if expected_end <= 0:
             return book
         actual = self._probe_remote_duration(sources[0], str(getattr(book, "url", "") or ""))
+        if actual is None:
+            app_logger.debug("BOOK FLOW | event=shared_source_duration_probe_unavailable")
         tolerance = max(15.0, expected_end * 0.001)
         if actual is None or actual + tolerance >= expected_end:
             return book

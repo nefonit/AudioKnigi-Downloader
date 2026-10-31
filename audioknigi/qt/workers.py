@@ -144,6 +144,15 @@ class DownloadWorker(QObject):
         # handed back explicitly through request_changed/result signals.  Native
         # Qt image objects are not deepcopy-safe, so normalize/clear cover_cache
         # at this boundary even when a caller forgot to prepare a snapshot.
+        self.request = self._snapshot_request(request)
+        self.settings = dict(settings or {})
+        self.cancel_event = cancel_event
+        self.mode = str(mode or "selected")
+        self.recover_existing = bool(recover_existing)
+
+    @staticmethod
+    def _snapshot_request(request):
+        """Make a thread-safe copy without deep-copying native Qt cover objects."""
         snapshot = request
         book = getattr(request, "book", None)
         if book is not None:
@@ -157,11 +166,7 @@ class DownloadWorker(QObject):
                 snapshot = copy.copy(request)
                 snapshot.book = copy.copy(book)
                 snapshot.book.cover_cache = normalized_cover
-        self.request = copy.deepcopy(snapshot)
-        self.settings = dict(settings or {})
-        self.cancel_event = cancel_event
-        self.mode = str(mode or "selected")
-        self.recover_existing = bool(recover_existing)
+        return copy.deepcopy(snapshot)
 
     def _missing_media(self, indices: list[int], detail: str, allow_skip: bool) -> str:
         prompt = MissingMediaDecision(indices, detail, allow_skip)
@@ -190,7 +195,7 @@ class DownloadWorker(QObject):
             transfer=self.transfer.emit,
             missing_media=self._missing_media,
             history_changed=self.history_changed.emit,
-            request_changed=lambda request: self.request_changed.emit(copy.deepcopy(request)),
+            request_changed=lambda request: self.request_changed.emit(self._snapshot_request(request)),
         )
         try:
             service = DownloadService(
