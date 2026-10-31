@@ -49,6 +49,9 @@ jobs:
                 test "$(find . -name '*.rej' | wc -l)" -eq 1
                 rm CHANGELOG.md.rej
               fi
+            elif [ "${i}" = "25" ]; then
+              # V19 contains pure git rename records without hunks.
+              git apply "migration/v19/patches/25.patch"
             else
               patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
             fi
