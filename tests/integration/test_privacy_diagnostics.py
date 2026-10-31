@@ -517,7 +517,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_history_lock_contracts_and_dead_privacy_bookkeeping_removed():
     support = (ROOT / 'audioknigi/diagnostics/support_bundle.py').read_text(encoding='utf-8')
     library = (ROOT / 'audioknigi/services/library_service.py').read_text(encoding='utf-8')
-    engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     assert 'original_was_absolute_path' in support
     assert 'if collapse_whole_path and original_was_absolute_path' in support
     assert 'with HISTORY_LOCK:\n        # A backup can contain several independent state files.' in library
@@ -623,7 +623,7 @@ def _book() -> Book:
     return Book(url='https://audioknigi.com.ua/audio-1', title='Demo', tracks=[Track(index=1, title='One', file='https://cdn.invalid/1.mp3'), Track(index=2, title='Two', file='https://cdn.invalid/2.mp3')])
 
 def test_cross_platform_log_home_placeholder_is_not_windows_only():
-    source = (ROOT / 'audioknigi' / 'logging_utils.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi' / 'diagnostics' / 'logging_utils.py').read_text(encoding='utf-8')
     assert 'placeholder = "%USERPROFILE%" if os.name == "nt" else "~"' in source
 
 

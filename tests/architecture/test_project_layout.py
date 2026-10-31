@@ -10,8 +10,8 @@ def lines(rel):
 
 def test_large_monoliths_are_split():
     assert lines("audioknigi/qt/main_window.py") < 1200
-    assert lines("audioknigi/downloader.py") < 200
-    assert lines("audioknigi/i18n.py") < 250
+    assert lines("audioknigi/download/downloader.py") < 200
+    assert lines("audioknigi/localization/i18n.py") < 250
 
 
 def test_new_subsystems_have_clear_packages():

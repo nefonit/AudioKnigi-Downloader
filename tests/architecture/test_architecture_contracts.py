@@ -20,13 +20,13 @@ def test_main_window_is_composed_from_mixins():
 
 
 def test_downloader_facade_points_to_split_package():
-    source = (ROOT / "audioknigi/downloader.py").read_text(encoding="utf-8")
+    source = (ROOT / "audioknigi/download/downloader.py").read_text(encoding="utf-8")
     assert "Compatibility facade" in source
     assert hasattr(DownloaderMixin, "_process_book_once")
 
 
 def test_localization_python_file_does_not_embed_giant_language_tables():
-    source = (ROOT / "audioknigi/i18n.py").read_text(encoding="utf-8")
+    source = (ROOT / "audioknigi/localization/i18n.py").read_text(encoding="utf-8")
     assert "legacy_literals.json" in source
     assert "messages.json" in source
     assert source.count('"Нет обложки"') == 0

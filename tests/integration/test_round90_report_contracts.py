@@ -57,7 +57,7 @@ def test_all_locale_catalog_files_are_at_the_i18n_relative_location():
         "languages.json", "messages.json", "legacy_literals.json",
         "runtime_exact.json", "runtime_prefixes.json", "runtime_regex.json",
     ):
-        assert (Path(i18n.__file__).parent / "locales" / name).is_file()
+        assert (Path(i18n.__file__).parent.parent / "locales" / name).is_file()
 
 
 def test_posix_path_regexes_accept_parentheses_without_syntax_warnings():
