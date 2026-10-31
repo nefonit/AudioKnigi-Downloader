@@ -35,15 +35,25 @@ class LifecycleUiMixin:
 
     def _persist_exit_state_best_effort(self) -> None:
         """Persist small user state before normal or emergency process exit."""
+        # Write the last known queue state after all download workers stop.
+        # V33 will restore a still-running task as interrupted after a crash.
+        queue_store = getattr(self, "queue_store", None)
+        if queue_store is not None:
+            try:
+                if not queue_store.save(getattr(self, "queue_tasks", [])):
+                    app_logger.warning("UI LIFECYCLE | event=queue_exit_save_failed")
+            except Exception:
+                app_logger.warning("UI LIFECYCLE | event=queue_exit_save_failed", exc_info=True)
         self._save_window_geometry()
         try:
             self.settings.update(self._settings_from_ui())
         except Exception:
             pass
         try:
-            save_json(SETTINGS_FILE, self.settings)
+            if not save_json(SETTINGS_FILE, self.settings):
+                app_logger.warning("UI LIFECYCLE | event=settings_exit_save_failed")
         except Exception:
-            app_logger.debug("Could not persist settings during exit", exc_info=True)
+            app_logger.warning("UI LIFECYCLE | event=settings_exit_save_failed", exc_info=True)
         controller = getattr(self, "player_controller", None)
         if controller is not None:
             try:
@@ -315,6 +325,21 @@ class LifecycleUiMixin:
                 self._exit_deadline = None
             event.ignore()
             return
+        # Audiobookshelf connectivity checks also use an owned QThread.
+        # Never accept a close while that worker is still running.
+        if self._thread_is_running(self._abs_thread):
+            answer = self._ask_yes_no(
+                "Проверка Audiobookshelf выполняется",
+                "Проверка Audiobookshelf ещё выполняется. Закрыть программу после её остановки?",
+                default_yes=False,
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                self._begin_deferred_exit()
+            else:
+                self._exit_requested = False
+                self._exit_deadline = None
+            event.ignore()
+            return
         self._persist_exit_state_best_effort()
         app = QApplication.instance()
         media_filter = getattr(self, "_media_key_filter", None)
@@ -328,12 +353,18 @@ class LifecycleUiMixin:
                     app.removeNativeEventFilter(media_filter)
                 except Exception:
                     pass
-        if self.player_controller is not None:
-            self.player_controller.shutdown()
-        if self.event_sound_manager is not None:
-            self.event_sound_manager.shutdown()
-        if self.tray_controller is not None:
-            self.tray_controller.shutdown()
+        for name in ("player_controller", "event_sound_manager", "tray_controller"):
+            controller = getattr(self, name, None)
+            if controller is not None:
+                try:
+                    controller.shutdown()
+                except Exception:
+                    # One failing native backend must not prevent cleanup of
+                    # the remaining controllers or skip an accepted exit.
+                    app_logger.warning(
+                        "UI LIFECYCLE | event=controller_shutdown_failed | controller=%s",
+                        name, exc_info=True,
+                    )
         event.accept()
 
 
