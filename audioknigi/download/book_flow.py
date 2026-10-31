@@ -92,6 +92,10 @@ class BookFlowMixin:
         if getattr(fresh, "restricted", False):
             raise RuntimeError("После обновления плейлиста эта озвучка стала недоступна.")
 
+        def track_field(track, name, default=None):
+            # Legacy playlists may still carry Mapping-backed tracks.
+            return track.get(name, default) if isinstance(track, Mapping) else getattr(track, name, default)
+
         fresh_by_index = {}
         for tr in list(getattr(fresh, "tracks", []) or []):
             index = safe_int(getattr(tr, "index", None), -1)
@@ -105,7 +109,7 @@ class BookFlowMixin:
 
         old_by_index = {}
         for tr in list(getattr(book, "tracks", []) or []):
-            index = safe_int(getattr(tr, "index", None), -1)
+            index = safe_int(track_field(tr, "index"), -1)
             if index >= 0:
                 old_by_index[index] = tr
         changed_urls = 0
@@ -114,13 +118,13 @@ class BookFlowMixin:
             previous = old_by_index.get(index) if index >= 0 else None
             if previous is None:
                 continue
-            if str(previous.file or "") != str(tr.file or ""):
+            if str(track_field(previous, "file", "") or "") != str(tr.file or ""):
                 changed_urls += 1
             # Preserve local/UI state while taking fresh network/timing metadata.
-            tr.selected = bool(previous.selected)
-            tr.local_status = normalize_track_status(previous.local_status)
-            tr.actual_duration = previous.actual_duration
-            tr.local_path = str(previous.local_path or "")
+            tr.selected = bool(track_field(previous, "selected", True))
+            tr.local_status = normalize_track_status(track_field(previous, "local_status", TRACK_STATUS_MISSING))
+            tr.actual_duration = track_field(previous, "actual_duration")
+            tr.local_path = str(track_field(previous, "local_path", "") or "")
 
         for attr in (
             "title", "author", "narrator", "description", "genre", "year",
@@ -456,7 +460,9 @@ class BookFlowMixin:
     def _try_akniga_direct_chapters(self, book, tracks, report):
         """Attempt selected HLS seeks; fallback cleanly to existing full flow."""
         outputs = []
+        verified_paths = set()
         succeeded = False
+        keep_verified = False
         try:
             self.log(f"Akniga: скачиваю только выбранные главы ({len(tracks)}), без общего файла.")
             self.set_stage(2, "Загрузка выбранных глав HLS")
@@ -470,6 +476,7 @@ class BookFlowMixin:
                 status, _actual, _path = self._verify_track_file(book, tr)
                 if normalize_track_status(status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT):
                     raise RuntimeError(f"Глава {tr.index}: получен неполный участок HLS.")
+                verified_paths.add(path)
                 self.set_progress(number * 100.0 / len(tracks))
             self.log(f"Akniga: {len(tracks)} глав получены напрямую; общая книга не скачивалась.")
             succeeded = True
@@ -477,14 +484,19 @@ class BookFlowMixin:
         except Cancelled:
             raise
         except Exception as exc:
+            # Preserve already verified chapters: the full-source fallback
+            # only needs to create parts that did not pass verification.
+            keep_verified = True
             self.log(f"Akniga: адресная загрузка не удалась ({exc}); перехожу к полной книге.")
             return False
         finally:
-            # On failure do not leave unverified chapters masquerading as
-            # completed files; on success ownership passes to normal verify.
-            # Never delete an original pre-existing READY/PRESENT chapter.
+            # Never leave partial/unverified output files behind. Preserve
+            # verified parts only on recoverable seek failures, not cancellation.
+            # Pre-existing READY/PRESENT chapters are not in this worklist.
             if not succeeded:
                 for path in outputs:
+                    if keep_verified and path in verified_paths:
+                        continue
                     try:
                         unlink_with_retry(path, missing_ok=True)
                     except OSError:
@@ -576,6 +588,15 @@ class BookFlowMixin:
         if mp3_needs_creation and self._akniga_direct_chapters_eligible(book, mp3_needs_creation):
             if self._try_akniga_direct_chapters(book, mp3_needs_creation, report):
                 mp3_needs_creation = []
+            else:
+                # Some direct HLS chapters may have finished before a later
+                # chapter failed. Recheck on disk and avoid recreating verified
+                # MP3s when falling back to the full-source download.
+                self._scan_book_files(book, create_folder=False)
+                mp3_needs_creation = [
+                    tr for tr in mp3_needs_creation
+                    if normalize_track_status(tr.local_status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT)
+                ]
 
         source_tracks = list(mp3_needs_creation)
         missing_source_indices = []

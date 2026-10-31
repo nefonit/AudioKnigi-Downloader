@@ -83,7 +83,8 @@ def test_direct_hls_failure_cleans_owned_outputs_only(tmp_path):
             return TRACK_STATUS_READY, 10.0, self._track_path(book, tr)
     assert not BookFlowMixin._try_akniga_direct_chapters(Engine(), book, selected, lambda _x: None)
     assert existing.read_bytes() == b'original'
-    assert not (tmp_path/'03.mp3').exists()
+    # Chapter 3 completed and passed verification before chapter 4 failed.
+    assert (tmp_path/'03.mp3').read_bytes() == b'partial'
     assert not (tmp_path/'04.mp3').exists()
 
 

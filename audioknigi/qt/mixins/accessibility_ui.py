@@ -162,7 +162,7 @@ class AccessibilityUiMixin:
                         detail = (self._l("Поиск выполнен; найдено: {count}", count=count)
                                   if count else self._l("Поиск выполнен; результатов нет"))
                     else:
-                        detail = str(getattr(item, "error", "") or self._l("Ошибка поиска"))
+                        detail = self._rt(str(getattr(item, "error", "") or self._l("Ошибка поиска")))
                     endpoint = str(getattr(item, "search_endpoint", "") or "")
                     if endpoint:
                         detail += f"; {endpoint}"
@@ -188,7 +188,7 @@ class AccessibilityUiMixin:
                     if getattr(item, "blocked", False):
                         detail += "; " + self._l("возможна проверка браузера или ограничение доступа")
                 else:
-                    detail = str(getattr(item, "error", "") or self._l("нет соединения"))
+                    detail = self._rt(str(getattr(item, "error", "") or self._l("нет соединения")))
                 route = str(getattr(item, "dns_provider", "") or "")
                 ip_addr = str(getattr(item, "ip_address", "") or "")
                 dns_ms = getattr(item, "dns_ms", None)
