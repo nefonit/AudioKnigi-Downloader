@@ -47,7 +47,7 @@ def _assignment_value(node: ast.AST, name: str):
 
 
 def _load_help_topics():
-    path = ROOT / "audioknigi" / "qt" / "help_center.py"
+    path = ROOT / "audioknigi" / "qt" / "help_content.py"
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in tree.body:
         value = _assignment_value(node, "TOPICS")

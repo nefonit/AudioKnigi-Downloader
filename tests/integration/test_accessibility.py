@@ -141,13 +141,14 @@ def test_accessibility_selftest_failure_reports_details_not_partial_report():
 ROOT = Path(__file__).resolve().parents[2]
 
 HELP_CENTER = ROOT / 'audioknigi' / 'qt' / 'help_center.py'
+HELP_CONTENT = ROOT / 'audioknigi' / 'qt' / 'help_content.py'
 
 MESSAGES = ROOT / 'audioknigi' / 'locales' / 'messages.json'
 
 ACCESSIBILITY_UI = ROOT / 'audioknigi' / 'qt' / 'mixins' / 'accessibility_ui.py'
 
 def _topics() -> dict[str, tuple[tuple[str, str, str], ...]]:
-    tree = ast.parse(HELP_CENTER.read_text(encoding='utf-8'), filename=str(HELP_CENTER))
+    tree = ast.parse(HELP_CONTENT.read_text(encoding='utf-8'), filename=str(HELP_CONTENT))
     for node in tree.body:
         if isinstance(node, ast.Assign) and any((isinstance(target, ast.Name) and target.id == 'TOPICS' for target in node.targets)):
             return ast.literal_eval(node.value)
@@ -682,7 +683,7 @@ def test_help_center_uses_splitter_and_non_overlapping_topic_rows():
     assert 'topic_row_height = max(42, self.topics.fontMetrics().height() * 2 + 12)' in source
     assert 'item.setSizeHint(QSize(0, topic_row_height))' in source
     assert 'splitter.setChildrenCollapsible(False)' in source
-    tree = ast.parse(source)
+    tree = ast.parse(HELP_CONTENT.read_text(encoding='utf-8'))
     values = {}
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -781,7 +782,7 @@ def test_qt_exposes_dns_mode_and_accessible_fallback_feedback():
     assert 'install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))' in application
 
 def test_help_center_explains_automatic_dns_recovery():
-    help_text = (ROOT / 'audioknigi/qt/help_center.py').read_text(encoding='utf-8')
+    help_text = HELP_CONTENT.read_text(encoding='utf-8')
     assert 'пятиминутная пауза для Cloudflare' in help_text
     assert 'Такое переключение видно на экране и объявляется NVDA/JAWS' in help_text
 
