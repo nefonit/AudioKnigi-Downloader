@@ -17,7 +17,7 @@ TOPICS = {'ru': (('start',
          'С чего начать',
          'Быстрый путь для первой книги:\n'
          '1. Откройте простой режим. В универсальное поле можно ввести название книги, автора или вставить поддерживаемую ссылку с '
-         'audioknigi.com.ua, knigavuhe.org или poleknig.com.\n'
+         'audioknigi.com.ua, knigavuhe.org, poleknig.com или akniga.org.\n'
          '2. Если введён обычный текст, нажмите «Искать». Если введена ссылка, действие меняется на «Открыть» и запускает анализ книги.\n'
          '3. При поиске выберите найденную строку и нажмите «Выбрать и проанализировать». Программа загрузит сведения о книге, варианты '
          'озвучки и список частей.\n'
@@ -288,7 +288,7 @@ TOPICS = {'ru': (('start',
          'З чого почати',
          'Швидкий шлях для першої книги:\n'
          '1. Відкрийте простий режим. В універсальне поле можна ввести назву книги, автора або вставити підтримуване посилання з '
-         'audioknigi.com.ua, knigavuhe.org чи poleknig.com.\n'
+         'audioknigi.com.ua, knigavuhe.org, poleknig.com чи akniga.org.\n'
          '2. Для звичайного тексту натисніть «Шукати». Для посилання дія змінюється на «Відкрити» й запускає аналіз книги.\n'
          '3. У результатах виберіть книгу та натисніть «Вибрати й проаналізувати». Програма отримає відомості про книгу, варіанти '
          'озвучення і список частин.\n'
@@ -731,7 +731,7 @@ TOPICS = {'ru': (('start',
  'de': (('start',
          'Erste Schritte',
          'Schnellstart für das erste Hörbuch:\n'
-         '1. Im einfachen Modus Titel, Autor oder einen unterstützten Link von audioknigi.com.ua, knigavuhe.org oder poleknig.com in das '
+         '1. Im einfachen Modus Titel, Autor oder einen unterstützten Link von audioknigi.com.ua, knigavuhe.org, poleknig.com oder akniga.org in das '
          'gemeinsame Feld eingeben.\n'
          '2. Bei normalem Text „Suchen“ wählen. Bei einem Link wird die Aktion zu „Öffnen“ und startet die Buchanalyse.\n'
          '3. In den Treffern ein Buch auswählen und „Auswählen und analysieren“ wählen. Die App lädt Buchdaten, '

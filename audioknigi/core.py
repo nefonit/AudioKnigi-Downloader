@@ -736,12 +736,23 @@ def build_http_session():
     # the application's Cloudflare-only resolver. Playwright has its own local
     # Cloudflare-resolving proxy; Python requests connect directly after DoH.
     session.trust_env = False
+    # AUTO Python requests now use the same bounded DNS+TCP route selection
+    # as Chromium and FFmpeg. Strict Cloudflare remains unchanged unless an
+    # explicit upstream proxy is configured.
+    from .network_dns import user_proxy_enabled, current_dns_mode, DNS_MODE_AUTO, ensure_cloudflare_playwright_proxy
+    auto_bridge = (current_dns_mode() == DNS_MODE_AUTO and not user_proxy_enabled())
+    if user_proxy_enabled() or auto_bridge:
+        bridge = ensure_cloudflare_playwright_proxy()
+        session.proxies.update({"http": bridge, "https": bridge})
+    # The automatic local bridge already attempts Cloudflare and system routes.
+    # Repeating the same failed CONNECT three more times would multiply the
+    # timeout without finding any new path. Keep legacy retries in other modes.
     retry = Retry(
-        total=4,
-        connect=3,
-        read=3,
-        status=3,
-        backoff_factor=0.6,
+        total=1 if auto_bridge else 4,
+        connect=0 if auto_bridge else 3,
+        read=1 if auto_bridge else 3,
+        status=1 if auto_bridge else 3,
+        backoff_factor=0.2 if auto_bridge else 0.6,
         status_forcelist=RETRY_STATUS_CODES,
         allowed_methods=frozenset(("GET", "HEAD")),
         respect_retry_after_header=True,

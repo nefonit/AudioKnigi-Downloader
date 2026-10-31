@@ -28,6 +28,7 @@ from ..core import (
     resolve_executable,
 )
 from ..knigavuhe import fetch_book as fetch_knigavuhe_book, search as search_knigavuhe_books
+from ..akniga import fetch_book as fetch_akniga_book
 from ..poleknig import fetch_book as fetch_poleknig_book
 from ..providers.audioknigi_search import (
     _audioknigi_description_from_html,
@@ -479,6 +480,33 @@ class BookAnalysisService:
         self._check_cancel()
         normalized = normalize_supported_url(str(url or "").strip())
         provider = source_key(normalized)
+        if provider in {"izibuk", "yakniga", "uknig", "librivox"}:
+            from ..providers.registry import provider_for_key
+            adapter = provider_for_key(provider)
+            if adapter is None:
+                raise RuntimeError("Не найден адаптер источника")
+            self._emit(f"Анализирую {adapter.display_name}…")
+            book = adapter.fetch_book(normalized, cancel_event=self.cancel_event)
+            self._check_cancel()
+            if self.options.fetch_cover and book.cover_url:
+                book.cover_cache = normalize_cover_cache(self._fetch_cover_bytes(book.cover_url, book.url))
+            self._check_cancel()
+            # Yakniga's GraphQL already provides chapter durations where
+            # available. Probing each missing one with ffprobe can block the
+            # analysis UI for up to 18 seconds per batch, especially on CDNs.
+            # Missing durations remain unknown until the normal download flow.
+            if provider != "yakniga":
+                self._populate_missing_track_durations(book)
+            self._emit(f"Найдено частей: {len(book.tracks)}")
+            return book
+        if provider == "akniga":
+            self._emit("Анализирую akniga.org…")
+            book = fetch_akniga_book(normalized, cancel_event=self.cancel_event)
+            self._check_cancel()
+            if self.options.fetch_cover and book.cover_url:
+                book.cover_cache = normalize_cover_cache(self._fetch_cover_bytes(book.cover_url, book.url))
+            self._emit(f"Найдено частей: {len(book.tracks)}")
+            return book
         if provider == "knigavuhe":
             self._emit("Анализирую knigavuhe.org…")
             book = fetch_knigavuhe_book(normalized, cancel_event=self.cancel_event)

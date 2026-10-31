@@ -7,6 +7,12 @@
 
 # Changelog
 
+## V18 — Izib search title fragments
+
+- Preserve inline HTML text boundaries when extracting Izib titles, authors, and narrators.
+- Fix broken Russian case endings caused by search-highlighting markup and punctuation gaps.
+- Add focused offline regression tests; no changes to downloads, HLS, DNS, source registration or UI widgets.
+
 ## Round 90 — October 15 report follow-up
 
 - Fix legacy normalization values such as `"false"` and `"off"` in settings and old queue records; keep existing explicit normalization preferences.

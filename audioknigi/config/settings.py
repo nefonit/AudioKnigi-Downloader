@@ -49,6 +49,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "delete_source": True,
     "playwright_fallback_enabled": True,
     "dns_mode": "auto",
+    "proxy_url": "",
+    "proxy_only_hosts": "",
     "parallel_single_source": False,
     "segment_count": "auto",
     "segment_threshold_mb": 16,
@@ -144,6 +146,18 @@ def migrate_settings(payload: Mapping[str, Any] | None) -> tuple[dict[str, Any],
     raw["normalization_mode"] = safe_normalization_mode(raw.get("normalization_mode"))
     dns_mode = str(raw.get("dns_mode") or "auto").strip().lower()
     raw["dns_mode"] = dns_mode if dns_mode in {"auto", "cloudflare", "system"} else "auto"
+    # Do not silently accept proxy credentials in plaintext settings.json.
+    from ..network_dns import validate_user_proxy, normalize_proxy_hosts
+    try:
+        raw["proxy_url"] = validate_user_proxy(raw.get("proxy_url"))
+    except ValueError:
+        # A damaged/legacy settings file must not crash app startup. The UI
+        # validates user-entered values separately before saving.
+        raw["proxy_url"] = ""
+    try:
+        raw["proxy_only_hosts"] = normalize_proxy_hosts(raw.get("proxy_only_hosts"))
+    except ValueError:
+        raw["proxy_only_hosts"] = ""
     raw["folder_template"] = str(raw.get("folder_template") or "{Book_Title}")
     raw["track_template"] = str(raw.get("track_template") or "{Track_Number}.mp3")
     raw["output_dir"] = str(raw.get("output_dir") or DEFAULT_OUTPUT)

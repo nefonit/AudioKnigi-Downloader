@@ -15,7 +15,7 @@ from ...i18n import tr
 from ...logging_utils import ERROR_LOG_FILE, app_logger, tail_error_log
 from ...network_dns import DNS_MODE_CLOUDFLARE, dns_runtime_status
 from ...diagnostics import create_support_bundle
-from ...services.source_health_service import check_source_health
+from ...services.source_health_service import check_source_health, check_source_search
 from ..accessibility import announce, configure_accessible, focus_table_row
 from ..help_center import QtHelpCenter
 from ..localized_context_menu import install_localized_text_context_menu
@@ -79,6 +79,34 @@ class AccessibilityUiMixin:
             self.set_status(message)
             self._set_guidance(message, announce_now=True)
 
+    def _run_network_diagnostic(self, _checked=False) -> None:
+        """User-triggered nonblocking check with screen reader friendly output."""
+        if bool(getattr(self, "_source_health_running", False)):
+            self.set_status(self._l("Проверка сети уже выполняется."))
+            return
+        self._manual_network_check = True
+        self._manual_search_check = False
+        self.set_status(self._l("Проверяется подключение к источникам…"))
+        self._start_source_health_check()
+
+    def _run_search_diagnostic(self, _checked=False) -> None:
+        if bool(getattr(self, "_source_health_running", False)):
+            self.set_status(self._l("Проверка сети уже выполняется."))
+            return
+        candidate = ""
+        for widget_name in ("search_edit", "easy_input"):
+            widget = getattr(self, widget_name, None)
+            if widget is not None:
+                candidate = str(widget.text() or "").strip()
+                if len(candidate) >= 3 and not candidate.startswith(("http://", "https://")):
+                    break
+                candidate = ""
+        self._source_search_query = candidate if len(candidate) >= 3 else "Поттер"
+        self._manual_network_check = True
+        self._manual_search_check = True
+        self.set_status(self._l("Проверяется реальный поиск на источниках…"))
+        self._start_source_health_check()
+
     def _start_source_health_check(self) -> None:
         # Offscreen/self-test windows are never shown. Do not start network I/O
         # or a modal warning for them. Real startup schedules this after show.
@@ -90,7 +118,11 @@ class AccessibilityUiMixin:
 
         def run_check() -> None:
             try:
-                outcome = check_source_health(timeout=3.0)
+                manual = bool(getattr(self, "_manual_network_check", False))
+                if manual and bool(getattr(self, "_manual_search_check", False)):
+                    outcome = check_source_search(str(getattr(self, "_source_search_query", "Поттер")))
+                else:
+                    outcome = check_source_health(timeout=8.0 if manual else 3.0, detailed=manual)
                 relay = relay_ref()
                 if relay is not None:
                     try:
@@ -102,6 +134,8 @@ class AccessibilityUiMixin:
                 owner = owner_ref()
                 if owner is not None:
                     owner._source_health_running = False
+                    owner._manual_network_check = False
+                    owner._manual_search_check = False
 
         threading.Thread(
             target=run_check, name="source-health-startup", daemon=True
@@ -112,6 +146,107 @@ class AccessibilityUiMixin:
         self._source_health_running = False
         items = list(getattr(outcome, "items", None) or [])
         if not items:
+            self._manual_network_check = False
+            self._manual_search_check = False
+            return
+        if bool(getattr(self, "_manual_network_check", False)):
+            self._manual_network_check = False
+            if bool(getattr(self, "_manual_search_check", False)):
+                self._manual_search_check = False
+                labels = [self._l("Результат настоящего поиска (не скачивания):")]
+                for item in items:
+                    if not getattr(item, "search_supported", True):
+                        detail = self._l("Поиск не поддерживается")
+                    elif item.reachable:
+                        count = int(getattr(item, "search_results", 0) or 0)
+                        detail = (self._l("Поиск выполнен; найдено: {count}", count=count)
+                                  if count else self._l("Поиск выполнен; результатов нет"))
+                    else:
+                        detail = str(getattr(item, "error", "") or self._l("Ошибка поиска"))
+                    endpoint = str(getattr(item, "search_endpoint", "") or "")
+                    if endpoint:
+                        detail += f"; {endpoint}"
+                    ms = getattr(item, "tcp_ms", None)
+                    if ms is not None:
+                        detail += f"; {ms} мс"
+                    labels.append(f"{item.source}: {detail}")
+                self._show_message(QMessageBox.Icon.Information, self._l("Диагностика поиска"), "\n".join(labels))
+                self.set_status(self._l("Проверка поиска завершена."))
+                return
+            dns = dns_runtime_status()
+            from ...network_dns import user_proxy_enabled
+            labels = [
+                self._l("DNS: {mode}; пользовательский прокси: {proxy}",
+                        mode=str(dns.get("mode", "auto")),
+                        proxy=self._l("включён") if user_proxy_enabled() else self._l("выключен")),
+            ]
+            for item in items:
+                source = str(getattr(item, "source", ""))
+                code = getattr(item, "status_code", None)
+                if getattr(item, "reachable", False):
+                    detail = f"HTTP {code}" if code else self._l("соединение установлено")
+                    if getattr(item, "blocked", False):
+                        detail += "; " + self._l("возможна проверка браузера или ограничение доступа")
+                else:
+                    detail = str(getattr(item, "error", "") or self._l("нет соединения"))
+                route = str(getattr(item, "dns_provider", "") or "")
+                ip_addr = str(getattr(item, "ip_address", "") or "")
+                dns_ms = getattr(item, "dns_ms", None)
+                tcp_ms = getattr(item, "tcp_ms", None)
+                tls_ms = getattr(item, "tls_ms", None)
+                http_ms = getattr(item, "http_ms", None)
+                extra = []
+                error_code = str(getattr(item, "error_code", "") or "")
+                if error_code:
+                    extra.append(error_code)
+                if route:
+                    extra.append(self._l("DNS/маршрут: {value}", value=route))
+                if ip_addr:
+                    extra.append(self._l("IP: {value}", value=ip_addr))
+                if dns_ms is not None:
+                    extra.append(self._l("DNS: {value} мс", value=dns_ms))
+                if tcp_ms is not None:
+                    extra.append(self._l("TCP: {value} мс", value=tcp_ms))
+                if tls_ms is not None:
+                    extra.append(self._l("TLS: {value} мс", value=tls_ms))
+                if http_ms is not None:
+                    extra.append(self._l("HTTP-ответ: {value} мс", value=http_ms))
+                cf_ips = tuple(getattr(item, "cloudflare_addresses", ()) or ())
+                system_ips = tuple(getattr(item, "system_addresses", ()) or ())
+                system_checked = bool(getattr(item, "system_dns_checked", False))
+                if cf_ips:
+                    extra.append(self._l("Cloudflare DNS IP: {value}", value=", ".join(cf_ips)))
+                if system_checked:
+                    if system_ips:
+                        extra.append(self._l("Системный DNS IP (сравнение): {value}", value=", ".join(system_ips)))
+                    else:
+                        extra.append(self._l("Системный DNS: адреса не получены"))
+                    system_error = str(getattr(item, "system_dns_error", "") or "")
+                    if system_error:
+                        extra.append(self._l("Системный DNS: ошибка {value}", value=system_error))
+                attempt_rows = tuple(getattr(item, "attempted_routes", ()) or ())
+                for provider, address, result, elapsed in attempt_rows[:6]:
+                    extra.append(self._l("TCP-попытка: {via}, {ip}, {result}, {ms} мс",
+                                         via=provider, ip=address, result=result, ms=elapsed))
+                first_stalled_ip = str(getattr(item, "first_http_timeout_ip", "") or "")
+                if first_stalled_ip:
+                    extra.append(self._l("HTTP-тайм-аут на IP {value}; проверен другой адрес", value=first_stalled_ip))
+                fallback_status = str(getattr(item, "fallback_status", "") or "")
+                if fallback_status == "no_distinct_addresses":
+                    extra.append(self._l("Резервный DNS проверен: новых IP нет, повторять TCP на тот же IP бессмысленно"))
+                elif fallback_status == "tried_system_alternative":
+                    extra.append(self._l("Проверен другой IP системного DNS"))
+                elif fallback_status == "no_remaining_time":
+                    extra.append(self._l("Резервное TCP-подключение не выполнено: истёк общий лимит времени"))
+                elif fallback_status == "system_dns_failed":
+                    extra.append(self._l("Резервный системный DNS не ответил"))
+                elif fallback_status == "strict_cloudflare":
+                    extra.append(self._l("Режим Только Cloudflare: системные IP не используются для подключения"))
+                labels.append(f"{source}: {detail}" + ("; " + "; ".join(extra) if extra else ""))
+            labels.append(self._l("Диагностика проверяет HTTPS главной страницы, а не поиск книг или скачивание."))
+            labels.append(self._l("Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP."))
+            self._show_message(QMessageBox.Icon.Information, self._l("Диагностика сети"), "\n".join(labels))
+            self.set_status(self._l("Проверка сети завершена."))
             return
         reachable = int(getattr(outcome, "reachable_count", 0) or 0)
         unavailable = int(getattr(outcome, "unavailable_count", 0) or 0)

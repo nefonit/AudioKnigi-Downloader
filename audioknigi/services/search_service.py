@@ -16,7 +16,8 @@ from ..providers.audioknigi_search import (
     parse_audioknigi_results,
     search_audioknigi,
 )
-from ..sources import normalize_supported_url
+from ..sources import normalize_supported_url, is_akniga_collection_url
+from .search_relevance import search_relevance_rank, search_relevance_sort_key
 
 
 def _iter_completed_cancellable(futures, cancel_event=None):
@@ -69,6 +70,7 @@ class SearchOutcome:
     query: str
     results: list[SearchResult] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    related_results: list[SearchResult] = field(default_factory=list)
 
     @property
     def source_count(self) -> int:
@@ -88,6 +90,22 @@ def _audioknigi_page_metadata(result: SearchResult, cancel_event=None) -> Search
 
 def search_all_sources(query: str, cancel_event=None, progress=None, sources=None) -> SearchOutcome:
     cleaned = str(query or "").strip()
+    if is_akniga_collection_url(cleaned):
+        from ..providers.extra_sources import fetch_akniga_collection
+        if cancel_event is not None and cancel_event.is_set():
+            raise Cancelled("Поиск отменён пользователем")
+        if progress is not None:
+            progress(10, "Открываю подборку Akniga")
+        try:
+            entries = fetch_akniga_collection(cleaned, cancel_event=cancel_event)
+        except Cancelled:
+            raise
+        except Exception as exc:
+            app_logger.warning("Akniga collection lookup failed: %s", type(exc).__name__)
+            return SearchOutcome(cleaned, [], [f"Подборка Akniga: {exc}"])
+        if progress is not None:
+            progress(99, "Подборка загружена; выберите книгу")
+        return SearchOutcome(cleaned, downloadable_search_results(entries), [])
     if len(cleaned) < 3:
         return SearchOutcome(cleaned, [], ["Введите минимум 3 символа для поиска."])
 
@@ -190,8 +208,16 @@ def search_all_sources(query: str, cancel_event=None, progress=None, sources=Non
     # 100% belongs to the GUI completion boundary, after SearchWorker has
     # actually returned and the modal operation dialog can be dismissed.
     # Reporting 100 here made a still-running worker look finished.
+    # Public catalogues often return related authors, sidebar recommendations,
+    # and full-text hits. A returned URL is not proof that the visible title
+    # matches the user's words. Keep doubtful results separately so anthology
+    # entries are still available on demand (e.g. a Sherlock story inside a
+    # generic theatre collection), rather than discarding them irreversibly.
+    ranked = sorted(deduped, key=lambda item: search_relevance_sort_key(cleaned, item))
+    direct = [item for item in ranked if search_relevance_rank(cleaned, item) < 4]
+    related = [item for item in ranked if search_relevance_rank(cleaned, item) == 4]
     report(99, "Завершаю поиск")
-    return SearchOutcome(cleaned, deduped, errors)
+    return SearchOutcome(cleaned, direct, errors, related_results=related)
 
 
 __all__ = [

@@ -10,7 +10,7 @@ FIX = ROOT / "tests" / "fixtures" / "providers"
 
 
 def test_provider_registry_contains_all_supported_sources():
-    assert {p.key for p in registered_providers()} == {"audioknigi", "knigavuhe", "poleknig"}
+    assert {p.key for p in registered_providers()} == {"audioknigi", "knigavuhe", "poleknig", "akniga", "izibuk", "yakniga", "uknig", "librivox"}
     assert all(isinstance(p, SourceProvider) for p in registered_providers())
 
 

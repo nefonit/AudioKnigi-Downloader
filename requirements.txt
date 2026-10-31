@@ -4,3 +4,4 @@ requests
 playwright
 Pillow
 mutagen
+beautifulsoup4>=4.12,<5

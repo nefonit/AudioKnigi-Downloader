@@ -14,7 +14,7 @@ from ..config.settings import load_app_settings, normalize_settings, save_app_se
 from ..crash_report import build_report
 from ..logging_utils import app_logger, log_runtime_context
 from ..diagnostics.session import write_session_state
-from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy
+from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy, configure_user_proxy, configure_proxy_hosts
 from .main_window import AudioKnigiQtWindow
 from .onboarding import QtFirstRunWizard
 from .theme import apply_theme
@@ -99,6 +99,8 @@ def run_qt(argv=None) -> int:
         ui_mode=str(settings.get("ui_mode", "easy") or "easy"),
     )
     write_session_state(running=True, settings=settings)
+    configure_user_proxy(settings.get("proxy_url", ""))
+    configure_proxy_hosts(settings.get("proxy_only_hosts", ""))
     install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))
     app = create_application(clean_argv, settings=settings)
     original_excepthook = sys.excepthook

@@ -12,7 +12,7 @@ from ...i18n import tr
 from ...services.book_analysis_service import AnalysisOptions
 from ...services.download_request import build_download_request
 from ...download_engine import DownloadResult, DownloadService
-from ...sources import normalize_supported_url
+from ...sources import is_akniga_collection_url, normalize_supported_url
 from ..accessibility import configure_accessible, focus_table_row
 from ..workers import AnalysisWorker as _AnalysisWorker, DownloadWorker as _DownloadWorker, MissingMediaDecision as _MissingMediaDecision
 
@@ -187,10 +187,15 @@ class AnalysisDownloadUiMixin:
             self.set_status("Введите название, автора или ссылку на книгу.", assertive=True)
             self.book_url_edit.setFocus(Qt.FocusReason.OtherFocusReason)
             return
+        if is_akniga_collection_url(url):
+            self.search_edit.setText(url)
+            self.tabs.setCurrentIndex(self.TAB_SEARCH)
+            self.start_search()
+            return
         if not valid_site_url(url):
             if url.lower().startswith(("http://", "https://")):
                 self.set_status("Неподдерживаемая ссылка.", assertive=True)
-                self._show_message(QMessageBox.Icon.Warning, "Неподдерживаемая ссылка", "Поддерживаются audioknigi.com.ua, knigavuhe.org и poleknig.com.")
+                self._show_message(QMessageBox.Icon.Warning, "Неподдерживаемая ссылка", "Поддерживаются ссылки на книги с восьми сайтов и подборки akniga.org/collection/.")
                 return
             self.search_edit.setText(url)
             self.tabs.setCurrentIndex(self.TAB_SEARCH)

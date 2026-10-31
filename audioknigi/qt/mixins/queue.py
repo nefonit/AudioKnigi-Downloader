@@ -4,6 +4,7 @@ from PySide6.QtCore import QSignalBlocker, QSize, Slot, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QInputDialog, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidgetItem, QVBoxLayout, QWidget
 from ...core import valid_site_url
+from ...sources import is_akniga_collection_url
 from ...sources import normalize_supported_url
 from ...i18n import tr
 from ...models import cover_cache_bytes
@@ -393,8 +394,13 @@ class QueueUiMixin:
         url = str(url or "").strip()
         if not ok or not url:
             return
+        if is_akniga_collection_url(url):
+            self.search_edit.setText(url)
+            self.tabs.setCurrentIndex(self.TAB_SEARCH)
+            self.start_search()
+            return
         if not valid_site_url(url):
-            self._show_message(QMessageBox.Icon.Warning, "Неподдерживаемая ссылка", "Поддерживаются audioknigi.com.ua, knigavuhe.org и poleknig.com.")
+            self._show_message(QMessageBox.Icon.Warning, "Неподдерживаемая ссылка", "Поддерживаются адреса отдельных книг восьми источников. Для подборки Akniga вставьте ссылку в поиск.")
             return
         duplicate = next((task for task in self.queue_tasks if _same_supported_url(task.url, url) and task.status_code not in {"completed", "cancelled"}), None)
         if duplicate is not None:

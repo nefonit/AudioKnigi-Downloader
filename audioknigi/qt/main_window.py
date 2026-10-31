@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QAbstractItemView, QApplication, QComboBox, QHBoxL
 from ..brand import BRAND_NAME, DISPLAY_NAME, PRODUCT_NAME
 from ..metadata import APP_VERSION
 from ..core import DEFAULT_OUTPUT, valid_site_url
-from ..sources import normalize_supported_url
+from ..sources import normalize_supported_url, is_akniga_collection_url
 from ..models import Book, SearchResult
 from ..config.settings import load_app_settings, save_app_settings
 from ..i18n import LANGUAGES, localize_runtime_text, tr, ui_text
@@ -411,6 +411,12 @@ class AudioKnigiQtWindow(
         for column, (_label, key) in enumerate(SearchResultsModel.COLUMNS):
             if key in {"index", "availability", "variants", "source"}:
                 easy_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        # The index column must hold 100, 1000, ... even when Qt samples only
+        # the first 20 rows for automatic widths in the other compact columns.
+        easy_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.easy_search_table.setColumnWidth(
+            0, max(76, self.easy_search_table.fontMetrics().horizontalAdvance("99999") + 28)
+        )
         easy_header.setResizeContentsPrecision(20)
         easy_header.setStretchLastSection(False)
         self.easy_search_table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -814,6 +820,10 @@ class AudioKnigiQtWindow(
             self._show_message(QMessageBox.Icon.Information, tr(self.language, "input_required_title"), tr(self.language, "input_required_text"))
             self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
             return
+        if is_akniga_collection_url(text):
+            self.search_edit.setText(text)
+            self.start_search()
+            return
         if valid_site_url(text):
             self.book_url_edit.setText(text)
             self.easy_search_table.setVisible(False)
@@ -824,7 +834,7 @@ class AudioKnigiQtWindow(
             self.start_analysis()
             return
         if text.lower().startswith(("http://", "https://")):
-            self._show_message(QMessageBox.Icon.Warning, self._l("Неподдерживаемая ссылка"), self._l("Поддерживаются audioknigi.com.ua, knigavuhe.org и poleknig.com."))
+            self._show_message(QMessageBox.Icon.Warning, self._l("Неподдерживаемая ссылка"), self._l("Поддерживаются ссылки на книги с восьми сайтов и подборки akniga.org/collection/."))
             return
         self.search_edit.setText(text)
         self.start_search()

@@ -39,6 +39,15 @@ _INSTALL_LOCK = threading.RLock()
 _CACHE_LOCK = threading.RLock()
 _CACHE: dict[tuple[str, int], tuple[float, tuple[str, ...]]] = {}
 _CACHE_MAX = 512
+# Short-lived, in-memory hint for a SYSTEM IP that rescued a failed AUTO
+# connection. Never persisted, never used in strict Cloudflare mode.
+_ROUTE_HINTS: dict[tuple[str, int], tuple[float, str]] = {}
+_ROUTE_HINT_TTL = 90.0
+# When HTTPS works but an HTTP GET times out, the *next* connection can
+# prefer another Cloudflare A record. Unlike TCP failure, this is only learned
+# from an explicit read-only HTTP operation. Temporary and never persisted.
+_HTTP_STALLED_IPS: dict[tuple[str, int], tuple[float, str]] = {}
+_HTTP_STALLED_TTL = 90.0
 _INSTALLED = False
 
 DNS_MODE_AUTO = "auto"
@@ -92,6 +101,8 @@ def configure_dns_mode(mode) -> str:
         _reset_dns_runtime_state()
         with _CACHE_LOCK:
             _CACHE.clear()
+            _ROUTE_HINTS.clear()
+            _HTTP_STALLED_IPS.clear()
     return normalized
 
 
@@ -188,7 +199,7 @@ def _bypass_cloudflare(host) -> bool:
         return True
     return (
         value in {"localhost", "localhost.localdomain"}
-        or value.endswith((".local", ".lan", ".home", ".internal", ".localhost"))
+        or value.endswith((".local", ".lan", ".home", ".internal", ".localhost", ".test", ".invalid"))
     )
 
 
@@ -478,6 +489,183 @@ _PROXY_LOCK = threading.RLock()
 _PROXY_SERVER = None
 _PROXY_THREAD = None
 _PROXY_ATEXIT_REGISTERED = False
+_USER_PROXY = ""
+_USER_PROXY_LOCK = threading.RLock()
+_PROXY_ONLY_HOSTS: tuple[str, ...] = ()
+
+
+def validate_user_proxy(value: str | None) -> str:
+    """Optional unauthenticated HTTP or SOCKS5 upstream; never store credentials."""
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    try:
+        parts = urlsplit(value)
+        if (parts.scheme.lower() not in {"http", "socks5", "socks5h"}
+                or not parts.hostname or parts.username is not None or parts.password is not None
+                or parts.path not in ("", "/") or parts.query or parts.fragment):
+            raise ValueError("Invalid upstream proxy URL")
+        port = parts.port
+        if port is None or not (1 <= port <= 65535):
+            raise ValueError("Missing or invalid upstream proxy port")
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Прокси: укажите http://host:port или socks5h://host:port без логина и пароля") from exc
+    return value
+
+
+def normalize_proxy_hosts(value: str | None) -> str:
+    """Explicit host allowlist (no wildcards); empty keeps legacy proxy-all behavior.
+
+    Subdomains are included when a parent host is selected. These are routing
+    settings, NOT a firewall; redirects to a different hostname use that host's
+    own route. Media hosts on external CDNs may require separate entries.
+    """
+    names = []
+    for token in str(value or "").replace(";", ",").split(","):
+        host = token.strip().casefold().rstrip(".")
+        if not host:
+            continue
+        if any(char in host for char in ":/@* \t\n") or len(host) > 253:
+            raise ValueError("Укажите только имена сайтов через запятую, без URL и масок")
+        # User may explicitly add media-CDN hostnames when a book site
+        # redirects its HLS/MP3 URL to a different public domain.
+        import re
+        if len(host) > 253 or not re.fullmatch(
+            r"(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}", host
+        ):
+            raise ValueError("Укажите имя сайта или CDN, без URL и масок")
+        if host not in names:
+            names.append(host)
+    return ", ".join(names)
+
+
+def configure_proxy_hosts(value: str | None) -> bool:
+    global _PROXY_ONLY_HOSTS
+    normalized = normalize_proxy_hosts(value)
+    hosts = tuple(part.strip() for part in normalized.split(",") if part.strip())
+    with _USER_PROXY_LOCK:
+        changed = _PROXY_ONLY_HOSTS != hosts
+        _PROXY_ONLY_HOSTS = hosts
+    if changed:
+        app_logger.info("NETWORK | selected upstream proxy hosts count=%s", len(hosts))
+    return changed
+
+
+def current_proxy_hosts() -> tuple[str, ...]:
+    with _USER_PROXY_LOCK:
+        return _PROXY_ONLY_HOSTS
+
+
+def proxy_for_host(host: str) -> bool:
+    """Whether this target must traverse the configured upstream proxy."""
+    host = str(host or "").strip().casefold().rstrip(".")
+    with _USER_PROXY_LOCK:
+        if not _USER_PROXY:
+            return False
+        hosts = _PROXY_ONLY_HOSTS
+    if not hosts:
+        return True
+    return any(host == name or host.endswith("." + name) for name in hosts)
+
+
+def configure_user_proxy(value: str | None) -> bool:
+    """Update proxy for all new network operations; caller refreshes HTTP pools."""
+    global _USER_PROXY
+    normalized = validate_user_proxy(value)
+    with _USER_PROXY_LOCK:
+        changed = normalized != _USER_PROXY
+        _USER_PROXY = normalized
+    if changed:
+        app_logger.info("NETWORK | upstream proxy=%s", "enabled" if normalized else "off")
+    return changed
+
+
+def current_user_proxy() -> str:
+    with _USER_PROXY_LOCK:
+        return _USER_PROXY
+
+
+def user_proxy_enabled() -> bool:
+    return bool(current_user_proxy())
+
+
+def _recv_exact(sock: socket.socket, count: int) -> bytes:
+    data = bytearray()
+    while len(data) < count:
+        chunk = sock.recv(count - len(data))
+        if not chunk:
+            raise OSError("SOCKS5: proxy closed the connection")
+        data.extend(chunk)
+    return bytes(data)
+
+
+def _connect_via_user_proxy(target_host: str, target_port: int, timeout: float) -> socket.socket:
+    """Tunnel to destination through configured proxy, with remote DNS lookup.
+
+    Uses the original OS connect operation to reach the proxy itself; the
+    requested target hostname is carried in CONNECT/SOCKS5 rather than looked
+    up locally. Never logs token-bearing request URLs or proxy credentials.
+    """
+    proxy_url = current_user_proxy()
+    parsed = urlsplit(proxy_url)
+    proxy_host, proxy_port = parsed.hostname, parsed.port
+    if not proxy_host or not proxy_port:
+        raise OSError("Прокси не настроен")
+    with _PROXY_LOCK:
+        if (_PROXY_SERVER is not None and proxy_host in {"localhost", "127.0.0.1", "::1"}
+                and proxy_port == _PROXY_SERVER.server_address[1]):
+            raise OSError("Прокси указывает на внутренний прокси программы")
+    upstream = _ORIGINAL_CREATE_CONNECTION((proxy_host, proxy_port), timeout=timeout)
+    upstream.settimeout(timeout)
+    try:
+        if parsed.scheme == "http":
+            authority_host = f"[{target_host}]" if ":" in target_host and not target_host.startswith("[") else target_host
+            authority = f"{authority_host}:{int(target_port)}"
+            upstream.sendall((f"CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\n"
+                              "Proxy-Connection: keep-alive\r\n\r\n").encode("ascii"))
+            # Do not consume any tunneled bytes that can arrive in the same
+            # TCP packet as the 200 response; recv(1) leaves them on the socket.
+            reply = bytearray()
+            while not reply.endswith(b"\r\n\r\n"):
+                part = upstream.recv(1)
+                if not part or len(reply) >= 8192:
+                    raise OSError("HTTP-прокси вернул некорректный ответ CONNECT")
+                reply.extend(part)
+            first_line = bytes(reply).split(b"\r\n", 1)[0]
+            fields = first_line.split()
+            if len(fields) < 2 or fields[1] != b"200":
+                status = fields[1].decode("ascii", "replace") if len(fields) > 1 else "invalid"
+                raise OSError(f"HTTP-прокси отклонил CONNECT: HTTP {status}")
+        else:
+            upstream.sendall(b"\x05\x01\x00")
+            if _recv_exact(upstream, 2) != b"\x05\x00":
+                raise OSError("SOCKS5-прокси требует авторизацию или не поддерживает протокол")
+            try:
+                addr = ipaddress.ip_address(target_host.strip("[]"))
+            except ValueError:
+                name = target_host.encode("idna")
+                if not (1 <= len(name) <= 255):
+                    raise OSError("SOCKS5: некорректное имя сервера")
+                address = b"\x03" + bytes([len(name)]) + name
+            else:
+                address = (b"\x01" if addr.version == 4 else b"\x04") + addr.packed
+            upstream.sendall(b"\x05\x01\x00" + address + int(target_port).to_bytes(2, "big"))
+            head = _recv_exact(upstream, 4)
+            if head[0] != 5 or head[1] != 0:
+                raise OSError(f"SOCKS5: соединение отклонено (код {head[1]})")
+            if head[3] == 1:
+                _recv_exact(upstream, 4 + 2)
+            elif head[3] == 4:
+                _recv_exact(upstream, 16 + 2)
+            elif head[3] == 3:
+                _recv_exact(upstream, _recv_exact(upstream, 1)[0] + 2)
+            else:
+                raise OSError("SOCKS5: неверный ответ прокси")
+        return upstream
+    except BaseException:
+        upstream.close()
+        raise
+
 
 
 def _parse_proxy_authority(value: str, default_port: int) -> tuple[str, int]:
@@ -515,24 +703,290 @@ def _parse_proxy_authority(value: str, default_port: int) -> tuple[str, int]:
     return text, int(default_port)
 
 
-def _connect_target(host: str, port: int, timeout: float = 12.0):
-    if _bypass_cloudflare(host) or current_dns_mode() == DNS_MODE_SYSTEM:
-        return _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
-    if _is_numeric_host(host):
-        addresses = (host.strip("[]"),)
-    else:
-        addresses = _resolve_with_policy(host, socket.AF_INET)
-        if not addresses:
-            addresses = _resolve_with_policy(host, socket.AF_INET6)
-        if not addresses:
-            raise socket.gaierror(socket.EAI_NONAME, f"No DNS records for {host}")
-    last_error = None
-    for address in addresses:
+def note_http_read_timeout(host: str, port: int, address: str, cloudflare_addresses=()) -> bool:
+    """Demote a stalled IP only when a *different Cloudflare IP* is known.
+
+    Called by safe HTTP read probes/GET retries, never from TCP/TLS errors or
+    downloads. Do not let one dead server poison the whole hostname forever.
+    """
+    name = str(host or "").strip().casefold().rstrip(".")
+    ip = str(address or "")
+    addresses = tuple(dict.fromkeys(str(x) for x in cloudflare_addresses))
+    if (not name or not ip or ip not in addresses or len(addresses) < 2
+            or proxy_for_host(name) or current_dns_mode() == DNS_MODE_SYSTEM
+            or _bypass_cloudflare(name)):
+        return False
+    with _CACHE_LOCK:
+        _HTTP_STALLED_IPS[(name, int(port))] = (time.monotonic() + _HTTP_STALLED_TTL, ip)
+    return True
+
+
+def _http_stalled_ip(host: str, port: int) -> str:
+    key = (str(host or "").strip().casefold().rstrip("."), int(port))
+    with _CACHE_LOCK:
+        entry = _HTTP_STALLED_IPS.get(key)
+        if entry is not None and entry[0] <= time.monotonic():
+            _HTTP_STALLED_IPS.pop(key, None)
+            return ""
+    return entry[1] if entry else ""
+
+
+def note_http_response(host: str, port: int, address: str) -> None:
+    """Clear the stalled-IP hint when that same IP later serves HTTP."""
+    key = (str(host or "").strip().casefold().rstrip("."), int(port))
+    with _CACHE_LOCK:
+        entry = _HTTP_STALLED_IPS.get(key)
+        if entry and entry[1] == str(address or ""):
+            _HTTP_STALLED_IPS.pop(key, None)
+
+
+class TargetConnectError(OSError):
+    """A failed route with safe DNS/TCP diagnostics (no request URLs)."""
+
+    def __init__(self, message: str, details: dict[str, object]):
+        super().__init__(message)
+        self.details = details
+
+
+def _connect_target_with_info(
+    host: str, port: int, timeout: float = 12.0, *, diagnostic: bool = False
+):
+    """Connect without repeating a failed IP, return structured route diagnostics.
+
+    AUTO reserves a short part of the total TCP deadline for a genuinely
+    different system-DNS address. In diagnostic mode both DNS answers are
+    collected *for comparison*, even with strict Cloudflare selected; the
+    system answer is never used for connecting in strict mode.
+    """
+    timeout = max(0.1, float(timeout))
+    started = time.monotonic()
+    deadline = started + timeout
+    details = {
+        "dns_provider": "", "address": "", "dns_ms": 0, "tcp_ms": 0,
+        "attempts": 0, "alternate_attempted": False,
+        "cloudflare_addresses": (), "system_addresses": (),
+        "system_dns_checked": False, "system_dns_error": "",
+        "attempt_log": [], "fallback_status": "not_needed",
+    }
+    if proxy_for_host(host):
+        sock = _connect_via_user_proxy(host, port, timeout)
+        details.update(
+            dns_provider="upstream proxy (remote DNS)", address="via proxy",
+            tcp_ms=round((time.monotonic() - started) * 1000),
+            fallback_status="upstream_proxy",
+        )
+        return sock, details
+    mode = current_dns_mode()
+    if _bypass_cloudflare(host) or mode == DNS_MODE_SYSTEM:
+        began = time.monotonic()
         try:
-            return _ORIGINAL_CREATE_CONNECTION((address, int(port)), timeout=timeout)
-        except Exception as exc:
-            last_error = exc
-    raise OSError(f"DNS proxy could not connect to {host}:{port}: {last_error}")
+            sock = _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
+        except OSError as exc:
+            details.update(dns_provider="system", tcp_ms=round((time.monotonic()-began)*1000), attempts=1)
+            raise TargetConnectError("System TCP connection failed", dict(details)) from exc
+        try:
+            address = str(sock.getpeername()[0])
+        except (OSError, AttributeError):
+            address = ""
+        details.update(
+            dns_provider="system", address=address,
+            tcp_ms=round((time.monotonic()-began)*1000), attempts=1,
+            system_dns_checked=True, system_addresses=(address,) if address else (),
+        )
+        return sock, details
+
+    tried: set[str] = set()
+    failures: list[OSError] = []
+    addresses_cache: dict[str, tuple[str, ...]] = {}
+
+    def addresses_for(provider: str) -> tuple[str, ...]:
+        if provider in addresses_cache:
+            return addresses_cache[provider]
+        dns_start = time.monotonic()
+        try:
+            if provider == "system":
+                ipv4 = _system_addresses(host, socket.AF_INET)
+                ips = tuple(ipv4 or _system_addresses(host, socket.AF_INET6))
+            elif mode == DNS_MODE_AUTO:
+                ipv4 = _resolve(host, socket.AF_INET)
+                ips = tuple(ipv4 or _resolve(host, socket.AF_INET6))
+            else:
+                ipv4 = _resolve_with_policy(host, socket.AF_INET)
+                ips = tuple(ipv4 or _resolve_with_policy(host, socket.AF_INET6))
+            # Drop duplicate answers while preserving DNS response order.
+            ips = tuple(dict.fromkeys(ips))
+            addresses_cache[provider] = ips
+            if provider == "system":
+                details["system_addresses"] = ips
+                details["system_dns_checked"] = True
+            else:
+                details["cloudflare_addresses"] = ips
+            return ips
+        except OSError as exc:
+            if provider == "system":
+                details["system_dns_checked"] = True
+                details["system_dns_error"] = type(exc).__name__
+            raise
+        finally:
+            details["dns_ms"] += round((time.monotonic() - dns_start) * 1000)
+
+    primary = "Cloudflare"
+    if mode == DNS_MODE_AUTO and _circuit_is_open():
+        primary = "system"
+        details["fallback_status"] = "cloudflare_circuit_open"
+    try:
+        candidate_ips = addresses_for(primary)
+    except OSError as exc:
+        if mode != DNS_MODE_AUTO or "CNAME loop" in str(exc):
+            raise TargetConnectError("Cloudflare DNS lookup failed", dict(details)) from exc
+        _record_cloudflare_failure(exc)
+        primary = "system"
+        details["fallback_status"] = "cloudflare_dns_failed"
+        try:
+            candidate_ips = addresses_for("system")
+        except OSError as fallback_exc:
+            raise TargetConnectError("System DNS fallback failed", dict(details)) from fallback_exc
+
+    # Read-only comparison. Even in strict Cloudflare mode it does NOT select
+    # system IPs for TCP connections. Report DNS errors without exposing URLs.
+    if diagnostic and primary != "system":
+        try:
+            addresses_for("system")
+        except OSError:
+            pass
+
+    # An HTTP timeout is not a TCP failure: a server may accept TLS but stop
+    # answering HTTP. Prefer the other Cloudflare IP on the *next* request,
+    # without silently switching away from a strict Cloudflare-only policy.
+    if primary == "Cloudflare" and len(candidate_ips) > 1:
+        stalled = _http_stalled_ip(host, int(port))
+        if stalled in candidate_ips:
+            candidate_ips = tuple(ip for ip in candidate_ips if ip != stalled) + (stalled,)
+            details["fallback_status"] = "http_stalled_ip_deprioritized"
+            details["alternate_attempted"] = True
+
+    # Ordinary auto connections use the full deadline but set aside a modest
+    # slice for another route. Manual diagnostics receive a larger deadline.
+    reserve = min(2.5, timeout * 0.35) if mode == DNS_MODE_AUTO and primary == "Cloudflare" else 0.0
+
+    def attempt(ips: tuple[str, ...], provider: str, *, reserved_for_fallback: bool):
+        for address in ips[:3]:
+            if address in tried:
+                continue
+            remaining = deadline - time.monotonic()
+            if reserved_for_fallback:
+                remaining -= reserve
+            if remaining <= 0:
+                break
+            tried.add(address)
+            details["attempts"] += 1
+            details["dns_provider"] = provider
+            details["address"] = address
+            began = time.monotonic()
+            try:
+                sock = _ORIGINAL_CREATE_CONNECTION(
+                    (address, int(port)), timeout=min(remaining, 4.0)
+                )
+                elapsed = round((time.monotonic()-began)*1000)
+                details["tcp_ms"] += elapsed
+                details["attempt_log"].append((provider, address, "OK", elapsed))
+                return sock
+            except OSError as exc:
+                elapsed = round((time.monotonic()-began)*1000)
+                details["tcp_ms"] += elapsed
+                # Exception class only; no URL, bearer token or cookie in diagnostics.
+                kind = ("timeout" if isinstance(exc, (TimeoutError, socket.timeout))
+                        else "refused" if isinstance(exc, ConnectionRefusedError)
+                        else type(exc).__name__)
+                details["attempt_log"].append((provider, address, kind, elapsed))
+                failures.append(exc)
+        return None
+
+    # Remember a recently successful *different* system IP in AUTO mode to
+    # avoid repeating a 4-second dead Cloudflare route on every search.
+    # Do not take precedence in diagnostic mode, which should show the live
+    # Cloudflare-to-system comparison, or for small deadlines.
+    if mode == DNS_MODE_AUTO and primary == "Cloudflare" and not diagnostic and timeout >= 3:
+        with _CACHE_LOCK:
+            record = _ROUTE_HINTS.get((host.casefold(), int(port)))
+            if record and record[0] <= time.monotonic():
+                _ROUTE_HINTS.pop((host.casefold(), int(port)), None)
+                record = None
+        if record and record[1] not in candidate_ips:
+            details["alternate_attempted"] = True
+            remaining = deadline - time.monotonic()
+            if remaining > 2:
+                cached_ip = record[1]
+                began = time.monotonic()
+                details["dns_provider"] = "system (cached TCP route)"
+                details["address"] = cached_ip
+                details["attempts"] += 1
+                tried.add(cached_ip)
+                try:
+                    sock = _ORIGINAL_CREATE_CONNECTION((cached_ip, int(port)), timeout=min(1.5, remaining - 1))
+                    elapsed = round((time.monotonic()-began)*1000)
+                    details["tcp_ms"] += elapsed
+                    details["attempt_log"].append(("system (cached TCP route)", cached_ip, "OK", elapsed))
+                    details["fallback_status"] = "cached_system_route_success"
+                    return sock, details
+                except OSError as exc:
+                    elapsed = round((time.monotonic()-began)*1000)
+                    details["tcp_ms"] += elapsed
+                    details["attempt_log"].append(("system (cached TCP route)", cached_ip,
+                        "timeout" if isinstance(exc, (TimeoutError, socket.timeout)) else type(exc).__name__, elapsed))
+                    failures.append(exc)
+                    with _CACHE_LOCK:
+                        _ROUTE_HINTS.pop((host.casefold(), int(port)), None)
+    socket_result = attempt(candidate_ips, primary, reserved_for_fallback=bool(reserve))
+    if socket_result is not None:
+        return socket_result, details
+
+    if mode == DNS_MODE_AUTO and primary == "Cloudflare":
+        try:
+            other_ips = addresses_for("system")
+        except OSError:
+            # Failure of fallback DNS must not mask an earlier TCP timeout.
+            # The DNS error is already preserved in system_dns_error.
+            details["fallback_status"] = "system_dns_failed"
+        else:
+            different = tuple(ip for ip in other_ips if ip not in tried and ip not in candidate_ips)
+            if not different:
+                details["fallback_status"] = "no_distinct_addresses"
+            elif time.monotonic() >= deadline:
+                details["fallback_status"] = "no_remaining_time"
+            else:
+                details["alternate_attempted"] = True
+                details["fallback_status"] = "tried_system_alternative"
+                socket_result = attempt(different, "system (TCP fallback)", reserved_for_fallback=False)
+                if socket_result is not None:
+                    if not diagnostic:
+                        with _CACHE_LOCK:
+                            if len(_ROUTE_HINTS) >= 128:
+                                _ROUTE_HINTS.pop(next(iter(_ROUTE_HINTS)))
+                            _ROUTE_HINTS[(host.casefold(), int(port))] = (
+                                time.monotonic() + _ROUTE_HINT_TTL, str(details["address"])
+                            )
+                    app_logger.info("NETWORK DNS | event=tcp_fallback_success | host=%s | selected=system", host)
+                    return socket_result, details
+    elif mode == DNS_MODE_CLOUDFLARE:
+        details["fallback_status"] = "strict_cloudflare"
+
+    if failures:
+        cause = failures[-1]
+        raise TargetConnectError(
+            f"TCP connection failed after {details['attempts']} attempts: {type(cause).__name__}",
+            dict(details),
+        ) from cause
+    if not candidate_ips:
+        exc = socket.gaierror(socket.EAI_NONAME, f"No DNS records for {host}")
+        exc.details = dict(details)
+        raise exc
+    raise TargetConnectError("TCP connection deadline exceeded", dict(details)) from TimeoutError("TCP deadline")
+
+
+def _connect_target(host: str, port: int, timeout: float = 12.0):
+    sock, _details = _connect_target_with_info(host, port, timeout)
+    return sock
 
 
 def _relay_bidirectional(
@@ -796,7 +1250,7 @@ def shutdown_cloudflare_playwright_proxy() -> None:
 
 def cloudflare_ffmpeg_input_args() -> list[str]:
     """Return FFmpeg/FFprobe DNS routing arguments for the current policy."""
-    if current_dns_mode() == DNS_MODE_SYSTEM:
+    if current_dns_mode() == DNS_MODE_SYSTEM and not user_proxy_enabled():
         return []
     return ["-http_proxy", ensure_cloudflare_playwright_proxy()]
 
@@ -809,14 +1263,22 @@ def cloudflare_playwright_launch_kwargs() -> dict:
         "headless": True,
         "args": cloudflare_chromium_args(policy) + ["--disable-quic"],
     }
-    if policy != DNS_MODE_SYSTEM:
+    if policy != DNS_MODE_SYSTEM or user_proxy_enabled():
         options["proxy"] = {"server": ensure_cloudflare_playwright_proxy()}
     return options
 
 
-def launch_playwright_chromium(browser_type):
-    """Launch Edge when available, otherwise fall back to Playwright Chromium."""
-    kwargs = cloudflare_playwright_launch_kwargs()
+def launch_playwright_chromium(browser_type, *, use_system_dns: bool = False):
+    """Launch Edge/Chromium using the configured DNS policy.
+
+    A site-specific retry may use system DNS after a failed local proxy tunnel,
+    but only when the caller's policy explicitly allows that fallback.
+    """
+    kwargs = (
+        {"channel": "msedge", "headless": True,
+         "args": cloudflare_chromium_args(DNS_MODE_SYSTEM) + ["--disable-quic"]}
+        if use_system_dns and not user_proxy_enabled() else cloudflare_playwright_launch_kwargs()
+    )
     try:
         return browser_type.launch(**kwargs)
     except Exception as edge_exc:

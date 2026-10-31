@@ -1065,7 +1065,8 @@ def src__report_followup_round41_20260920(relative: str) -> str:
 
 def test_search_columns_prioritize_full_author_and_narrator_names() -> None:
     search = src__report_followup_round41_20260920('audioknigi/qt/mixins/search.py')
-    assert 'for column in (0, 4, 5):' in search
+    assert 'for column in (4, 5):' in search
+    assert 'search_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)' in search
     assert 'search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)' in search
     assert 'search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)' in search
     assert 'search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)' in search
@@ -1787,7 +1788,8 @@ def test_search_source_filter_accepts_internal_provider_keys(monkeypatch):
     monkeypatch.setattr(audioknigi, 'search', lambda q, cancel_event=None: pytest.fail('audioknigi provider must be filtered out'))
     outcome = search_service.search_all_sources('demo', sources=['knigavuhe', 'poleknig'])
     assert not outcome.errors
-    assert {item.source for item in outcome.results} == {'knigavuhe.org', 'poleknig.com'}
+    # Provider filtering is independent of the new visible-relevance split.
+    assert {item.source for item in outcome.results + outcome.related_results} == {'knigavuhe.org', 'poleknig.com'}
 
 def test_search_service_uses_registry_without_provider_search_cycle():
     service_source = (ROOT / 'audioknigi' / 'services' / 'search_service.py').read_text(encoding='utf-8')

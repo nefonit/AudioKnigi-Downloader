@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from .base import SourceProvider
-from .adapters import AudioknigiProvider, KnigavuheProvider, PoleKnigProvider
+from .adapters import AudioknigiProvider, KnigavuheProvider, PoleKnigProvider, AKnigaProvider, IzibukProvider, YaknigaProvider, UknigProvider, LibriVoxProvider
 from ..sources import source_key
 
 _PROVIDERS: dict[str, SourceProvider] = {
     provider.key: provider
-    for provider in (AudioknigiProvider(), KnigavuheProvider(), PoleKnigProvider())
+    for provider in (AudioknigiProvider(), KnigavuheProvider(), PoleKnigProvider(), AKnigaProvider(), IzibukProvider(), YaknigaProvider(), UknigProvider(), LibriVoxProvider())
 }
 
 
