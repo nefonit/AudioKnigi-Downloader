@@ -71,3 +71,25 @@ def test_source_release_packager_exists_and_knows_generated_exclusions():
     source = (ROOT / "tools/package_source_release.py").read_text(encoding="utf-8")
     for marker in ("__pycache__", ".pytest_cache", ".historical-regression-", "build", "dist"):
         assert marker in source
+
+
+def test_runtime_has_no_tracked_editor_backup_files():
+    assert not list((ROOT / "audioknigi").rglob("*.orig"))
+
+
+def test_source_archives_exclude_editor_backup_files(tmp_path):
+    import zipfile
+    from tools.package_source_release import build_source_zip
+
+    source = tmp_path / "source"
+    runtime = source / "audioknigi" / "download"
+    runtime.mkdir(parents=True)
+    (runtime / "sample.py").write_text("pass\n", encoding="utf-8")
+    (runtime / "sample.py.orig").write_text("old implementation\n", encoding="utf-8")
+
+    for profile in ("developer", "production"):
+        archive = tmp_path / f"{profile}.zip"
+        build_source_zip(source, archive, root_name="package", profile=profile)
+        with zipfile.ZipFile(archive) as result:
+            assert "package/audioknigi/download/sample.py" in result.namelist()
+            assert "package/audioknigi/download/sample.py.orig" not in result.namelist()

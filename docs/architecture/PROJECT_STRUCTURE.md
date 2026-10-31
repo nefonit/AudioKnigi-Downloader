@@ -82,7 +82,7 @@ One-off migration tools belong under `archive/tools/`.
 2. Active tests are named by behavior/domain, not by audit or phase number.
 3. Current audit evidence goes in `audits/<branch>/`; historical evidence is moved to `archive/audits/`.
 4. Historical source snapshots and migration-only tooling never live in the runtime package or repository root.
-5. Generated caches/build output (`__pycache__`, `.pytest_cache`, `.historical-regression-*`, `build`, `dist`, `*.pyc`) are never part of source releases.
+5. Generated caches/build output (`__pycache__`, `.pytest_cache`, `.historical-regression-*`, `build`, `dist`, `*.pyc`, `*.orig`) are never part of source releases.
 6. Root-level `AUDIT_NOTES_*.md` files are forbidden; current round notes belong in `audits/4.12/rounds/`.
 
 ## V20 module ownership
