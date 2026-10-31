@@ -22,6 +22,7 @@ from ..sources import source_name
 from .common import atomic_write_text, replace_with_retry, unlink_with_retry
 from .errors import RangeUnsupported
 from .hls_parallel import stage_hls_vod
+from .resume_validation import is_complete_partial_after_416, validate_resumed_206
 
 _ACTIVE_IO_INIT_LOCK = threading.Lock()
 
@@ -231,12 +232,7 @@ class NetworkDownloadMixin:
                         # real CDNs also return ``bytes 0-(N-1)/N`` or even ``/N``.
                         # At status 416 the trailing total is sufficient to decide
                         # whether our local partial file is already complete.
-                        complete_match = re.search(
-                            r"(?:bytes\s+)?(?:\*|\d+\s*-\s*\d+)?\s*/\s*(\d+)\s*$",
-                            content_range,
-                            re.I,
-                        )
-                        if complete_match and existing == int(complete_match.group(1)):
+                        if is_complete_partial_after_416(existing, content_range):
                             resume_already_complete = True
                             if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
                                 self.set_progress(100)
@@ -247,6 +243,10 @@ class NetworkDownloadMixin:
                             restart_from_zero = True
                     if not resume_already_complete and not restart_from_zero:
                         response.raise_for_status()
+                        if existing > 0 and response.status_code == 206:
+                            # Never append a response beginning at the wrong byte.
+                            # A mismatched CDN/proxy response must leave .part intact.
+                            validate_resumed_206(existing, response.headers.get("content-range", ""))
                         if existing > 0 and response.status_code != 206:
                             existing = 0
                             mode = "wb"
