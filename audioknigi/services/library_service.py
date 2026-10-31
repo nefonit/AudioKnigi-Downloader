@@ -23,6 +23,7 @@ from ..core import (
 )
 from ..metadata import APP_VERSION
 from .queue_service import QT_QUEUE_FILE
+from .state_recovery import last_good_path, load_recoverable_list, save_recoverable_list
 
 
 HISTORY_LOCK = threading.RLock()
@@ -70,12 +71,12 @@ def _history_rows(raw: Any, *, strict: bool = False, limit: int | None = 500) ->
 
 def load_history_records() -> list[dict[str, Any]]:
     with HISTORY_LOCK:
-        return _history_rows(load_json(HISTORY_FILE, []))
+        return _history_rows(load_recoverable_list(HISTORY_FILE))
 
 
 def save_history_records(records: Iterable[dict[str, Any]]) -> bool:
     with HISTORY_LOCK:
-        return bool(save_json(HISTORY_FILE, _history_rows(list(records))))
+        return save_recoverable_list(HISTORY_FILE, _history_rows(list(records)))
 
 
 def _csv_safe_value(value: Any) -> Any:
@@ -251,11 +252,19 @@ def restore_backup(path: Path) -> list[str]:
                     # from the still-valid ZIP and UI persistence remains intact.
                     pass
             raise
+        # Refresh mirrors only after all members have been restored
+        # successfully; a failed restore must not publish partial state.
+        for member in restored:
+            if member in {"history.json", "qt_queue.json"}:
+                try:
+                    save_json(last_good_path(BACKUP_MEMBERS[member]), payloads[member])
+                except OSError:
+                    pass
         return restored
 
 def clear_history() -> bool:
     with HISTORY_LOCK:
-        return bool(save_json(HISTORY_FILE, []))
+        return save_recoverable_list(HISTORY_FILE, [])
 
 
 def scan_unfinished(output_dir: str | Path | None = None) -> list[UnfinishedDownload]:

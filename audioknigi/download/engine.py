@@ -16,7 +16,6 @@ from ..core import (
     DEFAULT_OUTPUT,
     HISTORY_FILE,
     effective_track_duration,
-    load_json,
     fmt_size,
     safe_float,
     safe_int,
@@ -33,6 +32,7 @@ from ..sources import normalize_supported_url
 from ..templates import render_track_filename
 from ..services.download_request import DownloadRequest
 from ..services.library_service import HISTORY_LOCK
+from ..services.state_recovery import load_recoverable_list, save_recoverable_list
 from ..config.settings import normalize_settings
 from .common import replace_with_retry, unlink_with_retry
 
@@ -246,7 +246,7 @@ class _DownloadEngine(DownloaderMixin):
         }
 
         with HISTORY_LOCK:
-            history = load_json(HISTORY_FILE, [])
+            history = load_recoverable_list(HISTORY_FILE)
             if not isinstance(history, list):
                 history = []
             history = [x for x in history if isinstance(x, dict)]
@@ -260,7 +260,7 @@ class _DownloadEngine(DownloaderMixin):
                 )
             ]
             history.insert(0, entry)
-            history_saved = bool(save_json(HISTORY_FILE, history[:500]))
+            history_saved = save_recoverable_list(HISTORY_FILE, history[:500])
 
         if not history_saved:
             app_logger.warning(
@@ -301,7 +301,7 @@ class _DownloadEngine(DownloaderMixin):
         # normalized source URL, folder, part count and stable bibliographic fields.
         fields = ("title", "author", "narrator")
         with HISTORY_LOCK:
-            history = load_json(HISTORY_FILE, [])
+            history = load_recoverable_list(HISTORY_FILE)
         for record in history if isinstance(history, list) else []:
             if not isinstance(record, dict):
                 continue
