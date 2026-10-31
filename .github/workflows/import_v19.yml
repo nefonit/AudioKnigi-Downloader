@@ -43,8 +43,31 @@ jobs:
           PY
           for i in $(seq -w 2 25); do
             echo "Applying patch ${i}"
-            patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
+            if [ "${i}" = "24" ]; then
+              if ! patch --batch --forward -p1 -i "migration/v19/patches/24.patch"; then
+                test -f CHANGELOG.md.rej
+                test "$(find . -name '*.rej' | wc -l)" -eq 1
+                rm CHANGELOG.md.rej
+              fi
+            else
+              patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
+            fi
           done
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("CHANGELOG.md")
+          s = p.read_text(encoding="utf-8")
+          header = "## V18 — Izib search title fragments"
+          if header not in s:
+              note = (
+                  "## V18 — Izib search title fragments\n\n"
+                  "- Preserve inline HTML text boundaries when extracting Izib titles, authors, and narrators.\n"
+                  "- Fix broken Russian case endings caused by search-highlighting markup and punctuation gaps.\n"
+                  "- Add focused offline regression tests; no changes to downloads, HLS, DNS, source registration or UI widgets.\n\n"
+              )
+              s = s.replace("# Changelog\n\n", "# Changelog\n\n" + note, 1)
+              p.write_text(s, encoding="utf-8")
+          PY
           python -m compileall -q audioknigi audioknigi_qt.py
       - name: Verify V19 critical source blobs
         shell: bash
