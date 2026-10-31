@@ -655,7 +655,9 @@ def test_help_details_are_present_for_all_supported_languages_and_german_style_i
     for name in ('ROUND55_TOPIC_DETAILS_RU', 'ROUND55_TOPIC_DETAILS_EN', 'ROUND55_TOPIC_DETAILS_DE', 'ROUND55_TOPIC_DETAILS_UK'):
         assert name in source
     dialog_source = HELP_CENTER.read_text(encoding='utf-8')
-    assert 'ROUND55_TOPIC_DETAILS.get(self.language, {}).get(key, "")' in dialog_source
+    actions_source = (ROOT / 'audioknigi/qt/help_actions.py').read_text(encoding='utf-8')
+    assert 'ROUND55_TOPIC_DETAILS.get(language, {}).get(key, "")' in actions_source
+    assert 'resolve_help_topic(self.language, self._topic_data, row)' in dialog_source
     messages = json.loads((ROOT / 'audioknigi/locales/messages.json').read_text(encoding='utf-8'))
     german = '\n'.join((str(value) for value in messages['de'].values()))
     assert not re.search('\\b(?:Du|du|Gib|Füge|Wähle|Klicke|Kopiere|Nutze|Prüfe)\\b', german)
@@ -730,7 +732,7 @@ def test_new_book_flow_runtime_error_localizations_are_available():
     assert localize_runtime_text('uk', static).startswith('Локальний вихідний файл')
 
 def test_german_shortcuts_are_supported_by_help_formatter_source():
-    source = (ROOT / 'audioknigi/qt/help_center.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/qt/help_formatter.py').read_text(encoding='utf-8')
     block = source[source.index('shortcut = re.compile'):source.index('return shortcut.sub', source.index('shortcut = re.compile'))]
     assert 'Ctrl|Strg' in block
     assert 'Shift|Umschalt' in block

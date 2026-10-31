@@ -75,7 +75,7 @@ def test_cancellation_marks_pending_futures_cancelled():
 
 
 def _help_renderer():
-    source = ast.parse((ROOT/'audioknigi/qt/help_center.py').read_text(encoding='utf-8'))
+    source = ast.parse((ROOT/'audioknigi/qt/help_formatter.py').read_text(encoding='utf-8'))
     node = next(n for n in source.body if isinstance(n, ast.FunctionDef) and n.name == '_format_help_body_html')
     ns = {'html_lib': html_lib, 're':re}
     exec(compile(ast.Module(body=[node],type_ignores=[]),'help_center.py','exec'),ns)
