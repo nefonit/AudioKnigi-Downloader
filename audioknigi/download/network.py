@@ -403,6 +403,8 @@ class NetworkDownloadMixin:
                         actual_end = int(match.group(2))
                         if actual_start != request_start or actual_end < actual_start:
                             raise RangeUnsupported(f"Некорректный Content-Range: {cr}")
+                        if match.group(3) != "*" and actual_end >= int(match.group(3)):
+                            raise RangeUnsupported(f"Некорректный Content-Range: {cr}")
                         if actual_end > end_byte:
                             raise RangeUnsupported(
                                 f"Сервер вернул диапазон за пределами запрошенного сегмента: {cr}"
@@ -417,6 +419,18 @@ class NetworkDownloadMixin:
                                     return existing
                                 if not chunk:
                                     continue
+                                # Reject any byte outside the declared 206 response,
+                                # including extra chunks after the announced end.
+                                # Roll back only this response, not previously saved
+                                # segment data, and keep coordinator progress in sync.
+                                if len(chunk) > expected_this_response - received_this_response:
+                                    file_obj.truncate(before_request)
+                                    existing = before_request
+                                    if received_this_response:
+                                        progress_cb(-received_this_response)
+                                    raise RangeUnsupported(
+                                        f"Range-ответ длиннее Content-Range: {cr}"
+                                    )
                                 remaining = segment_size - existing
                                 if remaining <= 0:
                                     break
