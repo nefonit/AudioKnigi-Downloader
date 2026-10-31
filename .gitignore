@@ -11,6 +11,7 @@ htmlcov/
 .venv/
 venv/
 env/
+.venv-qt/
 
 # Build/release output
 # Editor and migration backups (history is retained in Git)
@@ -28,6 +29,19 @@ history.json
 qt_queue.json
 cookies.json
 session_profile.json
+session_cookies.json
+session_state.json
+player_positions.json
+last_crash_report.txt
+*.lastgood.json
+*.corrupt-*.json
+*.part.segments.json
+*.part.segments.sha256.json
+*.part.assembling
+*.part.seg[0-9]*
+.env
+.env.*
+
 *.log
 *.tmp
 *.part
