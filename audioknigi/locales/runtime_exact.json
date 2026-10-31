@@ -873,5 +873,75 @@
     "de": "Die Audiobookshelf-Prüfung läuft noch. Anwendung schließen, sobald sie beendet ist?",
     "en": "The Audiobookshelf check is still running. Close the app after it finishes?",
     "uk": "Перевірка Audiobookshelf ще триває. Закрити програму після її завершення?"
+  },
+  "FFmpeg не найден. Он необходим для обработки полного файла MP3.": {
+    "de": "FFmpeg wurde nicht gefunden. Es wird zur Verarbeitung der vollständigen MP3-Datei benötigt.",
+    "en": "FFmpeg was not found. It is required to process the complete MP3 file.",
+    "uk": "FFmpeg не знайдено. Він потрібен для обробки повного файлу MP3."
+  },
+  "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)": {
+    "de": "HTTPS/TCP: Zeitüberschreitung (mögliche Filterung oder Routingproblem)",
+    "en": "HTTPS/TCP: timeout (possible filtering or routing problem)",
+    "uk": "HTTPS/TCP: час очікування вичерпано (можлива фільтрація або проблема маршруту)"
+  },
+  "Прокси/туннель: соединение не удалось": {
+    "de": "Proxy/Tunnel: Verbindung fehlgeschlagen",
+    "en": "Proxy/tunnel: connection failed",
+    "uk": "Проксі/тунель: не вдалося встановити з'єднання"
+  },
+  "HTTPS: ошибка сертификата или TLS": {
+    "de": "HTTPS: Zertifikats- oder TLS-Fehler",
+    "en": "HTTPS: certificate or TLS error",
+    "uk": "HTTPS: помилка сертифіката або TLS"
+  },
+  "DNS: не удалось определить IP-адрес": {
+    "de": "DNS: IP-Adresse konnte nicht aufgelöst werden",
+    "en": "DNS: could not resolve the IP address",
+    "uk": "DNS: не вдалося визначити IP-адресу"
+  },
+  "TCP: удалённый узел отказал в соединении": {
+    "de": "TCP: Die Gegenstelle hat die Verbindung abgelehnt",
+    "en": "TCP: the remote host refused the connection",
+    "uk": "TCP: віддалений вузол відхилив з'єднання"
+  },
+  "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)": {
+    "de": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (Verbindung hergestellt)",
+    "en": "HTTP: timed out waiting for the server response (connection established)",
+    "uk": "HTTP: час очікування відповіді сервера вичерпано (з'єднання встановлено)"
+  },
+  "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)": {
+    "de": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (TCP/TLS hergestellt)",
+    "en": "HTTP: timed out waiting for the server response (TCP/TLS established)",
+    "uk": "HTTP: час очікування відповіді сервера вичерпано (TCP/TLS встановлено)"
+  },
+  "TLS: тайм-аут защищённого соединения (TCP установлен)": {
+    "de": "TLS: Zeitüberschreitung beim sicheren Verbindungsaufbau (TCP hergestellt)",
+    "en": "TLS: secure connection timed out (TCP established)",
+    "uk": "TLS: час очікування захищеного з'єднання вичерпано (TCP встановлено)"
+  },
+  "akniga.org: не найдена область книг в подборке.": {
+    "de": "akniga.org: Der Buchbereich dieser Sammlung wurde nicht gefunden.",
+    "en": "akniga.org: could not find the books section in this collection.",
+    "uk": "akniga.org: не знайдено розділ книг у добірці."
+  },
+  "akniga.org: не найдена область результатов поиска (возможно, изменился сайт).": {
+    "de": "akniga.org: Suchergebnisbereich nicht gefunden (die Website wurde möglicherweise geändert).",
+    "en": "akniga.org: search results section not found (the website may have changed).",
+    "uk": "akniga.org: не знайдено розділ результатів пошуку (можливо, сайт змінився)."
+  },
+  "izib.uk: настройки XSPlayer не найдены либо книга недоступна.": {
+    "de": "izib.uk: XSPlayer-Einstellungen nicht gefunden oder das Buch ist nicht verfügbar.",
+    "en": "izib.uk: XSPlayer settings were not found or the book is unavailable.",
+    "uk": "izib.uk: налаштування XSPlayer не знайдено або книга недоступна."
+  },
+  "izib.uk: не найдена область результатов поиска (возможно, изменился сайт).": {
+    "de": "izib.uk: Suchergebnisbereich nicht gefunden (die Website wurde möglicherweise geändert).",
+    "en": "izib.uk: search results section not found (the website may have changed).",
+    "uk": "izib.uk: не знайдено розділ результатів пошуку (можливо, сайт змінився)."
+  },
+  "yakniga.org: эта книга доступна только по лицензии; скачивание недоступно.": {
+    "de": "yakniga.org: Dieses Buch ist nur mit Lizenz verfügbar; ein Download ist nicht möglich.",
+    "en": "yakniga.org: this book is available by license only; downloading is unavailable.",
+    "uk": "yakniga.org: ця книга доступна лише за ліцензією; завантаження недоступне."
   }
 }

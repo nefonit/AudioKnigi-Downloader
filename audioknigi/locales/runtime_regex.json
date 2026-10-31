@@ -662,5 +662,21 @@
       "en": "Could not write ID3 tags to {0}: {1}",
       "uk": "Не вдалося записати ID3 у {0}: {1}"
     }
+  ],
+  [
+    "^Недостаточно места для обработки полного MP3\\. Нужно ещё ~(.+?), свободно (.+?)\\.$",
+    {
+      "de": "Nicht genügend Speicherplatz zur Verarbeitung der vollständigen MP3-Datei. Zusätzlich benötigt: ~{0}; frei: {1}.",
+      "en": "Not enough space to process the complete MP3 file. Additional space needed: ~{0}; free: {1}.",
+      "uk": "Недостатньо місця для обробки повного файлу MP3. Додатково потрібно: ~{0}; вільно: {1}."
+    }
+  ],
+  [
+    "^Сеть: ([A-Za-z_][A-Za-z0-9_]*) \\(проверьте DNS/прокси/доступ к серверу\\)$",
+    {
+      "de": "Netzwerk: {0} (DNS/Proxy/Serverzugriff prüfen)",
+      "en": "Network: {0} (check DNS/proxy/server access)",
+      "uk": "Мережа: {0} (перевірте DNS/проксі/доступ до сервера)"
+    }
   ]
 ]

@@ -88,5 +88,10 @@
     "de": "Download abgeschlossen. Nicht verfügbare Teile wurden übersprungen: ",
     "en": "Download completed. Unavailable parts were skipped: ",
     "uk": "Завантаження завершено. Пропущено недоступні частини: "
+  },
+  "Не удалось сохранить файл восстановления: ": {
+    "de": "Wiederherstellungsdatei konnte nicht gespeichert werden: ",
+    "en": "Could not save the recovery file: ",
+    "uk": "Не вдалося зберегти файл відновлення: "
   }
 }

@@ -1,8 +1,6 @@
 """Offline regressions for safe playlist refresh, HLS fallback and localization."""
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from audioknigi.download import book_flow
@@ -153,7 +151,8 @@ def test_download_engine_messages_have_runtime_translations(language):
     for russian in sources:
         translated = localize_runtime_text(language, russian)
         assert translated != russian, (language, russian)
-        assert "40 MB" in translated if "40 MB" in russian else True
+        if "40 MB" in russian:
+            assert "40 MB" in translated and "20 MB" in translated
 
 
 @pytest.mark.parametrize("language", ["en", "de", "uk"])
