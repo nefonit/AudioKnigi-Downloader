@@ -23,7 +23,8 @@ Do not add feature modules, audit reports, temporary scripts, or historical snap
 - `download/` — focused download core:
   - `probe.py` — media probing and validation;
   - `source_analysis.py` — source/page analysis and recovery;
-  - `network.py` — HTTP, resume, segmented/range downloading and bandwidth control;
+  - `network.py` — HTTP, resume, segmented/range downloading and HTTP error recovery; keeps legacy public transfer-policy imports.
+  - `transfer_policy.py` — independent bandwidth token bucket, adaptive Range worker selection and sliding-window transfer speed metrics;
   - `media.py` — FFmpeg conversion, splitting, normalization, tagging and covers;
   - `book_flow.py` — book-level orchestration;
   - `common.py`, `errors.py` — shared helpers/contracts.

@@ -8,6 +8,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 - [`architecture/ROOT_MODULES_V22.md`](architecture/ROOT_MODULES_V22.md) — current implementation owners and compatibility aliases.
 - [`architecture/HELP_CENTER_V26.md`](architecture/HELP_CENTER_V26.md) — Help Center content/UI split and accessibility invariants.
 - [`architecture/HELP_CENTER_V27.md`](architecture/HELP_CENTER_V27.md) — Help Center formatter, topic-selection logic and event-handler contracts.
+- [`architecture/TRANSFER_POLICY_V28.md`](architecture/TRANSFER_POLICY_V28.md) — HTTP throughput policy extraction with resume compatibility.
 - [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.
