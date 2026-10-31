@@ -1,7 +1,8 @@
-"""Single source of truth for product identity and version metadata."""
-from .brand import BRAND_NAME, DISPLAY_NAME, PRODUCT_NAME
-from .version import __version__
+"""Compatibility alias. Implementation: :mod:`audioknigi.identity.metadata`.
 
-APP_VERSION = __version__
-
-__all__ = ["APP_VERSION", "__version__", "BRAND_NAME", "DISPLAY_NAME", "PRODUCT_NAME"]
+New code should import from the implementation package. The alias preserves
+module identity, public imports, monkeypatches and frozen-build discovery.
+"""
+import sys as _sys
+from .identity import metadata as _impl
+_sys.modules[__name__] = _impl
