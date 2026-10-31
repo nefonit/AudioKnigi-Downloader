@@ -906,18 +906,18 @@
   },
   "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)": {
     "de": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (Verbindung hergestellt)",
-    "en": "HTTP: timed out waiting for the server response (connection established)",
-    "uk": "HTTP: час очікування відповіді сервера вичерпано (з'єднання встановлено)"
+    "en": "HTTP: Timed out waiting for server response (connected)",
+    "uk": "HTTP: час очікування відповіді сервера вичерпано (з’єднання встановлено)"
   },
   "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)": {
-    "de": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (TCP/TLS hergestellt)",
-    "en": "HTTP: timed out waiting for the server response (TCP/TLS established)",
+    "de": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (TCP/TLS verbunden)",
+    "en": "HTTP: Timed out waiting for server response (TCP/TLS connected)",
     "uk": "HTTP: час очікування відповіді сервера вичерпано (TCP/TLS встановлено)"
   },
   "TLS: тайм-аут защищённого соединения (TCP установлен)": {
-    "de": "TLS: Zeitüberschreitung beim sicheren Verbindungsaufbau (TCP hergestellt)",
-    "en": "TLS: secure connection timed out (TCP established)",
-    "uk": "TLS: час очікування захищеного з'єднання вичерпано (TCP встановлено)"
+    "de": "TLS: Zeitüberschreitung beim TLS-Handshake (TCP verbunden)",
+    "en": "TLS: Handshake timed out (TCP connected)",
+    "uk": "TLS: час узгодження захищеного з’єднання вичерпано (TCP встановлено)"
   },
   "akniga.org: не найдена область книг в подборке.": {
     "de": "akniga.org: Der Buchbereich dieser Sammlung wurde nicht gefunden.",
