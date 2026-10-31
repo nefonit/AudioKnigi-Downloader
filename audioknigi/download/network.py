@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import tempfile
 import queue
 import re
 import shutil
@@ -9,15 +12,17 @@ import time
 import weakref
 from collections import deque
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
 
-from ..core import Cancelled, fmt_size, fmt_time, get_http_session
+from ..core import Cancelled, USER_AGENT, fmt_size, fmt_time, get_http_session, resolve_executable, hidden_subprocess_kwargs
 from ..cover_fetch import fetch_cover_bytes
 from ..logging_utils import app_logger
 from ..sources import source_name
 from .common import atomic_write_text, replace_with_retry, unlink_with_retry
 from .errors import RangeUnsupported
+from .hls_parallel import stage_hls_vod
 
 _ACTIVE_IO_INIT_LOCK = threading.Lock()
 
@@ -989,8 +994,303 @@ class NetworkDownloadMixin:
             raise last_error
         raise RuntimeError("Не указан адрес аудиофайла.")
 
+    def _run_hls_ffmpeg(self, url, target, referer, *, start=None,
+                        duration=None, expected_duration=None, chapter_label="",
+                        progress_offset=0.0, progress_span=100.0):
+        """Download/remux HLS with measured FFmpeg media-time progress.
+
+        HLS is not ordinary MP3 HTTP Range: do not advertise network speed,
+        resumability, or packet-level progress. Every attempt exclusively owns
+        a unique temporary path; a Windows-locked old .part is untouched.
+        """
+        self._check_cancel()
+        ffmpeg = resolve_executable("ffmpeg")
+        if not ffmpeg:
+            raise RuntimeError("Для HLS источника необходим FFmpeg.")
+        target = Path(target)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(
+            prefix=f".{target.stem}.hls-", suffix=".mp3", dir=str(target.parent),
+        )
+        os.close(fd)
+        temp = Path(temp_name)
+        headers = f"User-Agent: {USER_AGENT}\r\n"
+        if referer:
+            headers += f"Referer: {referer}\r\n"
+        # Stream-copy into MP3 is lossless and very quick when the HLS codec
+        # is MP3. AAC cannot be put in an MP3 container: only in that case
+        # retry once with libmp3lame. For chapter seeks, decode accurately:
+        # stream-copy would preserve the nearest HLS segment boundary instead.
+        allow_copy = start is None and (
+            str(getattr(self, "runtime_audio_preset", "copy") or "copy") == "copy"
+            and str(getattr(self, "runtime_normalization_mode", "off") or "off") == "off"
+        )
+        preset = str(getattr(self, "runtime_audio_preset", "copy") or "copy")
+        profile = {
+            "64k_mono": ("64k", "1"),
+            "96k_mono": ("96k", "1"),
+            "128k_stereo": ("128k", "2"),
+        }.get(preset)
+
+        def command(copy_mode):
+            cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+                   "-nostats", "-stats_period", "0.5", "-progress", "pipe:1", "-y"]
+            if start is not None:
+                # Input-side -ss uses the HLS VOD index, avoiding the download
+                # of all earlier segments on seekable playlists.
+                cmd += ["-ss", str(start)]
+            if urlsplit(working_url).scheme in ("http", "https"):
+                cmd += ["-headers", headers]
+            if is_parallel:
+                # The staged AES-128 key uses a .key extension; FFmpeg does not
+                # allow that by default. The local manifest and its files were
+                # validated and written by this app in a private temp directory.
+                cmd += ["-allowed_extensions", "ALL"]
+            cmd += ["-i", working_url]
+            if duration is not None:
+                cmd += ["-t", str(duration)]
+            cmd += ["-map", "0:a:0", "-vn", "-c:a", "copy" if copy_mode else "libmp3lame"]
+            if not copy_mode:
+                cmd += ["-b:a", profile[0] if profile else "160k"]
+                if profile:
+                    cmd += ["-ac", profile[1]]
+            cmd += ["-f", "mp3", str(temp)]
+            return cmd
+
+        # The old FFmpeg-only mode remains a fallback for unsupported HLS
+        # playlists or servers that decline parallel requests. Stage only a
+        # *whole* source; individual selected chapters already use FFmpeg seek.
+        staged_hls = None
+        # Completed HLS segments can survive cancellation and be reused if
+        # and only if the signed manifest remains identical on the next try.
+        segment_cache_dir = target.parent / f".{target.stem}.hls-cache"
+        working_url = str(url)
+        if (start is None and urlsplit(working_url).scheme == "https"
+                and bool(getattr(self, "runtime_hls_parallel_enabled", False))):
+            staged_hls = tempfile.TemporaryDirectory(prefix=".akniga-hls-", dir=str(target.parent))
+            try:
+                last_reported = [0.0]
+                parallel_started = time.monotonic()
+                resumed = [0]
+                def parallel_resumed(reused, _total):
+                    resumed[0] = reused
+                def parallel_progress(done, count, transferred):
+                    self._check_cancel()
+                    now = time.monotonic()
+                    if now - last_reported[0] > 0.4 or done == count:
+                        pct = 70.0 * done / count
+                        self.set_progress(progress_offset + progress_span * pct / 100.0)
+                        elapsed = max(0.01, now - parallel_started)
+                        avg_speed = transferred / elapsed
+                        restored = f", из кэша {resumed[0]}" if resumed[0] else ""
+                        self.set_status(
+                            f"HLS: готово {done} из {count} сегментов{restored}; "
+                            f"по сети {fmt_size(transferred)}, {fmt_size(avg_speed)}/с"
+                        )
+                        if transferred and callable(getattr(self, "record_transfer_metrics", None)):
+                            self.record_transfer_metrics(avg_speed, workers)
+                        last_reported[0] = now
+                mode = str(getattr(self, "runtime_segment_count", "auto") or "auto")
+                try:
+                    workers = 6 if mode == "auto" else max(1, min(8, int(mode)))
+                except (ValueError, TypeError):
+                    workers = 6
+                limit_mb = float(getattr(self, "runtime_bandwidth_limit", 0.0) or 0.0)
+                limiter = BandwidthLimiter(limit_mb * 1024 * 1024) if limit_mb > 0 else None
+                throttle = None
+                if limiter is not None:
+                    throttle = lambda n: limiter.consume(n, getattr(self, "cancel_event", None))
+                candidate = stage_hls_vod(
+                    working_url, Path(staged_hls.name), referer=referer,
+                    user_agent=USER_AGENT, check_cancel=self._check_cancel,
+                    on_progress=parallel_progress, max_workers=workers,
+                    throttle=throttle, segment_cache_dir=segment_cache_dir,
+                    on_resume=parallel_resumed,
+                )
+                if candidate is not None:
+                    working_url = str(candidate)
+                    if resumed[0]:
+                        self.log(f"HLS: восстановлено {resumed[0]} готовых сегментов из кэша.")
+                    self.log("HLS: сегменты загружены параллельно, собираю аудио локально.")
+                else:
+                    staged_hls.cleanup()
+                    staged_hls = None
+            except Cancelled:
+                staged_hls.cleanup()
+                unlink_with_retry(temp, missing_ok=True)
+                raise
+            except Exception as concurrent_exc:
+                staged_hls.cleanup()
+                staged_hls = None
+                app_logger.debug("HLS parallel fallback, exception class: %s", type(concurrent_exc).__name__)
+                self.log("HLS: параллельная загрузка недоступна; пробую обычный FFmpeg-поток.")
+        progress_seconds = {"value": 0.0, "speed": ""}
+        proc = None
+        title = chapter_label or "HLS-аудиопоток"
+        is_parallel = working_url != str(url)
+        last_update = 0.0
+        self.set_status(f"Получаю {title} через FFmpeg…")
+        try:
+            source_candidates = ([working_url, str(url)] if is_parallel else [str(url)])
+            for candidate_number, candidate_url in enumerate(source_candidates):
+                working_url = candidate_url
+                is_parallel = candidate_number == 0 and len(source_candidates) > 1
+                if candidate_number:
+                    self.log("HLS: локальная сборка не удалась; повторяю через обычный FFmpeg-поток.")
+                try:
+                    for use_copy in ([True, False] if allow_copy else [False]):
+                        self._check_cancel()
+                        # Same uniquely owned staging path; not a shared .part.
+                        progress_seconds.update(value=0.0, speed="")
+                        with tempfile.TemporaryFile(mode="w+b") as err_file:
+                            proc = subprocess.Popen(
+                                command(use_copy), stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=err_file, shell=False,
+                                **hidden_subprocess_kwargs(),
+                            )
+                            self._register_active_subprocess(proc)
+                            def consume_progress():
+                                stream = getattr(proc, "stdout", None)
+                                if stream is None:
+                                    return
+                                try:
+                                    for raw in stream:
+                                        if b"=" not in raw:
+                                            continue
+                                        key, value = raw.decode("utf-8", "replace").strip().split("=", 1)
+                                        if key in ("out_time_us", "out_time_ms"):
+                                            try:
+                                                progress_seconds["value"] = max(0.0, int(value) / 1_000_000)
+                                            except ValueError:
+                                                pass
+                                        elif key == "speed":
+                                            progress_seconds["speed"] = value.strip()
+                                except (OSError, ValueError):
+                                    pass
+                                finally:
+                                    try:
+                                        stream.close()
+                                    except OSError:
+                                        pass
+                            consumer = None
+                            if getattr(proc, "stdout", None) is not None:
+                                consumer = threading.Thread(target=consume_progress, daemon=True)
+                                consumer.start()
+                            try:
+                                while proc.poll() is None:
+                                    self._check_cancel()
+                                    now = time.monotonic()
+                                    if now - last_update >= 0.7:
+                                        seconds = progress_seconds["value"]
+                                        if expected_duration and expected_duration > 0:
+                                            pct = min(99.5, seconds * 100.0 / expected_duration)
+                                            self.set_progress(progress_offset + progress_span * (70.0 + pct * 0.30 if is_parallel else pct) / 100.0)
+                                            state = f"{pct:.0f}% ({fmt_time(seconds)} / {fmt_time(expected_duration)})"
+                                        else:
+                                            state = f"обработано {fmt_time(seconds)}"
+                                        speed = progress_seconds["speed"]
+                                        self.set_status(
+                                            f"HLS {title}: {state}"
+                                            + (f", обработка {speed}" if speed else "")
+                                        )
+                                        last_update = now
+                                    try:
+                                        proc.wait(timeout=0.2)
+                                    except subprocess.TimeoutExpired:
+                                        pass
+                                if consumer is not None:
+                                    consumer.join(timeout=1.0)
+                                self._check_cancel()
+                                if proc.returncode == 0 and temp.exists() and temp.stat().st_size:
+                                    # FFmpeg can exit 0 for a prematurely ended HLS
+                                    # playlist. Do not replace a complete existing
+                                    # source with a short, seemingly valid MP3.
+                                    # The downloader's existing post-download
+                                    # timeline verification remains in place too.
+                                    if expected_duration and expected_duration > 0:
+                                        probe = getattr(self, "_probe_duration", None)
+                                        actual = probe(temp) if callable(probe) else None
+                                        if actual is not None and (
+                                            float(actual) + max(8.0, float(expected_duration) * 0.01)
+                                            < float(expected_duration)
+                                        ):
+                                            raise RuntimeError(
+                                                "HLS: получен неполный аудиофайл; "
+                                                "попытка не будет сохранена."
+                                            )
+                                    replace_with_retry(temp, target)
+                                    # Complete verified MP3 supersedes staged
+                                    # segments. On cancellation/failure keep them.
+                                    if segment_cache_dir.is_dir():
+                                        try:
+                                            shutil.rmtree(segment_cache_dir)
+                                        except OSError:
+                                            pass
+                                    progress_cb = getattr(self, "set_progress", None)
+                                    if callable(progress_cb):
+                                        progress_cb(progress_offset + progress_span)
+                                    return target
+                                err_file.seek(0)
+                                detail = err_file.read()[-4000:].decode("utf-8", "replace")
+                                if use_copy and any(token in detail.lower() for token in (
+                                    "not supported in container", "codec not currently supported",
+                                    "invalid audio stream", "could not write header",
+                                    "codec type or id mismatches", "unsupported codec",
+                                )):
+                                    self.log("HLS: кодек не подходит для прямого MP3-копирования; перекодирую один раз.")
+                                    continue
+                                raise RuntimeError("FFmpeg не смог прочитать HLS: " + (detail.strip() or str(proc.returncode)))
+                            finally:
+                                if proc.poll() is None:
+                                    proc.kill()
+                                    proc.wait()
+                                if consumer is not None and consumer.is_alive():
+                                    consumer.join(timeout=1.0)
+                                self._unregister_active_subprocess(proc)
+                    raise RuntimeError("HLS: исходный кодек нельзя сохранить в MP3 без преобразования.")
+                except RuntimeError:
+                    if candidate_number + 1 == len(source_candidates):
+                        raise
+                    # Do not keep a broken output when using the remote fallback.
+                    unlink_with_retry(temp, missing_ok=True)
+        finally:
+            try:
+                unlink_with_retry(temp, missing_ok=True)
+            except OSError as cleanup_exc:
+                app_logger.warning("Failed cleaning HLS temp %s: %s", temp, cleanup_exc)
+            if staged_hls is not None:
+                staged_hls.cleanup()
+            if callable(getattr(self, "record_transfer_metrics", None)):
+                self.record_transfer_metrics(0, 0)
+
+    def _download_hls_to_mp3(self, url, target, referer):
+        expected = (getattr(self, "_hls_expected_durations", None) or {}).get(str(url))
+        return NetworkDownloadMixin._run_hls_ffmpeg(
+            self, url, target, referer, expected_duration=expected,
+        )
+
+    def _download_hls_chapter(self, book, track, *, chapter_number=1, total_chapters=1):
+        """Seek and decode one selected chapter, without downloading whole book."""
+        start = float(track.start)
+        end = float(track.end)
+        if start < 0 or end <= start:
+            raise ValueError("Некорректные временные границы главы.")
+        url = str(track.file or "")
+        if not urlsplit(url).path.casefold().endswith(".m3u8"):
+            raise ValueError("Источник главы не является HLS.")
+        dest = self._track_path(book, track)
+        return self._run_hls_ffmpeg(
+            url, dest, book.url, start=start, duration=end - start,
+            expected_duration=end - start,
+            chapter_label=f"главу {chapter_number}/{total_chapters}",
+            progress_offset=(chapter_number - 1) * 100.0 / total_chapters,
+            progress_span=100.0 / total_chapters,
+        )
+
     def _download_with_resume(self, url, target, referer):
         """Resume-capable download with adaptive HTTP Range chunking."""
+        if urlsplit(str(url)).path.casefold().endswith(".m3u8"):
+            return self._download_hls_to_mp3(url, target, referer)
         target = Path(target)
         part = target.with_name(target.name + ".part")
         has_segments = bool(_segment_files(part))

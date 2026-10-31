@@ -9,8 +9,13 @@ AudioKnigi Downloader is a Windows-focused accessible PySide6/Qt application for
 - `audioknigi.com.ua`
 - `knigavuhe.org`
 - `poleknig.com`
+- `akniga.org` (books, collections and HLS)
+- `izib.uk`
+- `yakniga.org`
+- `uknig.com`
+- `archive.org` (LibriVox catalogue)
 
-All three sources implement the common `SourceProvider` contract. Search, analysis, narration variants, resumable downloads, selected chapters, full-MP3 mode, history, queue, metadata/covers, and the built-in player are implemented in the GUI-independent `audioknigi` package where possible.
+The providers implement the common `SourceProvider` contract. Search, analysis, narration variants, resumable downloads, selected chapters, full-MP3 mode, history, queue, metadata/covers, and the built-in player are implemented in the GUI-independent `audioknigi` package where possible.
 
 ## Quick start from source
 
@@ -66,12 +71,12 @@ The current repository is organized by responsibility instead of migration phase
 - `audioknigi/qt/mixins/` — focused main-window behaviors; `main_window.py` is composition/common state rather than a 4000-line controller.
 - `tests/unit/`, `tests/integration/`, `tests/architecture/` — active tests grouped by behavior.
 - `tests/fixtures/providers/` — deterministic sanitized source fixtures.
-- `archive/` — historical tests, source variants, retired audits, and one-off migration tooling; never imported by the runtime.
+- `archive/` — historical tests, source variants, retired audits, and one-off migration tooling; retained in the developer repository only, not in the production-source package.
 - `audioknigi/qt_runtime_audit.py` — package-level runtime-boundary assertion used by source/frozen self-tests.
 - `tools/` — active release and quality gates only.
 - `audits/4.12/rounds/` — incremental current-branch review/fix evidence; historical material stays under `archive/`.
 
-See `docs/architecture/PROJECT_STRUCTURE.md` for placement rules and the complete structure.
+See `docs/architecture/PROJECT_STRUCTURE.md` for placement rules, and `docs/architecture/REPOSITORY_GUIDE_V19.md` for the production/developer package trees and onboarding. Older feature-specific READMEs are in `docs/releases/`.
 
 ## Settings and compatibility
 
@@ -115,3 +120,10 @@ Persistent controls have stable accessibility identifiers, dynamic dialogs are c
 The Python version source of truth is `audioknigi/version.py`; runtime consumers import the consolidated metadata facade in `audioknigi/metadata.py`. Earlier migration phases remain under `docs/migration/`, `docs/history/`, and `archive/` as historical evidence only.
 
 Release history is in `CHANGELOG.md`.
+
+## V19 source distributions
+
+- `AudioKnigi_V19_Production_Source.zip`: compact Python/Windows source for runtime and reproducible Windows EXE build; **not** a precompiled executable. No tests, audit snapshots or historical variants.
+- `AudioKnigi_V19_Developers.zip`: complete developer checkout with source, active tests, tooling, docs, CI, and quarantined historical evidence in `archive/`.
+
+Keep entrypoints at the root for compatibility (`audioknigi_qt.py`, `run.bat`, `build_qt_exe.bat`). Feature modules belong under `audioknigi/`, tests under `tests/`, and dated notes under `docs/releases/`.

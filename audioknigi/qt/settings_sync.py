@@ -59,6 +59,8 @@ class SettingsSyncMixin:
         texts = (
             ("folder_template_edit", "folder_template", "{Book_Title}"),
             ("track_template_edit", "track_template", "{Track_Number}.mp3"),
+            ("proxy_url_edit", "proxy_url", ""),
+            ("proxy_only_hosts_edit", "proxy_only_hosts", ""),
             ("abs_url_edit", "abs_url", ""),
             ("abs_api_key_edit", "abs_api_key", ""),
             ("abs_library_id_edit", "abs_library_id", ""),

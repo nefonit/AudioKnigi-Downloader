@@ -426,6 +426,70 @@ class BookFlowMixin:
                     ) from refresh_exc
                 refreshed_after_not_found = True
 
+    def _akniga_direct_chapters_eligible(self, book, tracks):
+        """Conservative fast path: few chapters and no audio transformations."""
+        if source_key(str(getattr(book, "url", ""))) != "akniga":
+            return False
+        if str(getattr(self, "runtime_audio_preset", "copy") or "copy") != "copy":
+            return False
+        if safe_normalization_mode(getattr(self, "runtime_normalization_mode", "off"), "off") != "off":
+            return False
+        if not tracks or len(tracks) > 4:
+            return False
+        durations = []
+        all_tracks = list(getattr(book, "tracks", []) or [])
+        for tr in all_tracks:
+            try:
+                durations.append(float(tr.end) - float(tr.start))
+            except (ValueError, TypeError, AttributeError):
+                return False
+        if not durations or min(durations) <= 0 or sum(durations) <= 0:
+            return False
+        try:
+            selected_time = sum(float(tr.end) - float(tr.start) for tr in tracks)
+        except (ValueError, TypeError, AttributeError):
+            return False
+        if selected_time > sum(durations) * 0.40:
+            return False
+        return all(str(getattr(tr, "file", "")).split("?", 1)[0].lower().endswith(".m3u8") for tr in tracks)
+
+    def _try_akniga_direct_chapters(self, book, tracks, report):
+        """Attempt selected HLS seeks; fallback cleanly to existing full flow."""
+        outputs = []
+        succeeded = False
+        try:
+            self.log(f"Akniga: скачиваю только выбранные главы ({len(tracks)}), без общего файла.")
+            self.set_stage(2, "Загрузка выбранных глав HLS")
+            report("Скачивается")
+            for number, tr in enumerate(tracks, 1):
+                self._check_cancel()
+                path = self._track_path(book, tr)
+                outputs.append(path)
+                self.set_status(f"Akniga: глава {number} из {len(tracks)}")
+                self._download_hls_chapter(book, tr, chapter_number=number, total_chapters=len(tracks))
+                status, _actual, _path = self._verify_track_file(book, tr)
+                if normalize_track_status(status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT):
+                    raise RuntimeError(f"Глава {tr.index}: получен неполный участок HLS.")
+                self.set_progress(number * 100.0 / len(tracks))
+            self.log(f"Akniga: {len(tracks)} глав получены напрямую; общая книга не скачивалась.")
+            succeeded = True
+            return True
+        except Cancelled:
+            raise
+        except Exception as exc:
+            self.log(f"Akniga: адресная загрузка не удалась ({exc}); перехожу к полной книге.")
+            return False
+        finally:
+            # On failure do not leave unverified chapters masquerading as
+            # completed files; on success ownership passes to normal verify.
+            # Never delete an original pre-existing READY/PRESENT chapter.
+            if not succeeded:
+                for path in outputs:
+                    try:
+                        unlink_with_retry(path, missing_ok=True)
+                    except OSError:
+                        pass
+
     def _process_book_once(self, book, selected_indices=None, status_callback=None):
         self._check_cancel()
         if resolve_executable("ffmpeg") is None:
@@ -506,6 +570,13 @@ class BookFlowMixin:
                     except Exception:
                         pass
 
+        # For a small chapter-only repair/selection on Akniga, a seekable VOD
+        # HLS playlist can provide only requested segments. Do not change the
+        # book timeline or its original track URLs: sidecars/resume remain valid.
+        if mp3_needs_creation and self._akniga_direct_chapters_eligible(book, mp3_needs_creation):
+            if self._try_akniga_direct_chapters(book, mp3_needs_creation, report):
+                mp3_needs_creation = []
+
         source_tracks = list(mp3_needs_creation)
         missing_source_indices = []
         for position, tr in enumerate(source_tracks, 1):
@@ -531,6 +602,17 @@ class BookFlowMixin:
             fallback = str(getattr(tr, "fallback_file", "") or "")
             if fallback and source_url not in fallback_by_file:
                 fallback_by_file[source_url] = fallback
+
+        if source_key(str(getattr(book, "url", ""))) == "akniga":
+            self._hls_expected_durations = {
+                url: max(
+                    (float(getattr(tr, "end", 0) or 0)
+                     for tr in list(getattr(book, "tracks", []) or [])
+                     if str(getattr(tr, "file", "") or "") == url),
+                    default=0.0,
+                )
+                for url in unique_files
+            }
 
         self._log_book_flow(
             "download_plan", book, selected=len(chosen), existing_mp3=len(chosen) - len(mp3_needs_creation) if want_mp3 else 0,

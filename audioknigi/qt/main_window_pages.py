@@ -496,13 +496,38 @@ class MainWindowPagesMixin:
             self._l("Режим DNS"),
             "dns_mode",
         )
-        dns_description = self._l("Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.")
+        dns_description = self._l("Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.")
         self.dns_mode_combo.setAccessibleDescription(dns_description)
         self.dns_mode_combo.setToolTip(dns_description)
         dns_hint = QLabel(dns_description)
         dns_hint.setWordWrap(True)
         configure_accessible(dns_hint, name=self._l("Описание режима DNS"), identifier="dns_mode_hint")
         network.addRow("", dns_hint)
+        self.proxy_url_edit = QLineEdit(str(self.settings.get("proxy_url", "") or ""))
+        self.proxy_url_edit.setPlaceholderText("http://127.0.0.1:8080 / socks5h://127.0.0.1:1080")
+        configure_accessible(self.proxy_url_edit,
+            name=self._l("Адрес пользовательского HTTP или SOCKS5 прокси"), identifier="proxy_url",
+            description=self._l("Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения."))
+        network.addRow(self._l("Прокси (необязательно):"), self.proxy_url_edit)
+        self.proxy_only_hosts_edit = QLineEdit(str(self.settings.get("proxy_only_hosts", "") or ""))
+        self.proxy_only_hosts_edit.setPlaceholderText("akniga.org, yakniga.org, uknig.com")
+        configure_accessible(self.proxy_only_hosts_edit,
+            name=self._l("Прокси только для выбранных сайтов"), identifier="proxy_only_hosts",
+            description=self._l("Названия сайтов через запятую. Пусто означает прокси для всех сайтов. Работает только при указанном адресе прокси."))
+        network.addRow(self._l("Сайты для прокси (необязательно):"), self.proxy_only_hosts_edit)
+        proxy_hint = QLabel(self._l("Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются."))
+        proxy_hint.setWordWrap(True)
+        network.addRow("", proxy_hint)
+        self.network_check_button = QPushButton(self._l("Проверить подключение ко всем источникам"))
+        configure_accessible(self.network_check_button, name=self._l("Проверить сеть и показать причины ошибок по каждому источнику"), identifier="network_diagnostic")
+        self.network_check_button.clicked.connect(self._run_network_diagnostic)
+        network.addRow("", self.network_check_button)
+        self.search_check_button = QPushButton(self._l("Проверить реальный поиск по источникам"))
+        configure_accessible(self.search_check_button,
+            name=self._l("Проверить поиск по каждому сайту"), identifier="source_search_diagnostic",
+            description=self._l("Использует поисковую строку из вкладки Поиск или слово Поттер. Не скачивает аудиофайлы."))
+        self.search_check_button.clicked.connect(self._run_search_diagnostic)
+        network.addRow("", self.search_check_button)
         add_combo(network, self._l("Соединений:"), "segment_count_combo", [(self._l("Автоматически"), "auto"), ("1", "1"), ("2", "2"), ("4", "4"), ("8", "8")], "segment_count", "auto", "Количество параллельных соединений", "segment_count")
         add_combo(network, self._l("Range от размера:"), "segment_threshold_combo", [(f"{x} MB", x) for x in (4, 8, 16, 32, 64)], "segment_threshold_mb", 16, "Минимальный размер для Range-загрузки", "segment_threshold")
         add_combo(network, self._l("Порог медленного соединения:"), "auto_chunk_combo", [(f"{x} KB/s", x) for x in (128, 256, 512, 1024)], "auto_chunk_min_kbytes_per_sec", 256, "Порог медленного соединения", "auto_chunk_threshold")

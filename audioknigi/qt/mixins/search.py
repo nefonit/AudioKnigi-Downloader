@@ -10,7 +10,8 @@ from ...logging_utils import app_logger
 from ...models import SearchResult
 from ...i18n import tr
 from ...services.search_service import SearchOutcome
-from ...sources import normalize_supported_url
+from ...sources import normalize_supported_url, is_akniga_collection_url
+from ...providers import registered_providers
 from ..accessibility import configure_accessible, focus_table_row
 from ..search_model import SearchResultsModel
 from ..search_progress import CircularSearchProgress
@@ -39,7 +40,7 @@ class SearchUiMixin:
         configure_accessible(
             self.search_button,
             name="Искать аудиокниги",
-            description="Поиск одновременно на трёх поддерживаемых сайтах",
+            description="Поиск одновременно на выбранных поддерживаемых сайтах",
             identifier="search_button",
         )
         self.search_edit.returnPressed.connect(self.start_search)
@@ -49,11 +50,18 @@ class SearchUiMixin:
         self.search_filter_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.search_filter_menu = QMenu(self.search_filter_button)
         self._search_source_actions = {}
-        for source_name in ("audioknigi.com.ua", "knigavuhe.org", "poleknig.com"):
+        for source_name in (provider.display_name for provider in registered_providers()):
             action = self.search_filter_menu.addAction(source_name)
             action.setCheckable(True)
             action.setChecked(True)
             self._search_source_actions[source_name] = action
+        self.search_filter_menu.addSeparator()
+        self._show_related_search_action = self.search_filter_menu.addAction(
+            self._l("Показывать возможные совпадения")
+        )
+        self._show_related_search_action.setCheckable(True)
+        self._show_related_search_action.setChecked(False)
+        self._show_related_search_action.toggled.connect(self._toggle_related_search_results)
         self.search_filter_button.setMenu(self.search_filter_menu)
         configure_accessible(
             self.search_filter_button,
@@ -130,8 +138,15 @@ class SearchUiMixin:
         # Compact service columns stay as small as their content; the title gets
         # the elastic remainder while author/narrator keep comfortable desktop
         # widths so names do not collapse into ellipses on wide workspaces.
-        for column in (0, 4, 5):
+        for column in (4, 5):
             search_header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        # ResizeToContents only samples the first rows: after 99 the index may
+        # be displayed as an ellipsis. Reserve width for five digits, taking
+        # the current UI font/scaling into account (also helps screen readers).
+        search_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.search_table.setColumnWidth(
+            0, max(76, self.search_table.fontMetrics().horizontalAdvance("99999") + 28)
+        )
         search_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         search_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
         search_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
@@ -253,10 +268,11 @@ class SearchUiMixin:
             # must never make Easy mode appear broken; use every configured
             # source without mutating the Advanced user's saved checkboxes.
             sources = list(source_actions)
-        if not sources:
+        if not sources and not is_akniga_collection_url(query):
             self.set_status(self._l("Выберите хотя бы один сайт для поиска."), assertive=True)
             return
 
+        self._last_search_outcome = None
         self.search_model.set_results([])
         self._set_search_results_active(False)
         self._update_search_action_states()
@@ -272,6 +288,8 @@ class SearchUiMixin:
         self._set_search_progress(5, "Поиск запущен", visible=True)
         self.set_status(f"Ищу: {query}")
         self._set_guidance(
+            self._l("Открываю подборку Akniga. Выберите книгу в результатах.")
+            if is_akniga_collection_url(query) else
             self._l("Поиск запущен сразу по выбранным источникам. Дождитесь результатов или нажмите «Отменить поиск»."),
             announce_now=True,
         )
@@ -335,11 +353,19 @@ class SearchUiMixin:
             "SEARCH UI | event=result_render_start | results=%d | errors=%d",
             len(outcome.results), len(outcome.errors),
         )
-        self.search_model.set_results(outcome.results, query=outcome.query)
+        self._last_search_outcome = outcome
+        include_related = (
+            hasattr(self, "_show_related_search_action")
+            and self._show_related_search_action.isChecked()
+        )
+        visible = list(outcome.results)
+        if include_related:
+            visible.extend(outcome.related_results)
+        self.search_model.set_results(visible, query=outcome.query)
         app_logger.info("SEARCH UI | event=model_reset_complete")
-        if outcome.results:
+        if visible:
             self._set_search_results_active(True)
-            result_count = len(outcome.results)
+            result_count = len(visible)
             if result_count % 10 == 1 and result_count % 100 != 11:
                 result_summary = f"Найдена {result_count} книга"
             elif result_count % 10 in {2, 3, 4} and result_count % 100 not in {12, 13, 14}:
@@ -350,6 +376,11 @@ class SearchUiMixin:
                 message = self._rt(f"{result_summary}, источников: {outcome.source_count}.")
             else:
                 message = self._rt(f"{result_summary}.")
+            if outcome.related_results and not include_related:
+                message += " " + self._l(
+                    "Скрыто возможных совпадений: {count}. Фильтры → Показывать возможные совпадения.",
+                    count=len(outcome.related_results),
+                )
             if outcome.errors:
                 message += " " + self._rt("Часть источников недоступна.")
             self.set_status(message)
@@ -362,7 +393,7 @@ class SearchUiMixin:
             QTimer.singleShot(0, self._focus_search_result_after_render)
             self._update_search_action_states()
             self._play_event_sound("search_complete")
-        elif outcome.errors:
+        elif outcome.errors and not outcome.related_results:
             self._set_search_results_active(False)
             self.set_status("Поиск не выполнен: " + "; ".join(outcome.errors), assertive=True)
             self._set_guidance(
@@ -377,13 +408,39 @@ class SearchUiMixin:
             self._play_event_sound("error")
         else:
             self._set_search_results_active(False)
-            self.set_status("Ничего не найдено.")
+            if outcome.related_results:
+                self.set_status(self._l(
+                    "Точных совпадений нет. Возможных совпадений: {count}. Откройте Фильтры.",
+                    count=len(outcome.related_results),
+                ))
+            else:
+                self.set_status("Ничего не найдено.")
             if self.current_ui_mode() == "easy":
                 self.easy_input.setFocus(Qt.FocusReason.OtherFocusReason)
             else:
                 self.search_edit.setFocus(Qt.FocusReason.OtherFocusReason)
             self._play_event_sound("book_not_found")
         app_logger.info("SEARCH UI | event=result_render_complete")
+
+    def _toggle_related_search_results(self, checked: bool) -> None:
+        """Show broad provider suggestions only on request, in both UI modes."""
+        outcome = getattr(self, "_last_search_outcome", None)
+        if not isinstance(outcome, SearchOutcome):
+            return
+        visible = list(outcome.results)
+        if checked:
+            visible.extend(outcome.related_results)
+        self.search_model.set_results(visible, query=outcome.query)
+        self._set_search_results_active(bool(visible))
+        self._update_search_action_states()
+        if checked:
+            self.set_status(self._l(
+                "Показаны точные и возможные совпадения: {count}.", count=len(visible)
+            ))
+        else:
+            self.set_status(self._l(
+                "Показаны только точные совпадения: {count}.", count=len(visible)
+            ))
 
     def _set_search_results_active(self, active: bool) -> None:
         """Mirror result visibility across Easy and Advanced presentations."""

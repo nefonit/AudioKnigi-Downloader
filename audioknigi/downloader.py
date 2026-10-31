@@ -37,6 +37,7 @@ class DownloaderMixin(
     runtime_naming_mode = "number"
     runtime_embed_tags = True
     runtime_delete_source = True
+    runtime_hls_parallel_enabled = True
 
     def _check_cancel(self):
         cancel_event = getattr(self, "cancel_event", None)

@@ -38,6 +38,8 @@ class SearchResultsModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._items)):
             return None
+        if role == Qt.ItemDataRole.TextAlignmentRole and index.column() == 0:
+            return Qt.AlignmentFlag.AlignCenter
         if role == Qt.ItemDataRole.AccessibleDescriptionRole:
             parts = []
             for column, (column_label, _key) in enumerate(self.COLUMNS):

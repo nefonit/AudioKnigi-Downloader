@@ -1,3 +1,5 @@
+# Changelog
+
 ## Round 90 — October 30 report verification
 
 - Reviewed 54 numbered findings and additional assertions in the October 30 external audit, distinguishing reproduced defects from static risks and unsupported claims.
@@ -5,7 +7,11 @@
 - Fixed numeric source chapter labels with two digits when output numbering needs three; added ID3 runtime-error translations.
 - Added 3 regression checks; 811 core/unit/integration and 156 provider tests passed (967 total). Windows/PySide6/NVDA/JAWS acceptance remains pending.
 
-# Changelog
+## V18 — Izib search title fragments
+
+- Preserve inline HTML text boundaries when extracting Izib titles, authors, and narrators.
+- Fix broken Russian case endings caused by search-highlighting markup and punctuation gaps.
+- Add focused offline regression tests; no changes to downloads, HLS, DNS, source registration or UI widgets.
 
 ## Round 90 — October 15 report follow-up
 

@@ -69,4 +69,6 @@ def test_queue_track_path_is_json_compatible():
         Track(index=1, title="Chapter", file="https://example.com/audio", local_path=Path("/tmp/audio.mp3"))
     ])
     payload = json.loads(json.dumps(_book_to_dict(book), ensure_ascii=False))
-    assert payload["tracks"][0]["local_path"] == "/tmp/audio.mp3"
+    stored_path = payload["tracks"][0]["local_path"]
+    assert isinstance(stored_path, str)
+    assert Path(stored_path) == Path("/tmp/audio.mp3")

@@ -13,7 +13,7 @@ from ...metadata import APP_VERSION
 from ...i18n import tr
 from ...core import DEFAULT_OUTPUT, safe_int
 from ...config.settings import normalize_settings, save_app_settings
-from ...network_dns import install_cloudflare_dns
+from ...network_dns import install_cloudflare_dns, configure_user_proxy, validate_user_proxy, configure_proxy_hosts, normalize_proxy_hosts
 from ..theme import THEMES, apply_theme
 from ..workers import AudiobookshelfWorker as _AudiobookshelfWorker
 
@@ -188,6 +188,8 @@ class SettingsUiMixin:
             "delete_source": bool(self.delete_source_check.isChecked()),
             "playwright_fallback_enabled": bool(self.playwright_check.isChecked()),
             "dns_mode": self.dns_mode_combo.currentData() or "auto",
+            "proxy_url": self.proxy_url_edit.text().strip(),
+            "proxy_only_hosts": self.proxy_only_hosts_edit.text().strip(),
             "clipboard_auto": bool(self.clipboard_auto_check.isChecked()),
             "parallel_single_source": bool(self.parallel_single_source_check.isChecked()),
             "segment_count": self.segment_count_combo.currentData() or "auto",
@@ -231,7 +233,13 @@ class SettingsUiMixin:
 
     def _save_settings(self, _checked: bool = False, *, silent: bool = False):
         updated = self._settings_from_ui()
-        updated = normalize_settings(updated)
+        try:
+            validate_user_proxy(updated.get("proxy_url"))
+            normalize_proxy_hosts(updated.get("proxy_only_hosts"))
+            updated = normalize_settings(updated)
+        except ValueError as exc:
+            self._show_message(QMessageBox.Icon.Warning, self._l("Ошибка настройки прокси"), str(exc))
+            return
         if save_app_settings(updated):
             # Keep object identity stable: other controllers can retain a
             # reference to self.settings. Replacing the object would leave
@@ -242,7 +250,12 @@ class SettingsUiMixin:
             else:
                 self.settings.clear()
                 self.settings.update(updated)
+            proxy_changed = configure_user_proxy(updated.get("proxy_url", ""))
+            hosts_changed = configure_proxy_hosts(updated.get("proxy_only_hosts", ""))
             install_cloudflare_dns(mode=str(updated.get("dns_mode", "auto") or "auto"))
+            if proxy_changed or hosts_changed:
+                from ...core import refresh_http_session_profile
+                refresh_http_session_profile()
             self.language = str(updated.get("language", self.language) or self.language)
             self.event_sound_manager.configure(
                 enabled=bool(updated.get("event_sounds_enabled", True)),

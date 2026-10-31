@@ -72,7 +72,9 @@ One-off migration tools belong under `archive/tools/`.
 - `audits/4.12/` — current branch audit/review evidence.
 - `audits/4.12/rounds/` — incremental Round 2+ audit/fix notes; these never live at repository root.
 - `archive/audits/` — audits from retired branches.
-- `archive/history/` — historical source/release snapshots.
+- `archive/history/` — historical source/release snapshots (developer distribution only).
+- `docs/releases/` — release-by-release implementation notes moved from root in V19.
+- `docs/architecture/REPOSITORY_GUIDE_V19.md` — practical onboarding and source package profiles.
 
 ## Placement rules
 

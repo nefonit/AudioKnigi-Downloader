@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 from .base import SourceProvider
 from ..models import Book, SearchResult
-from ..sources import AUDIOKNIGI_HOST, KNIGAVUHE_HOST, POLEKNIG_HOST, normalize_supported_url, source_key
+from ..sources import AUDIOKNIGI_HOST, KNIGAVUHE_HOST, POLEKNIG_HOST, AKNIGA_HOST, normalize_supported_url, source_key
 
 
 class KnigavuheProvider(SourceProvider):
@@ -81,3 +81,72 @@ class AudioknigiProvider(SourceProvider):
     def search(self, query: str, *, cancel_event: threading.Event | None = None) -> list[SearchResult]:
         from .audioknigi_search import search_audioknigi
         return list(search_audioknigi(query, cancel_event=cancel_event) or [])
+
+
+class AKnigaProvider(SourceProvider):
+    """Akniga.org catalogue search and experimental book analyzer."""
+    key = "akniga"
+    display_name = AKNIGA_HOST
+
+    def supports_url(self, url: str) -> bool:
+        return source_key(url) == self.key
+
+    def canonicalize_url(self, url: str) -> str:
+        return normalize_supported_url(url)
+
+    def fetch_book(self, url: str, *, cancel_event: threading.Event | None = None) -> Book:
+        from ..akniga import fetch_book
+        return fetch_book(self.canonicalize_url(url), cancel_event=cancel_event)
+
+    def search(self, query: str, *, cancel_event: threading.Event | None = None) -> list[SearchResult]:
+        from .extra_sources import search_akniga
+        return list(search_akniga(query, cancel_event=cancel_event) or [])
+
+
+class _ExtraPublicProvider(SourceProvider):
+    """Adapter for a public-source parser in extra_sources."""
+
+    parser_name = ""
+    search_name = ""
+
+    def supports_url(self, url: str) -> bool:
+        return source_key(url) == self.key
+
+    def canonicalize_url(self, url: str) -> str:
+        return normalize_supported_url(url)
+
+    def fetch_book(self, url: str, *, cancel_event: threading.Event | None = None) -> Book:
+        from . import extra_sources
+        return getattr(extra_sources, self.parser_name)(self.canonicalize_url(url), cancel_event=cancel_event)
+
+    def search(self, query: str, *, cancel_event: threading.Event | None = None) -> list[SearchResult]:
+        from . import extra_sources
+        return getattr(extra_sources, self.search_name)(query, cancel_event=cancel_event)
+
+
+class IzibukProvider(_ExtraPublicProvider):
+    key = "izibuk"
+    display_name = "izib.uk"
+    parser_name = "fetch_izibuk"
+    search_name = "search_izibuk"
+
+
+class YaknigaProvider(_ExtraPublicProvider):
+    key = "yakniga"
+    display_name = "yakniga.org"
+    parser_name = "fetch_yakniga"
+    search_name = "search_yakniga"
+
+
+class UknigProvider(_ExtraPublicProvider):
+    key = "uknig"
+    display_name = "uknig.com"
+    parser_name = "fetch_uknig"
+    search_name = "search_uknig"
+
+
+class LibriVoxProvider(_ExtraPublicProvider):
+    key = "librivox"
+    display_name = "archive.org"
+    parser_name = "fetch_librivox"
+    search_name = "search_librivox"
