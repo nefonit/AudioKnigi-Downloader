@@ -1,5 +1,7 @@
 # V20 — module map
 
+> **Historical V20 snapshot.** Later V21–V23 changes moved further implementations. For the **current** structure use [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) and [ROOT_MODULES_V22.md](ROOT_MODULES_V22.md); do not use this file as a current import-location guide.
+
 This is a structural refactor, not a feature release. Existing entry points stay stable.
 
 | Responsibility | Implementation | Legacy alias |

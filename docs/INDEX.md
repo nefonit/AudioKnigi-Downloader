@@ -5,6 +5,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 ## Current architecture and development
 
 - [`architecture/PROJECT_STRUCTURE.md`](architecture/PROJECT_STRUCTURE.md) — canonical repository/package structure and placement rules.
+- [`architecture/ROOT_MODULES_V22.md`](architecture/ROOT_MODULES_V22.md) — current implementation owners and compatibility aliases.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.
 - [`user/DIAGNOSTICS.md`](user/DIAGNOSTICS.md) — privacy-conscious diagnostic support bundle.
@@ -14,7 +15,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 
 - `accessibility/` — NVDA/JAWS, keyboard operation, accessibility contracts and Help Center.
 - `audio/` — event sounds and audio UX.
-- `build/` — Windows/PyInstaller/FFmpeg build documentation.
+- [Windows build instructions](../README.md#windows-build) — PyInstaller/FFmpeg build guidance; build scripts live at the repository root and under `tools/`.
 - `features/` — feature-specific release notes.
 - `network/` — DNS/network transport.
 - `reliability/` — logging, shutdown and runtime hardening.

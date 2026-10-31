@@ -1,5 +1,7 @@
 # Repository guide — V19
 
+> **Historical V19 reference.** For the current architecture and import paths, use [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) and [ROOT_MODULES_V22.md](ROOT_MODULES_V22.md). The source ZIP profiles below remain supported, but their V19 example filenames are not version requirements.
+
 ## Start here
 
 1. **Application**: `audioknigi_qt.py` is the compatible Qt entrypoint; `run.bat` and `run_qt.bat` launch on Windows. Do not move these.
