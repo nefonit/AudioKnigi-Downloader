@@ -184,13 +184,14 @@ def test_queue_unresolved_summary_uses_stable_translations():
 ROOT = Path(__file__).resolve().parents[2]
 
 HELP_CENTER = ROOT / 'audioknigi' / 'qt' / 'help_center.py'
+HELP_CONTENT = ROOT / 'audioknigi' / 'qt' / 'help_content.py'
 
 MESSAGES = ROOT / 'audioknigi' / 'locales' / 'messages.json'
 
 ACCESSIBILITY_UI = ROOT / 'audioknigi' / 'qt' / 'mixins' / 'accessibility_ui.py'
 
 def _topics() -> dict[str, tuple[tuple[str, str, str], ...]]:
-    tree = ast.parse(HELP_CENTER.read_text(encoding='utf-8'), filename=str(HELP_CENTER))
+    tree = ast.parse(HELP_CONTENT.read_text(encoding='utf-8'), filename=str(HELP_CONTENT))
     for node in tree.body:
         if isinstance(node, ast.Assign) and any((isinstance(target, ast.Name) and target.id == 'TOPICS' for target in node.targets)):
             return ast.literal_eval(node.value)
@@ -364,7 +365,7 @@ def test_localization_followups_present_and_german_uses_du_sprecherfassung() -> 
     assert legacy['en']['Range от размера:'] == 'Range min. file size:'
 
 def test_german_help_engine_grammar_fixed() -> None:
-    source = src__report_followup_round32_20260918('audioknigi/qt/help_center.py')
+    source = src__report_followup_round32_20260918('audioknigi/qt/help_content.py')
     assert 'die Download-Engine ist jedoch dieselbe' in source
     assert 'der Download-Engine ist jedoch derselbe' not in source
 
@@ -650,10 +651,11 @@ def test_runtime_exact_lookup_precedes_regex_and_static_entries_moved_to_exact()
     assert '^HTTP-анализ не сработал\\. Пробую Playwright fallback…$' not in patterns
 
 def test_help_details_are_present_for_all_supported_languages_and_german_style_is_consistent():
-    source = (ROOT / 'audioknigi/qt/help_center.py').read_text(encoding='utf-8')
+    source = HELP_CONTENT.read_text(encoding='utf-8')
     for name in ('ROUND55_TOPIC_DETAILS_RU', 'ROUND55_TOPIC_DETAILS_EN', 'ROUND55_TOPIC_DETAILS_DE', 'ROUND55_TOPIC_DETAILS_UK'):
         assert name in source
-    assert 'ROUND55_TOPIC_DETAILS.get(self.language, {}).get(key, "")' in source
+    dialog_source = HELP_CENTER.read_text(encoding='utf-8')
+    assert 'ROUND55_TOPIC_DETAILS.get(self.language, {}).get(key, "")' in dialog_source
     messages = json.loads((ROOT / 'audioknigi/locales/messages.json').read_text(encoding='utf-8'))
     german = '\n'.join((str(value) for value in messages['de'].values()))
     assert not re.search('\\b(?:Du|du|Gib|Füge|Wähle|Klicke|Kopiere|Nutze|Prüfe)\\b', german)
