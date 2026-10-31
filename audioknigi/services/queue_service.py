@@ -10,10 +10,11 @@ import re
 import time
 import uuid
 
-from ..core import APP_DIR, DEFAULT_OUTPUT, load_json, parse_time_seconds, save_json
+from ..core import APP_DIR, DEFAULT_OUTPUT, parse_time_seconds, save_json
 from ..models import Book, NarrationVariant, Track, normalize_cover_cache
 from ..logging_utils import app_logger
 from .download_request import DownloadRequest
+from .state_recovery import load_recoverable_list, save_recoverable_list
 
 QT_QUEUE_FILE = APP_DIR / "qt_queue.json"
 
@@ -367,7 +368,7 @@ class QueueStore:
         self.path = Path(path)
 
     def load(self) -> list[QueueTask]:
-        raw = load_json(self.path, [])
+        raw = load_recoverable_list(self.path)
         if not isinstance(raw, list):
             return []
         result: list[QueueTask] = []
@@ -398,7 +399,7 @@ class QueueStore:
         return result
 
     def save(self, tasks: list[QueueTask]) -> bool:
-        return bool(save_json(self.path, [task_to_dict(x) for x in tasks]))
+        return save_recoverable_list(self.path, [task_to_dict(x) for x in tasks])
 
     @staticmethod
     def new_task(

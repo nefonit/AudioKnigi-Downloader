@@ -911,7 +911,8 @@ def test_restore_backup_holds_history_lock_for_entire_transaction(monkeypatch, t
     assert library_service.restore_backup(tmp_path / "backup.zip") == ["history.json", "settings.json"]
     assert lock.entries == 1
     assert lock.depth == 0
-    assert [name for name, _data in writes] == ["history.json", "settings.json"]
+    assert [name for name, _data in writes] == ["history.json", "settings.json", "history.lastgood.json"]
+    assert writes[-1][1] == []  # Snapshot reflects the fully restored history.
 
 
 def test_queue_empty_selection_contract_remains_explicit_not_all_tracks():
