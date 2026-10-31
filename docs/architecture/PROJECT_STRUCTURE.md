@@ -34,7 +34,7 @@ Do not add feature modules, audit reports, temporary scripts, or historical snap
 - `locales/` — external JSON localization catalogs packaged with the Python distribution.
 - `i18n.py` — compact localization loader plus compatibility bridge for older Russian literal keys.
 - `qt_runtime_audit.py` — package-level runtime-boundary assertion used by both source and frozen Qt self-tests; it stays in the package root because it validates the package boundary rather than rendering UI.
-- source parsers such as `knigavuhe.py`, `poleknig.py`, plus shared core/network/model modules remain at package root when they are domain modules rather than UI layers.
+- Source-specific parsers live in `parsers/`, networking in `network/`, shared runtime in `engine/`, and domain models in `domain/`. The original package-root files are compatibility aliases.
 
 ## Tests
 
@@ -84,3 +84,18 @@ One-off migration tools belong under `archive/tools/`.
 4. Historical source snapshots and migration-only tooling never live in the runtime package or repository root.
 5. Generated caches/build output (`__pycache__`, `.pytest_cache`, `.historical-regression-*`, `build`, `dist`, `*.pyc`) are never part of source releases.
 6. Root-level `AUDIT_NOTES_*.md` files are forbidden; current round notes belong in `audits/4.12/rounds/`.
+
+## V20 module ownership
+
+- `audioknigi/parsers/` — Akniga, Knigavuhe and Poleknig page parsers.
+- `audioknigi/providers/` — source discovery, registry, searches and other providers.
+- `audioknigi/download/` — HLS, streaming, probing and media conversion.
+- `audioknigi/engine/` — shared headless runtime and HTTP sessions.
+- `audioknigi/domain/` — book, track and queue models.
+- `audioknigi/network/` — DNS, proxies and routes.
+- `audioknigi/services/` — application use cases and persistence.
+- `audioknigi/qt/` — Windows Qt UI and accessibility mixins.
+
+Legacy imports for core, models, DNS, sources and site parsers alias the same
+module objects for monkeypatch/class identity compatibility. Static imports in
+these aliases are intentional for Windows PyInstaller discovery.
