@@ -52,13 +52,7 @@ jobs:
             elif [ "${i}" = "25" ]; then
               # One historical test was never committed to the old GitHub main.
               # Keep every other V19 change, including the 21 release-doc renames.
-              python - <<'PY'
-              from pathlib import Path
-              s = Path("migration/v19/patches/25.patch").read_text(encoding="utf-8")
-              a = s.index("diff --git a/tests/integration/test_oct30_followup_audit_regressions.py")
-              b = s.index("diff --git a/", a + 10)
-              Path("/tmp/patch25-safe.patch").write_text(s[:a] + s[b:], encoding="utf-8")
-              PY
+              python -c 'from pathlib import Path; s=Path("migration/v19/patches/25.patch").read_text(encoding="utf-8"); a=s.index("diff --git a/tests/integration/test_oct30_followup_audit_regressions.py"); b=s.index("diff --git a/", a+10); Path("/tmp/patch25-safe.patch").write_text(s[:a]+s[b:], encoding="utf-8")'
               git apply /tmp/patch25-safe.patch
             else
               patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
