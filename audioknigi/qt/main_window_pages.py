@@ -504,7 +504,7 @@ class MainWindowPagesMixin:
         configure_accessible(dns_hint, name=self._l("Описание режима DNS"), identifier="dns_mode_hint")
         network.addRow("", dns_hint)
         self.proxy_url_edit = QLineEdit(str(self.settings.get("proxy_url", "") or ""))
-        self.proxy_url_edit.setPlaceholderText("http://127.0.0.1:8080 или socks5h://127.0.0.1:1080")
+        self.proxy_url_edit.setPlaceholderText("http://127.0.0.1:8080 / socks5h://127.0.0.1:1080")
         configure_accessible(self.proxy_url_edit,
             name=self._l("Адрес пользовательского HTTP или SOCKS5 прокси"), identifier="proxy_url",
             description=self._l("Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения."))
