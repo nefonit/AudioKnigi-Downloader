@@ -13,7 +13,7 @@ EXCLUDED_DIR_NAMES = {
 EXCLUDED_FILE_NAMES = {
     "settings.json", "history.json", "qt_queue.json", "cookies.json", "session_profile.json",
 }
-EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".tmp", ".part", ".pyd", ".so", ".dll"}
+EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".tmp", ".part", ".pyd", ".so", ".dll", ".orig"}
 
 
 def _excluded(relative: Path) -> bool:

@@ -13,6 +13,8 @@ venv/
 env/
 
 # Build/release output
+# Editor and migration backups (history is retained in Git)
+*.orig
 build/
 dist/
 *.egg-info/
