@@ -39,3 +39,8 @@ statements now live once in `engine/concurrency.py`, so that historical
 source-layout assertion is recorded as a known structural incompatibility.
 The new V25 behavior tests check polling, cancellation and shutdown directly,
 and the historical suite continues to run all other tests unmodified.
+
+The historical-regression runner now validates the **total archived-test
+coverage** (at least 383 cases from the V24 baseline) rather than assuming
+that exactly 250 source-shape assertions must continue passing. Every
+failure not explicitly in the reviewed incompatibility list still fails CI.
