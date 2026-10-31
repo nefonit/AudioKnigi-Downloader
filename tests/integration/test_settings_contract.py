@@ -145,7 +145,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_onboarding_accepted_settings_use_normalized_writer():
     source = (ROOT / 'audioknigi/qt/application.py').read_text(encoding='utf-8')
-    assert 'settings = onboarding.result_settings()\n            save_app_settings(settings)' in source
+    lines = source.splitlines()
+    assert any(
+        line.strip() == "settings = onboarding.result_settings()"
+        and lines[index + 1].strip() == "save_app_settings(settings)"
+        for index, line in enumerate(lines[:-1])
+    )
 
 
 # Origin: test_persistence_cancellation_hardening_20260929.py
