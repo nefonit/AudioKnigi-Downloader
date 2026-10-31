@@ -503,13 +503,14 @@ def test_focus_rings_are_refined_to_external_two_pixel_frame() -> None:
     assert 'WA_TransparentForMouseEvents' in accessibility
 
 def test_help_center_uses_rich_text_headings_lists_and_keyboard_badges() -> None:
-    help_source = src__report_followup_round40_20260920('audioknigi/qt/help_center.py')
+    help_source = src__report_followup_round40_20260920('audioknigi/qt/help_formatter.py')
+    dialog_source = src__report_followup_round40_20260920('audioknigi/qt/help_center.py')
     assert 'def _format_help_body_html' in help_source
     assert '<h2>{escaped_title}</h2>' in help_source
     assert '<kbd>' in help_source
     assert 'line-height: 1.42' in help_source
-    assert 'self.text.setHtml(_format_help_body_html(title, body))' in help_source
-    assert 'self.text.setPlainText(' not in help_source
+    assert 'self.text.setHtml(_format_help_body_html(title, body))' in dialog_source
+    assert 'self.text.setPlainText(' not in dialog_source
 
 
 # Origin: test_report_followup_round42_20260920.py
@@ -856,8 +857,8 @@ def test_help_accessibility_polish_is_present():
     assert 'viewport.mapToGlobal(point)' in context_menu
     assert 'point.setX(max(visible.left(), min(visible.right(), point.x())))' in context_menu
     assert 'widget.mapToGlobal(widget.rect().bottomLeft())' in context_menu
-    help_center = (ROOT / 'audioknigi/qt/help_center.py').read_text(encoding='utf-8')
-    assert 'Leertaste|Пробел|Пробіл|Esc' in help_center
+    help_formatter = (ROOT / 'audioknigi/qt/help_formatter.py').read_text(encoding='utf-8')
+    assert 'Leertaste|Пробел|Пробіл|Esc' in help_formatter
 
 
 # Origin: test_stability_localization_followup_20260915.py
@@ -918,7 +919,7 @@ def test_accessibility_round86_keyboard_and_localization_contracts():
     track_model = (ROOT / "audioknigi/qt/track_model.py").read_text(encoding="utf-8")
 
     assert "_DIRECT_ANNOUNCE_LAST_AT < 0.25" in accessibility
-    assert "Leertaste|Пробел|Пробіл|Esc" in help_center
+    assert "Leertaste|Пробел|Пробіл|Esc" in (ROOT / "audioknigi/qt/help_formatter.py").read_text(encoding="utf-8")
     assert "point.setX(max(visible.left(), min(visible.right(), point.x())))" in context_menu
     assert "point.setY(max(visible.top(), min(visible.bottom(), point.y())))" in context_menu
 
