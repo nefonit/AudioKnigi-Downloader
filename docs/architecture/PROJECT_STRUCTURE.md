@@ -26,6 +26,7 @@ Do not add feature modules, audit reports, temporary scripts, or historical snap
   - `network.py` — HTTP, resume, segmented/range downloading and HTTP error recovery; keeps legacy public transfer-policy imports.
   - `transfer_policy.py` — independent bandwidth token bucket, adaptive Range worker selection and sliding-window transfer speed metrics;
   - `resume_validation.py` — pure HTTP 416 completion classification and resumed HTTP 206 byte-offset validation before appending partial files;
+  - `range_retry.py` — bounded backoff policy for transient HTTP 429/5xx responses, including Retry-After without unbounded server-controlled waits;
   - `media.py` — FFmpeg conversion, splitting, normalization, tagging and covers;
   - `book_flow.py` — book-level orchestration;
   - `common.py`, `errors.py` — shared helpers/contracts.

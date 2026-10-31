@@ -10,6 +10,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 - [`architecture/HELP_CENTER_V27.md`](architecture/HELP_CENTER_V27.md) — Help Center formatter, topic-selection logic and event-handler contracts.
 - [`architecture/TRANSFER_POLICY_V28.md`](architecture/TRANSFER_POLICY_V28.md) — HTTP throughput policy extraction with resume compatibility.
 - [`architecture/HTTP_RESUME_V29.md`](architecture/HTTP_RESUME_V29.md) — safe HTTP 206/416 resume validation and connection-loss regressions.
+- [`architecture/RANGE_RETRY_V30.md`](architecture/RANGE_RETRY_V30.md) — bounded Retry-After and network-error recovery for Range segments.
 - [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.

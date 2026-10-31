@@ -23,6 +23,7 @@ from .common import atomic_write_text, replace_with_retry, unlink_with_retry
 from .errors import RangeUnsupported
 from .hls_parallel import stage_hls_vod
 from .resume_validation import is_complete_partial_after_416, validate_resumed_206
+from .range_retry import bounded_range_retry_delay
 
 _ACTIVE_IO_INIT_LOCK = threading.Lock()
 
@@ -347,8 +348,8 @@ class NetworkDownloadMixin:
         def peer_aborted() -> bool:
             return peer_abort_event is not None and peer_abort_event.is_set()
 
-        def wait_before_retry() -> bool:
-            delay = min(1.0, 0.15 * max(1, consecutive_no_progress))
+        def wait_before_retry(retry_after=None) -> bool:
+            delay = bounded_range_retry_delay(consecutive_no_progress, retry_after)
             if peer_abort_event is not None and peer_abort_event.wait(delay):
                 return True
             cancel_event = getattr(self, "cancel_event", None)
@@ -450,7 +451,8 @@ class NetworkDownloadMixin:
                 self._check_cancel()
                 if peer_aborted():
                     return existing
-                status = getattr(getattr(exc, "response", None), "status_code", None)
+                error_response = getattr(exc, "response", None)
+                status = getattr(error_response, "status_code", None)
                 if status in (404, 410):
                     # A vanished media URL will not recover by retrying the same
                     # Range request. Bubble it up immediately so the book-level
@@ -478,7 +480,12 @@ class NetworkDownloadMixin:
                     f"Range-запрос временно не удался ({consecutive_no_progress}/5); "
                     "повторяю с того же байта."
                 )
-                if wait_before_retry():
+                # Respect transient Retry-After hints, but never permit an
+                # unbounded server-controlled wait or bypass the 5-failure cap.
+                retry_after = None
+                if status == 429 or (isinstance(status, int) and 500 <= status <= 599):
+                    retry_after = (getattr(error_response, "headers", None) or {}).get("Retry-After")
+                if wait_before_retry(retry_after):
                     return existing
                 continue
             except OSError:
