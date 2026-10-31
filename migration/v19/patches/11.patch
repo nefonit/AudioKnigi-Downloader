@@ -1,0 +1,493 @@
+--- /dev/null
++++ b/README_SEARCH_ADAPTERS_V5.md
+@@ -0,0 +1,29 @@
++# V5: поиск Akniga/Izib и ускорение резервного TCP-подключения
++
++Экспериментальное дополнение к AudioKnigi Downloader 4.12.42 V4; версия основного приложения не меняется.
++
++## Изменения
++
++- `akniga.org`: реализован реальный поиск книг по каталогу `/search/books/pageN/?q=` (до 3 страниц, максимум 30 карточек). Из результатов исключаются превью, невалидные/внешние URL. Получение аудиофайлов и код HLS не изменены.
++- `izib.uk`: парсер выбирает название из текстовой ссылки на книгу, а не из обложки; различает пустую выдачу и страницу неожиданного формата, поддерживает несколько страниц (до 30 результатов).
++- Проверка источников: неподдерживаемый поиск, 0 найденных книг и сетевая/HTML-ошибка показываются раздельно. Поиск больше не должен выдавать фиктивное «0 результатов; 0 мс» для Akniga.
++- Автоматический DNS: после успешного резервного TCP-подключения к *другому* IP системы ненадолго (90 секунд) запоминает этот адрес в оперативной памяти. При последующем соединении в автоматическом режиме сначала пробует его, с максимум 1,5 сек ожидания. Системный DNS в режиме «Только Cloudflare» для подключения не используется. В ручной диагностике всегда проверяется свежий маршрут без этой оптимизации.
++- Переводы новых статусов: RU (исходные фразы), UK, DE, EN.
++
++## Локальная проверка
++
++- `python -m pytest -q tests/unit`: 107 тестов успешно.
++- `python -m pytest -q tests/integration/test_search.py tests/integration/test_providers.py tests/integration/test_network.py`: 239 тестов успешно.
++- `python -m pytest -q tests/integration/test_localization.py tests/integration/test_privacy_diagnostics.py`: 137 тестов успешно.
++- В историческом аудите исключений (`tests/integration/test_quality_gates.py::test_exception_allowlist_has_no_stale_entries_and_is_sorted`) ошибка `akniga.py:_find_hls` выявлена **также в неизменённой V4**.
++
++Тесты HTML используются как локальные образцы структуры, основанные на открытом коде AudioBookPlayer. Не удалось подключиться к реальным akniga.org и izib.uk в среде сборки; настоящий поиск, GUI Windows/NVDA/JAWS и HLS-загрузка остаются непроверенными. Возможны изменения разметки на сайтах.
++
++## Проверка на Windows
++
++1. Создайте резервную копию V4 перед установкой V5.
++2. Для проверки реализации поиска включите Cloudflare One (чтобы исключить прежние сетевые тайм-ауты).
++3. Введите в обычный поиск «Горбун» или «Шерлок Холмс» и включите Akniga и Izib. Проверьте названия, ссылки и отсутствие дублей.
++4. В меню сетевой диагностики используйте «Проверить поиск по каждому сайту». Для LibriVox лучше проверять «Sherlock Holmes» — русское «Поттер» может естественным образом вернуть 0.
++5. Затем выключите Cloudflare One и проверьте `knigavuhe.org` в автоматическом режиме DNS несколько раз за одну сессию. Скорость второй попытки может улучшиться; режим «Только Cloudflare» не использует кэшированные системные IP.
++6. Если поиск выдаёт «изменилась структура сайта», сохраните журнал приложения без секретов и отправьте для обновления селекторов.
+--- a/audioknigi/locales/runtime_exact.json
++++ b/audioknigi/locales/runtime_exact.json
+@@ -823,5 +823,15 @@
+     "uk": "Перевірку пошуку завершено.",
+     "de": "Suchprüfung abgeschlossen.",
+     "en": "Search check complete."
++  },
++  "Поиск не поддерживается": {
++    "uk": "Пошук не підтримується",
++    "de": "Suche nicht unterstützt",
++    "en": "Search not supported"
++  },
++  "Поиск выполнен; результатов нет": {
++    "uk": "Пошук виконано; результатів немає",
++    "de": "Suche abgeschlossen; keine Ergebnisse",
++    "en": "Search completed; no results"
+   }
+ }
+--- a/audioknigi/network_dns.py
++++ b/audioknigi/network_dns.py
+@@ -39,6 +39,10 @@
+ _CACHE_LOCK = threading.RLock()
+ _CACHE: dict[tuple[str, int], tuple[float, tuple[str, ...]]] = {}
+ _CACHE_MAX = 512
++# Short-lived, in-memory hint for a SYSTEM IP that rescued a failed AUTO
++# connection. Never persisted, never used in strict Cloudflare mode.
++_ROUTE_HINTS: dict[tuple[str, int], tuple[float, str]] = {}
++_ROUTE_HINT_TTL = 90.0
+ _INSTALLED = False
+ 
+ DNS_MODE_AUTO = "auto"
+@@ -92,6 +96,7 @@
+         _reset_dns_runtime_state()
+         with _CACHE_LOCK:
+             _CACHE.clear()
++            _ROUTE_HINTS.clear()
+     return normalized
+ 
+ 
+@@ -844,6 +849,41 @@
+                 failures.append(exc)
+         return None
+ 
++    # Remember a recently successful *different* system IP in AUTO mode to
++    # avoid repeating a 4-second dead Cloudflare route on every search.
++    # Do not take precedence in diagnostic mode, which should show the live
++    # Cloudflare-to-system comparison, or for small deadlines.
++    if mode == DNS_MODE_AUTO and primary == "Cloudflare" and not diagnostic and timeout >= 3:
++        with _CACHE_LOCK:
++            record = _ROUTE_HINTS.get((host.casefold(), int(port)))
++            if record and record[0] <= time.monotonic():
++                _ROUTE_HINTS.pop((host.casefold(), int(port)), None)
++                record = None
++        if record and record[1] not in candidate_ips:
++            details["alternate_attempted"] = True
++            remaining = deadline - time.monotonic()
++            if remaining > 2:
++                cached_ip = record[1]
++                began = time.monotonic()
++                details["dns_provider"] = "system (cached TCP route)"
++                details["address"] = cached_ip
++                details["attempts"] += 1
++                tried.add(cached_ip)
++                try:
++                    sock = _ORIGINAL_CREATE_CONNECTION((cached_ip, int(port)), timeout=min(1.5, remaining - 1))
++                    elapsed = round((time.monotonic()-began)*1000)
++                    details["tcp_ms"] += elapsed
++                    details["attempt_log"].append(("system (cached TCP route)", cached_ip, "OK", elapsed))
++                    details["fallback_status"] = "cached_system_route_success"
++                    return sock, details
++                except OSError as exc:
++                    elapsed = round((time.monotonic()-began)*1000)
++                    details["tcp_ms"] += elapsed
++                    details["attempt_log"].append(("system (cached TCP route)", cached_ip,
++                        "timeout" if isinstance(exc, (TimeoutError, socket.timeout)) else type(exc).__name__, elapsed))
++                    failures.append(exc)
++                    with _CACHE_LOCK:
++                        _ROUTE_HINTS.pop((host.casefold(), int(port)), None)
+     socket_result = attempt(candidate_ips, primary, reserved_for_fallback=bool(reserve))
+     if socket_result is not None:
+         return socket_result, details
+@@ -866,6 +906,13 @@
+                 details["fallback_status"] = "tried_system_alternative"
+                 socket_result = attempt(different, "system (TCP fallback)", reserved_for_fallback=False)
+                 if socket_result is not None:
++                    if not diagnostic:
++                        with _CACHE_LOCK:
++                            if len(_ROUTE_HINTS) >= 128:
++                                _ROUTE_HINTS.pop(next(iter(_ROUTE_HINTS)))
++                            _ROUTE_HINTS[(host.casefold(), int(port))] = (
++                                time.monotonic() + _ROUTE_HINT_TTL, str(details["address"])
++                            )
+                     app_logger.info("NETWORK DNS | event=tcp_fallback_success | host=%s | selected=system", host)
+                     return socket_result, details
+     elif mode == DNS_MODE_CLOUDFLARE:
+--- a/audioknigi/providers/adapters.py
++++ b/audioknigi/providers/adapters.py
+@@ -84,7 +84,7 @@
+ 
+ 
+ class AKnigaProvider(SourceProvider):
+-    """Akniga.org experimental URL-only adapter; no search indexing."""
++    """Akniga.org catalogue search and experimental book analyzer."""
+     key = "akniga"
+     display_name = AKNIGA_HOST
+ 
+@@ -97,6 +97,10 @@
+     def fetch_book(self, url: str, *, cancel_event: threading.Event | None = None) -> Book:
+         from ..akniga import fetch_book
+         return fetch_book(self.canonicalize_url(url), cancel_event=cancel_event)
++
++    def search(self, query: str, *, cancel_event: threading.Event | None = None) -> list[SearchResult]:
++        from .extra_sources import search_akniga
++        return list(search_akniga(query, cancel_event=cancel_event) or [])
+ 
+ 
+ class _ExtraPublicProvider(SourceProvider):
+--- a/audioknigi/providers/extra_sources.py
++++ b/audioknigi/providers/extra_sources.py
+@@ -20,7 +20,7 @@
+ 
+ from ..core import Cancelled, SiteStructureChanged, get_http_session, parse_time_seconds
+ from ..models import Book, Track, SearchResult
+-from ..sources import normalize_supported_url
++from ..sources import normalize_supported_url, is_supported_url
+ 
+ _TIMEOUT = (6, 18)
+ _SEARCH_LIMIT = 30
+@@ -133,22 +133,123 @@
+         tracks=tracks)
+ 
+ 
++def _izib_search_card(card, base_url: str) -> SearchResult | None:
++    """Extract a real search card, not its cover or preview link.
++
++    Izib renders the same /art link twice, once around the cover and once
++    around the book title. Prefer the text-only anchor from the original
++    AudioBookPlayer implementation and never infer a book from empty alt text.
++    """
++    anchors = card.select("a[href^='/art'], a[href^='/book/']")
++    if not anchors:
++        return None
++    anchor = next((a for a in anchors if not a.select_one('img') and _clean(a.get_text(' ', strip=True))), None)
++    anchor = anchor or next((a for a in anchors if _clean(a.get('title'))), None) or anchors[0]
++    page_url = urljoin(base_url, str(anchor.get('href') or ''))
++    if not is_supported_url(page_url):
++        return None
++    name = (_clean(anchor.get_text(' ', strip=True)) if not anchor.select_one('img') else '')
++    if not name:
++        name = _clean(anchor.get('title')) or _clean((card.select_one('img') or {}).get('alt'))
++    if not name:
++        return None
++    return SearchResult(title=name, url=page_url, source='izib.uk',
++                        author=_text(card, "a[href^='/author']"),
++                        narrator=_text(card, "a[href^='/reader']"))
++
++
+ def search_izibuk(query: str, *, cancel_event=None) -> list[SearchResult]:
+-    soup = _soup("https://izib.uk/search?q=" + quote(query), cancel_event)
+-    output = []
+-    for el in soup.select("#books_list > div, #books_list > div > div"):
+-        link = el.select_one("a[href^='/art'], a[href^='/book/']")
+-        if not link:
+-            continue
+-        page_url = urljoin("https://izib.uk", link.get("href", ""))
+-        name = _clean(link.get_text(" ", strip=True)) or _clean((el.select_one("img") or {}).get("alt", ""))
+-        if name:
+-            output.append(SearchResult(title=name, url=page_url, source="izib.uk",
+-                                       author=_text(el, "a[href^='/author']"),
+-                                       narrator=_text(el, "a[href^='/reader']")))
+-        if len(output) >= _SEARCH_LIMIT:
+-            break
+-    return _dedupe_results(output)
++    """Browse the Izib search cards using the same layout as AudioBookPlayer.
++
++    When the results block is missing, distinguish a redesigned/blocked page
++    from a legitimate empty query instead of claiming zero search results.
++    """
++    results = []
++    for page in range(1, 4):
++        _check_cancel(cancel_event)
++        search_url = 'https://izib.uk/search?q=' + quote(query) + f'&p={page}'
++        soup = _soup(search_url, cancel_event)
++        listing = soup.select_one('#books_list')
++        if listing is None:
++            if page > 1:
++                break
++            raise SiteStructureChanged('izib.uk: не найдена область результатов поиска (возможно, изменился сайт).')
++        # Direct children are grid rows; book cards are their immediate children.
++        cards = listing.select(':scope > div > div')
++        if not cards:
++            cards = listing.select(':scope > div')
++        page_results = []
++        for card in cards:
++            # Preview/audio sample links may have a trailing <span> marker.
++            if card.select_one("a[href^='/art'] + span"):
++                continue
++            result = _izib_search_card(card, 'https://izib.uk/')
++            if result is not None:
++                page_results.append(result)
++        if not page_results:
++            break
++        results.extend(page_results)
++        results = _dedupe_results(results)
++        if len(results) >= _SEARCH_LIMIT:
++            break
++    return results[:_SEARCH_LIMIT]
++
++
++def _akniga_search_card(card) -> SearchResult | None:
++    """Parse a normal Akniga search entry, excluding catalogue previews."""
++    if card.select_one('.caption__article-preview'):
++        return None
++    anchor = card.select_one('div.article--cover > a[href]') or card.select_one('a[href]')
++    if anchor is None:
++        return None
++    url = urljoin('https://akniga.org/', str(anchor.get('href') or ''))
++    if not is_supported_url(url):
++        return None
++    author = _text(card, "span.link__action--author a[href*='author']")
++    narrator = _text(card, "span.link__action--author a[href*='performer']")
++    cover = anchor.select_one('img') or card.select_one('img')
++    name = _clean(cover.get('alt') if cover else '') or _text(card, '.caption__article-main')
++    if not name:
++        name = _clean(anchor.get_text(' ', strip=True))
++    # Album artwork often contains `Author – Title`. Drop only the confirmed
++    # author prefix, never guess one from an arbitrary dash inside a title.
++    if author:
++        for separator in (' – ', ' — ', ' - '):
++            prefix = author + separator
++            if name.casefold().startswith(prefix.casefold()):
++                name = name[len(prefix):].strip()
++                break
++    if not name:
++        return None
++    return SearchResult(title=name, url=url, source='akniga.org',
++                        author=author, narrator=narrator)
++
++
++def search_akniga(query: str, *, cancel_event=None) -> list[SearchResult]:
++    """Akniga book catalogue search; no player token or media is requested."""
++    results = []
++    for page in range(1, 4):
++        _check_cancel(cancel_event)
++        url = f'https://akniga.org/search/books/page{page}/?q=' + quote(query)
++        soup = _soup(url, cancel_event)
++        cards = soup.select('div.content__main__articles--item')
++        if not cards:
++            if page == 1 and not (soup.select_one('.content__main__articles') or
++                                  re.search(r'ничего не найдено|нет результатов|по вашему запросу', soup.get_text(' ', strip=True), re.I)):
++                raise SiteStructureChanged('akniga.org: не найдена область результатов поиска (возможно, изменился сайт).')
++            break
++        page_results = []
++        for card in cards:
++            result = _akniga_search_card(card)
++            if result is not None:
++                page_results.append(result)
++        if not page_results:
++            break
++        results.extend(page_results)
++        results = _dedupe_results(results)
++        if len(results) >= _SEARCH_LIMIT:
++            break
++    return results[:_SEARCH_LIMIT]
+ 
+ 
+ _YAKNIGA_FIELDS = """title authorName readers { name } seriesName seriesNum
+--- a/audioknigi/qt/mixins/accessibility_ui.py
++++ b/audioknigi/qt/mixins/accessibility_ui.py
+@@ -155,9 +155,12 @@
+                 self._manual_search_check = False
+                 labels = [self._l("Результат настоящего поиска (не скачивания):")]
+                 for item in items:
+-                    if item.reachable:
+-                        detail = self._l("Поиск выполнен; найдено: {count}",
+-                            count=int(getattr(item, "search_results", 0) or 0))
++                    if not getattr(item, "search_supported", True):
++                        detail = self._l("Поиск не поддерживается")
++                    elif item.reachable:
++                        count = int(getattr(item, "search_results", 0) or 0)
++                        detail = (self._l("Поиск выполнен; найдено: {count}", count=count)
++                                  if count else self._l("Поиск выполнен; результатов нет"))
+                     else:
+                         detail = str(getattr(item, "error", "") or self._l("Ошибка поиска"))
+                     ms = getattr(item, "tcp_ms", None)
+--- a/audioknigi/services/source_health_service.py
++++ b/audioknigi/services/source_health_service.py
+@@ -40,6 +40,7 @@
+     fallback_status: str = ""
+     search_checked: bool = False
+     search_results: int | None = None
++    search_supported: bool = True
+ 
+ 
+ @dataclass(slots=True)
+@@ -205,6 +206,12 @@
+     import time
+     started = time.monotonic()
+     key = str(provider.display_name)
++    from ..providers.base import SourceProvider
++    # Do not report the base provider's empty placeholder as a successful query.
++    # Lightweight fake providers used in offline tests do not derive from it.
++    if isinstance(provider, SourceProvider) and type(provider).search is SourceProvider.search:
++        return SourceHealthItem(key, "", False, error="Поиск не поддерживается",
++                                search_checked=True, search_supported=False, tcp_ms=0)
+     try:
+         results = provider.search(query)
+         count = len(list(results or ()))
+--- /dev/null
++++ b/tests/unit/test_v5_search_and_route.py
+@@ -0,0 +1,150 @@
++"""V5 regressions: catalogue extraction, truthful search diagnostic, fast TCP fallback."""
++from __future__ import annotations
++
++import socket
++import threading
++from dataclasses import dataclass
++
++import pytest
++
++from audioknigi.core import Cancelled, SiteStructureChanged
++from audioknigi.providers import extra_sources as extra
++from audioknigi.providers.adapters import AKnigaProvider, IzibukProvider
++from audioknigi.providers.base import SourceProvider
++from audioknigi.services import source_health_service as health
++from audioknigi import network_dns as nd
++
++
++class Response:
++    def __init__(self, text):
++        self.text = text
++
++
++def fake_soup_pages(monkeypatch, pages):
++    requested=[]
++    def _get(url, *, cancel_event=None, **kwargs):
++        requested.append(url)
++        for key, markup in pages.items():
++            if key in url:
++                return Response(markup)
++        raise AssertionError(f'unexpected page: {url}')
++    monkeypatch.setattr(extra, '_request', _get)
++    return requested
++
++
++def test_akniga_real_provider_search_and_metadata(monkeypatch):
++    pages = {'page1': '''<div class="content__main__articles">
++       <div class="content__main__articles--item">
++        <div class="article--cover"><a href="/doil-artur-delo"><img alt="Дойл Артур – Горбун"></a></div>
++        <span class="link__action--author"><a href="/author/1">Дойл Артур</a>
++        <a href="/performer/7">Сушков</a></span>
++       </div>
++       <div class="content__main__articles--item">
++        <div class="article--cover"><a href="/preview-foo"><img alt="Превью"></a></div>
++        <div class="caption__article-preview">Фрагмент</div>
++       </div>
++       <div class="content__main__articles--item"><a href="https://evil.example/bad-1">external</a></div>
++       </div>''',
++       'page2': '<div class="content__main__articles"></div>'}
++    requested=fake_soup_pages(monkeypatch,pages)
++    results=AKnigaProvider().search('Горбун')
++    assert len(results)==1
++    assert results[0].title=='Горбун'
++    assert results[0].author=='Дойл Артур'
++    assert results[0].narrator=='Сушков'
++    assert results[0].source=='akniga.org'
++    assert results[0].url=='https://akniga.org/doil-artur-delo'
++    assert 'page1/?q=' in requested[0]
++    assert len(requested)==2
++
++
++def test_akniga_empty_is_distinguished_from_unrecognized_layout(monkeypatch):
++    fake_soup_pages(monkeypatch, {'page1':'<div class="content__main__articles"></div>'})
++    assert extra.search_akniga('Невозможный запрос')==[]
++    fake_soup_pages(monkeypatch, {'page1':'<html><title>Обслуживание</title></html>'})
++    with pytest.raises(SiteStructureChanged,match='область результатов'):
++        extra.search_akniga('Невозможный запрос')
++
++
++def test_akniga_cancelled_before_network(monkeypatch):
++    event=threading.Event();event.set()
++    monkeypatch.setattr(extra, '_request', lambda *a,**k: pytest.fail('must not request'))
++    with pytest.raises(Cancelled):
++        extra.search_akniga('Горбун',cancel_event=event)
++
++
++def test_izib_card_uses_text_title_not_cover_and_deduplicates(monkeypatch):
++    pages={'p=1': '''<section id="books_list"><div class="grid">
++     <div><a href="/art001"><img alt="Книга на обложке"></a>
++      <div><a href="/art001">Правильное название</a></div>
++      <a href="/author/11">Автор 1</a><a href="/reader/22">Чтец 1</a></div>
++     <div><a href="/art002"><img alt="Книга 2"></a>
++      <div><a href="/art002">Книга 2</a></div></div>
++     </div></section>''',
++     'p=2': '<section id="books_list"><div></div></section>'}
++    requested=fake_soup_pages(monkeypatch,pages)
++    rows=IzibukProvider().search('автор')
++    assert [r.title for r in rows]==['Правильное название','Книга 2']
++    assert rows[0].author=='Автор 1'
++    assert rows[0].narrator=='Чтец 1'
++    assert rows[0].url=='https://izib.uk/art001'
++    assert len(requested)==2
++
++
++def test_izib_unknown_html_is_error_not_empty(monkeypatch):
++    fake_soup_pages(monkeypatch,{'p=1':'<html>Browser challenge</html>'})
++    with pytest.raises(SiteStructureChanged,match='область результатов'):
++        extra.search_izibuk('Поттер')
++
++
++def test_search_diagnostic_distinguishes_unsupported_empty_error(monkeypatch):
++    class Unimplemented(SourceProvider):
++        key='stub';display_name='Stub'
++        def supports_url(self,url): return False
++        def canonicalize_url(self,url):return url
++        def fetch_book(self,url,*,cancel_event=None):raise NotImplementedError
++    @dataclass
++    class Blank:
++        key: str='blank';display_name: str='Blank'
++        def search(self, query):return []
++    @dataclass
++    class Broken:
++        key: str='broken';display_name: str='Broken'
++        def search(self, query):raise TimeoutError('https://secret.example/?token=private')
++    from audioknigi import providers
++    monkeypatch.setattr(providers,'registered_providers',lambda:(Unimplemented(),Blank(),Broken()))
++    rows=health.check_source_search('Поттер').items
++    assert not rows[0].search_supported and not rows[0].reachable
++    assert rows[0].error=='Поиск не поддерживается'
++    assert rows[1].search_supported and rows[1].reachable and rows[1].search_results==0
++    assert rows[2].search_supported and not rows[2].reachable and 'тайм-аут' in rows[2].error
++    assert 'private' not in rows[2].error
++
++
++def test_cached_system_ip_skips_failing_cloudflare_ip(monkeypatch):
++    nd.configure_dns_mode('auto')
++    with nd._CACHE_LOCK:nd._ROUTE_HINTS.clear()
++    monkeypatch.setattr(nd,'_resolve',lambda *a:('192.0.2.1',))
++    monkeypatch.setattr(nd,'_system_addresses',lambda *a:('192.0.2.2',))
++    tried=[]
++    class Connected:
++        def getpeername(self):return ('192.0.2.2',443)
++        def close(self):pass
++    def connect(target, timeout=None):
++        tried.append(target[0])
++        if target[0]=='192.0.2.1':raise TimeoutError('cloudflare ip blocked')
++        return Connected()
++    monkeypatch.setattr(nd,'_ORIGINAL_CREATE_CONNECTION',connect)
++    try:
++        _,first=nd._connect_target_with_info('example.org',443,timeout=3.5)
++        assert first['dns_provider']=='system (TCP fallback)'
++        assert tried==['192.0.2.1','192.0.2.2']
++        tried.clear()
++        _,second=nd._connect_target_with_info('example.org',443,timeout=3.5)
++        assert tried==['192.0.2.2']
++        assert second['fallback_status']=='cached_system_route_success'
++        nd.configure_dns_mode('cloudflare')
++        assert not nd._ROUTE_HINTS
++    finally:
++        nd.configure_dns_mode('auto')
++        with nd._CACHE_LOCK:nd._ROUTE_HINTS.clear()

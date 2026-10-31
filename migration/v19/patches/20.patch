@@ -1,0 +1,228 @@
+--- a/audioknigi/akniga.py
++++ b/audioknigi/akniga.py
+@@ -89,13 +89,50 @@
+         value = _strip_akniga_seo(node.get_text(" ", strip=True))
+         return re.sub(r"^Описание\s*(?::|[–—])?\s+", "", value, count=1, flags=re.I).strip()
+ 
++    # On compilations such as "Мифы Ктулху" the "Содержание" list is INSIDE
++    # the very same description__article-main element as the synopsis. Its
++    # content belongs to a different field, not the book annotation. Do not
++    # trim at words appearing naturally inside prose: only standalone section
++    # labels and headings end a synopsis.
++    tail_headings = {
++        "содержание", "оглавление", "поддержать исполнителя",
++        "поделиться аудиокнигой", "другие озвучки", "другие книги серии",
++        "входит в подборку", "другие книги", "комментарии",
++    }
++
+     def synopsis_from_node(el) -> str:
+         # Work with a clone: deleting a heading must not mutate the original
+         # DOM, which is also inspected by the fallback extractors.
+         copy = BeautifulSoup(str(el), "html.parser")
+         for caption in copy.select(caption_selector):
+             caption.decompose()
+-        value = readable(copy.select_one(el.name) if isinstance(el, Tag) else None)
++        selected = copy.select_one(el.name) if isinstance(el, Tag) else None
++        if selected is None:
++            return ""
++        # Iterate textual nodes in document order, stopping as soon as a new
++        # section starts, even when its heading is merely <b>Содержание</b> or
++        # bare text separated by <br> rather than a sibling article element.
++        # Splitting before _clean() also preserves the original paragraphs.
++        parts = []
++        for node in selected.strings:
++            raw = str(node or "").strip()
++            if not raw:
++                continue
++            # Text nodes can include literal line breaks from the page HTML.
++            lines = raw.splitlines()
++            end_section = False
++            for line in lines:
++                piece = _clean(line)
++                if not piece:
++                    continue
++                if piece.casefold().rstrip(" :：") in tail_headings:
++                    end_section = True
++                    break
++                parts.append(piece)
++            if end_section:
++                break
++        value = _strip_akniga_seo(" ".join(parts))
++        value = re.sub(r"^Описание\s*(?::|[–—])?\s+", "", value, count=1, flags=re.I).strip()
+         if len(value) < 20 or value.casefold().startswith((
+             "входит в подборку", "другие озвучки", "другие книги серии",
+             "другие книги", "поддержать исполнителя", "добавлено ",
+@@ -333,11 +370,26 @@
+ 
+ 
+ def _is_proxy_tunnel_error(exc: BaseException) -> bool:
+-    """Only retry connectivity failures, not HTTP/authorization/format errors."""
++    """Recognize a failed local proxy tunnel, not an HTTP/application error."""
+     message = str(exc)
+     return any(token in message for token in (
+         "ERR_TUNNEL_CONNECTION_FAILED", "ERR_PROXY_CONNECTION_FAILED",
+         "ERR_NO_SUPPORTED_PROXIES",
++    ))
++
++
++def _is_navigation_connection_error(exc: BaseException) -> bool:
++    """Page navigation TCP/DNS failures eligible for one auto-DNS fallback.
++
++    A page's HTTP status, blocked resource, site script or audio-player error
++    must never trigger a re-analysis. Do not match the generic Playwright
++    'Timeout' (which can be DOM load delay, not a failed connection).
++    """
++    message = str(exc)
++    return "Page.goto:" in message and any(code in message for code in (
++        "net::ERR_CONNECTION_TIMED_OUT", "net::ERR_NAME_NOT_RESOLVED",
++        "net::ERR_CONNECTION_RESET", "net::ERR_CONNECTION_CLOSED",
++        "net::ERR_CONNECTION_REFUSED", "net::ERR_ADDRESS_UNREACHABLE",
+     ))
+ 
+ 
+@@ -395,26 +447,29 @@
+                 playwright, url, cancel_event, use_system_dns=False,
+             )
+         except Exception as exc:
+-            if (not _is_proxy_tunnel_error(exc)
++            if (not (_is_proxy_tunnel_error(exc) or _is_navigation_connection_error(exc))
+                     or current_dns_mode() != DNS_MODE_AUTO
+                     or user_proxy_enabled()
+                     or (cancel_event is not None and cancel_event.is_set())):
+                 raise
+             # The app's Cloudflare DNS mode 'auto' explicitly permits a
+             # fallback to the OS resolver; do not alter the global DNS mode.
++            # Do not log the full Playwright exception: it may contain the
++            # user's book URL, signed URLs or other private request data.
+             app_logger.warning(
+-                "Akniga Playwright local DNS-proxy tunnel failed; "
+-                "retrying this page with system DNS: %s", exc,
++                "Akniga Playwright page connection failed; "
++                "one system-DNS retry (error_type=%s)", type(exc).__name__,
+             )
+             try:
+                 return _fetch_using_browser(
+                     playwright, url, cancel_event, use_system_dns=True,
+                 )
+             except Exception as retry_exc:
+-                if _is_proxy_tunnel_error(retry_exc):
++                if (_is_proxy_tunnel_error(retry_exc)
++                        or _is_navigation_connection_error(retry_exc)):
+                     raise RuntimeError(
+-                        "Akniga: не удалось подключиться к сайту через сетевой "
+-                        "прокси и при прямом повторе. Проверьте настройки DNS, "
+-                        "прокси/VPN и доступность страницы в Edge."
++                        "Akniga: страницу не удалось открыть ни через встроенный "
++                        "DNS-мост, ни через системное подключение. Проверьте "
++                        "доступность сайта в Edge, настройки сети и Cloudflare One."
+                     ) from retry_exc
+                 raise
+--- a/tests/unit/test_v14_akniga_description_and_navigation.py
++++ b/tests/unit/test_v14_akniga_description_and_navigation.py
+@@ -0,0 +1,97 @@
++"""Regression against user-reported Akniga pages and browser navigation errors."""
++from contextlib import contextmanager
++from types import SimpleNamespace
++import pytest
++from audioknigi import akniga
++
++URL = "https://akniga.org/lavkraft-govard-mify-ktulhu"
++INTRO = (
++    "Эти рассказы и повести — очень разные. События, описанные в них, происходят "
++    "в самых разных местах — от далекого будущего и нашего времени, до глубокого "
++    "прошлого, когда человек только зарождался, от далеких планет до маленьких "
++    "американских захолустных городков, вплоть до средневековых замков. "
++    "Эти рассказы очень разные в плане сюжета — одни из них напоминают легенды "
++    "и притчи, другие — повествования самых разных людей о необычных и ужасных "
++    "событиях, которые происходят с ними. Оптимистичные и наводящие печаль и "
++    "безысходность, светлые и темные, порой — философские, порой — почти "
++    "приключенческие. И все же их объединяет одно — все они принадлежат перу "
++    "Говарда Филипса Лавкрафта, гениального американского писателя, обладавшего "
++    "поистине уникальным воображением и создавшего эти небольшие литературные шедевры."
++)
++CONTENTS = "Говард Лавкрафт — Безымянный город. Говард Лавкрафт — Дагон"
++
++@pytest.mark.parametrize("tail", [
++    f"<br><br><b>Содержание</b><br>{CONTENTS}",
++    f"<br><br>Содержание<br>{CONTENTS}",
++    f"<p><strong>Содержание</strong></p><ol><li>{CONTENTS}</li></ol>",
++    f"\nСодержание\n{CONTENTS}",
++])
++def test_myths_synopsis_does_not_swallow_table_of_contents(tail):
++    html = f"""<html><head><meta property="og:description" content="Promo"></head>
++    <div class="description__article-main">
++    <div class="content__main__book--item--caption">Описание</div>
++    <p>{INTRO}</p>{tail}</div></html>"""
++    assert akniga._akniga_description(html) == INTRO
++
++
++def test_ordinary_word_contents_does_not_truncate_prose():
++    text = "Содержание этой истории раскрывается постепенно, когда герой приходит в деревню."
++    html = f'<div class="description__article-main"><div class="content__main__book--item--caption">Описание</div>{text}</div>'
++    assert akniga._akniga_description(html) == text
++
++
++@pytest.mark.parametrize("mode,expected", [("auto", [False, True]), ("cloudflare", [False])])
++def test_navigation_timeout_auto_only_falls_back_to_system_dns(monkeypatch, mode, expected):
++    attempts = []
++    closed = []
++    class Page:
++        def on(self, *args): pass
++        def goto(self, url, **kwargs):
++            if not attempts[-1]:
++                raise RuntimeError('Page.goto: net::ERR_CONNECTION_TIMED_OUT at ' + url)
++        def content(self):
++            return '<section data-bid="123"></section><script>LIVESTREET_SECURITY_KEY = "abc"</script>'
++    class Ctx:
++        def new_page(self): return Page()
++        def close(self): closed.append('context')
++    class Browser:
++        def new_context(self, **kwargs): return Ctx()
++        def close(self): closed.append('browser')
++    def launch(browser, *, use_system_dns=False):
++        attempts.append(use_system_dns)
++        return Browser()
++    @contextmanager
++    def playwright(): yield SimpleNamespace(chromium=object())
++    monkeypatch.setattr(akniga, 'sync_playwright', playwright)
++    monkeypatch.setattr(akniga, 'launch_playwright_chromium', launch)
++    monkeypatch.setattr(akniga, 'current_dns_mode', lambda: mode)
++    monkeypatch.setattr(akniga, 'user_proxy_enabled', lambda: False)
++    monkeypatch.setattr(akniga, '_api_data', lambda *args: {'items': []})
++    monkeypatch.setattr(akniga, '_find_hls', lambda *args: 'https://media.example.test/book.m3u8')
++    monkeypatch.setattr(akniga, '_parse_api_book', lambda *args: 'book')
++    if mode == 'auto':
++        assert akniga.fetch_book(URL) == 'book'
++    else:
++        with pytest.raises(RuntimeError, match='ERR_CONNECTION_TIMED_OUT'):
++            akniga.fetch_book(URL)
++    assert attempts == expected
++    assert closed == ['context', 'browser'] * len(expected)
++
++
++def test_double_navigation_timeout_raises_safe_message(monkeypatch):
++    @contextmanager
++    def playwright(): yield SimpleNamespace(chromium=object())
++    monkeypatch.setattr(akniga, 'sync_playwright', playwright)
++    monkeypatch.setattr(akniga, 'current_dns_mode', lambda: 'auto')
++    monkeypatch.setattr(akniga, 'user_proxy_enabled', lambda: False)
++    monkeypatch.setattr(akniga, '_fetch_using_browser', lambda *a, **k: (_ for _ in ()).throw(
++        RuntimeError('Page.goto: net::ERR_CONNECTION_TIMED_OUT at https://akniga.org/private?token=secret')))
++    with pytest.raises(RuntimeError, match='Akniga: страницу не удалось открыть') as err:
++        akniga.fetch_book(URL)
++    assert 'token=secret' not in str(err.value)
++
++
++def test_app_errors_do_not_trigger_network_retry():
++    assert not akniga._is_navigation_connection_error(RuntimeError('Page.goto: Timeout 30000ms exceeded'))
++    assert not akniga._is_navigation_connection_error(RuntimeError('Page.goto: HTTP 403 Forbidden'))
++    assert not akniga._is_navigation_connection_error(RuntimeError('Page.evaluate: net::ERR_CONNECTION_TIMED_OUT'))
+--- a/README_AKNIGA_DESCRIPTION_NETWORK_V14.md
++++ b/README_AKNIGA_DESCRIPTION_NETWORK_V14.md
+@@ -0,0 +1,6 @@
++# V14: Akniga synopsis boundaries and Playwright auto DNS fallback
++
++- Descriptions now stop at a standalone `Содержание`/`Оглавление` heading even if the track list is embedded in the very same `description__article-main` element as the prose. Adjacent support and recommendation section headers are excluded too. Do not hard-code book text.
++- In DNS `auto` mode with no user proxy, `Page.goto: net::ERR_CONNECTION_TIMED_OUT` and other explicit network navigation errors can trigger **one** clean retry with system DNS. `cloudflare` mode is strict. Generic 30-second DOM navigation timeout, HTTP status and player/content errors never trigger retries.
++- Automatic retry is not a WARP/VPN replacement. With network filtering, both routes can fail. A safe explanatory message is shown if both attempts encounter navigation connectivity errors.
++- Source project only, not Windows executable. Check on Windows with Cloudflare One on/off and verify both Akniga pages; playback/HLS was not changed.

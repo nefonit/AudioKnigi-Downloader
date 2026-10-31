@@ -1,0 +1,386 @@
+--- a/audioknigi/services/source_health_service.py
++++ b/audioknigi/services/source_health_service.py
+@@ -30,6 +30,7 @@
+     dns_ms: int | None = None
+     tcp_ms: int | None = None
+     tls_ms: int | None = None
++    http_ms: int | None = None
+     alternate_attempted: bool = False
+     error_code: str = ""
+     cloudflare_addresses: tuple[str, ...] = ()
+@@ -67,6 +68,12 @@
+ 
+ def classify_network_error(exc: BaseException) -> str:
+     """Explain connectivity failures without exposing signed URLs or secrets."""
++    # Classify the outer Requests exception first: its nested urllib3/socket
++    # timeout may otherwise hide whether the failure was during HTTP *reading*.
++    if isinstance(exc, requests.exceptions.ReadTimeout):
++        return "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)"
++    if isinstance(exc, requests.exceptions.ConnectTimeout):
++        return "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)"
+     cause = getattr(exc, "__cause__", None)
+     if isinstance(cause, BaseException) and cause is not exc:
+         safe_cause = classify_network_error(cause)
+@@ -74,7 +81,7 @@
+             return safe_cause
+     if isinstance(exc, requests.exceptions.ProxyError):
+         return "Прокси/туннель: соединение не удалось"
+-    if isinstance(exc, (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout, TimeoutError, socket.timeout)):
++    if isinstance(exc, (TimeoutError, socket.timeout)):
+         return "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)"
+     if isinstance(exc, (requests.exceptions.SSLError, ssl.SSLError)):
+         return "HTTPS: ошибка сертификата или TLS"
+@@ -83,6 +90,8 @@
+     explanation = str(exc).lower()
+     if any(word in explanation for word in ("nameresolutionerror", "failed to resolve", "getaddrinfo failed", "name or service not known", "dns returned no", "hostname resolution")):
+         return "DNS: не удалось определить IP-адрес"
++    if any(word in explanation for word in ("read timed out", "read timeout", "timed out while reading")):
++        return "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)"
+     if any(word in explanation for word in ("timed out", "timeout", "winerror 10060")):
+         return "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)"
+     if "proxy" in explanation or "tunnel" in explanation:
+@@ -145,17 +154,26 @@
+     source = str(host or "").strip()
+     info: dict[str, object] = {}
+     tls_ms = None
++    http_ms = None
++    phase = "connect"
++    http_started = None
+     try:
+         raw, info = _connect_target_with_info(source, 443, timeout=timeout, diagnostic=True)
+         began_tls = time.monotonic()
++        phase = "tls"
+         try:
+             with ssl.create_default_context().wrap_socket(raw, server_hostname=source) as tls:
+                 tls_ms = round((time.monotonic()-began_tls)*1000)
+                 tls.settimeout(timeout)
++                http_started = time.monotonic()
++                phase = "http_send"
+                 tls.sendall((f"GET / HTTP/1.1\r\nHost: {source}\r\n"
+                              "User-Agent: AudioKnigi-Connectivity/1.0\r\n"
+                              "Accept: */*\r\nConnection: close\r\n\r\n").encode("ascii"))
++                phase = "http_read"
+                 status_line = tls.recv(256).split(b"\n", 1)[0]
++                http_ms = round((time.monotonic()-http_started)*1000)
++            phase = "http_parse"
+             match = re.match(rb"HTTP/\d(?:\.\d)?\s+(\d{3})", status_line)
+             if not match:
+                 raise OSError("HTTPS: некорректный ответ сервера")
+@@ -165,7 +183,7 @@
+                                     status_code=code, dns_provider=str(info.get("dns_provider", "")),
+                                     ip_address=str(info.get("address", "")),
+                                     dns_ms=int(info.get("dns_ms", 0)), tcp_ms=int(info.get("tcp_ms", 0)),
+-                                    tls_ms=tls_ms, alternate_attempted=bool(info.get("alternate_attempted", False)),
++                                    tls_ms=tls_ms, http_ms=http_ms, alternate_attempted=bool(info.get("alternate_attempted", False)),
+                                     cloudflare_addresses=tuple(info.get("cloudflare_addresses", ())),
+                                     system_addresses=tuple(info.get("system_addresses", ())),
+                                     system_dns_checked=bool(info.get("system_dns_checked", False)),
+@@ -175,6 +193,14 @@
+         finally:
+             raw.close()
+     except Exception as exc:
++        message = classify_network_error(exc)
++        if message.startswith("HTTPS/TCP: тайм-аут"):
++            if phase in {"http_send", "http_read"}:
++                message = "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)"
++            elif phase == "tls":
++                message = "TLS: тайм-аут защищённого соединения (TCP установлен)"
++        if http_started is not None and http_ms is None:
++            http_ms = round((time.monotonic()-http_started)*1000)
+         if hasattr(exc, "details"):
+             info = getattr(exc, "details", {})
+         root_exc = getattr(exc, "__cause__", None) or exc
+@@ -183,12 +209,12 @@
+         code = (f"WinError {winerror}" if isinstance(winerror, int)
+                 else f"errno {errno}" if isinstance(errno, int) else "")
+         return SourceHealthItem(source, f"https://{source}/", False,
+-                                error=classify_network_error(exc),
++                                error=message,
+                                 error_code=code,
+                                 dns_provider=str(info.get("dns_provider", "")),
+                                 ip_address=str(info.get("address", "")),
+                                 dns_ms=info.get("dns_ms"), tcp_ms=info.get("tcp_ms"),
+-                                tls_ms=tls_ms,
++                                tls_ms=tls_ms, http_ms=http_ms,
+                                 alternate_attempted=bool(info.get("alternate_attempted", False)),
+                                 cloudflare_addresses=tuple(info.get("cloudflare_addresses", ())),
+                                 system_addresses=tuple(info.get("system_addresses", ())),
+--- a/audioknigi/qt/mixins/accessibility_ui.py
++++ b/audioknigi/qt/mixins/accessibility_ui.py
+@@ -194,6 +194,7 @@
+                 dns_ms = getattr(item, "dns_ms", None)
+                 tcp_ms = getattr(item, "tcp_ms", None)
+                 tls_ms = getattr(item, "tls_ms", None)
++                http_ms = getattr(item, "http_ms", None)
+                 extra = []
+                 error_code = str(getattr(item, "error_code", "") or "")
+                 if error_code:
+@@ -208,6 +209,8 @@
+                     extra.append(self._l("TCP: {value} мс", value=tcp_ms))
+                 if tls_ms is not None:
+                     extra.append(self._l("TLS: {value} мс", value=tls_ms))
++                if http_ms is not None:
++                    extra.append(self._l("HTTP-ответ: {value} мс", value=http_ms))
+                 cf_ips = tuple(getattr(item, "cloudflare_addresses", ()) or ())
+                 system_ips = tuple(getattr(item, "system_addresses", ()) or ())
+                 system_checked = bool(getattr(item, "system_dns_checked", False))
+--- a/audioknigi/locales/legacy_literals.json
++++ b/audioknigi/locales/legacy_literals.json
+@@ -5,8 +5,10 @@
+     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare-DNS ist vorübergehend nicht verfügbar. Die App ist automatisch auf System-DNS umgestiegen. Cloudflare wird später automatisch erneut geprüft.",
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare-DNS ist wieder verfügbar. Die App verwendet wieder Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Strg+1…Strg+6 — Bereich öffnen; Strg+L — Buchlink; Strg+F — Suche; Strg+D — Auswahl herunterladen; Strg+Q — Warteschlange; Strg+H — Verlauf; F1 — diese Hilfe.",
++    "DNS/маршрут: {value}": "DNS/Route: {value}",
+     "DNS:": "DNS:",
+     "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; Benutzer-Proxy: {proxy}",
++    "DNS: {value} мс": "DNS: {value} ms",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter oder Leertaste stoppt die Wiedergabe und speichert die Position",
+     "Enter или пробел открывает выбор аудиофайла": "Enter oder Leertaste öffnet die Auswahl einer Audiodatei",
+     "Enter или пробел открывает выбор папки с книгой": "Enter oder Leertaste öffnet die Auswahl eines Buchordners",
+@@ -14,9 +16,16 @@
+     "Enter или пробел перематывает вперёд на 30 секунд": "Enter oder Leertaste springt 30 Sekunden vor",
+     "Enter или пробел перематывает назад на 30 секунд": "Enter oder Leertaste springt 30 Sekunden zurück",
+     "Enter или пробел переходит в начало текущего аудиофайла": "Enter oder Leertaste springt zum Anfang der aktuellen Audiodatei",
++    "HTTP-ответ: {value} мс": "HTTP-Antwort: {value} ms",
++    "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (TCP/TLS verbunden)",
++    "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)": "HTTP: Zeitüberschreitung beim Warten auf die Serverantwort (Verbindung hergestellt)",
+     "ID библиотеки Audiobookshelf": "Audiobookshelf-Bibliotheks-ID",
++    "IP: {value}": "IP: {value}",
+     "Qt не смог воспроизвести выбранный аудиофайл.": "Qt konnte die ausgewählte Audiodatei nicht wiedergeben.",
+     "Range от размера:": "Range ab Größe:",
++    "TCP: {value} мс": "TCP: {value} ms",
++    "TLS: {value} мс": "TLS: {value} ms",
++    "TLS: тайм-аут защищённого соединения (TCP установлен)": "TLS: Zeitüberschreitung beim TLS-Handshake (TCP verbunden)",
+     "Tab и Shift+Tab используют штатный порядок фокуса Qt; Escape отменяет текущий анализ/скачивание; модальные окна блокируют основной интерфейс до ответа.": "Tab und Umschalt+Tab verwenden die normale Qt-Fokusreihenfolge; Escape bricht die aktuelle Analyse bzw. den Download ab; modale Dialoge sperren die Hauptoberfläche bis zur Antwort.",
+     "URL выбранной части скопирован.": "URL des ausgewählten Teils kopiert.",
+     "max {peak:.1f} МБ/с": "max. {peak:.1f} MB/s",
+@@ -26,6 +35,7 @@
+     "Автоматически": "Automatisch",
+     "Автоматически замечать ссылку в буфере обмена": "Links in der Zwischenablage automatisch erkennen",
+     "Автоматически — Cloudflare с резервным системным DNS": "Automatisch — Cloudflare mit System-DNS als Reserve",
++    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Im Automatikmodus wird Cloudflare bevorzugt. Bei DNS- oder TCP-Fehlern wird der Systempfad als Alternative geprüft. Wenn beide Wege fehlschlagen, kann ein Proxy oder WARP nötig sein.",
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Der automatische Modus verwendet zuerst Cloudflare. Wenn Cloudflare nicht verfügbar ist, wechselt die App vorübergehend zum System-DNS und prüft Cloudflare später erneut.",
+     "Автор": "Autor",
+     "Автор: {value}": "Autor: {value}",
+@@ -388,6 +398,7 @@
+     "Предыдущий поиск ещё выполняется.": "Die vorherige Suche läuft noch.",
+     "Приоритет": "Priorität",
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Priorität nicht verfügbar: Analysieren Sie das importierte Buch zuerst erneut.",
++    "Проверен резервный системный маршрут": "Alternativer Systempfad geprüft",
+     "Проверить голос": "Sprachausgabe testen",
+     "Проверить доступность": "Barrierefreiheit prüfen",
+     "Проверить подключение ко всем источникам": "Verbindung zu allen Quellen prüfen",
+@@ -597,14 +608,7 @@
+     "соединение установлено": "verbunden",
+     "№": "Nr.",
+     "−30 с": "−30 s",
+-    "▶ Воспроизвести": "▶ Abspielen",
+-    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Im Automatikmodus wird Cloudflare bevorzugt. Bei DNS- oder TCP-Fehlern wird der Systempfad als Alternative geprüft. Wenn beide Wege fehlschlagen, kann ein Proxy oder WARP nötig sein.",
+-    "DNS/маршрут: {value}": "DNS/Route: {value}",
+-    "IP: {value}": "IP: {value}",
+-    "DNS: {value} мс": "DNS: {value} ms",
+-    "TCP: {value} мс": "TCP: {value} ms",
+-    "TLS: {value} мс": "TLS: {value} ms",
+-    "Проверен резервный системный маршрут": "Alternativer Systempfad geprüft"
++    "▶ Воспроизвести": "▶ Abspielen"
+   },
+   "en": {
+     "+ Добавить URL…": "+ Add URL…",
+@@ -612,8 +616,10 @@
+     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare DNS is temporarily unavailable. The app automatically switched to system DNS. Cloudflare will be checked again automatically.",
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare DNS is available again. The app returned to Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Ctrl+1…Ctrl+6 — open a section; Ctrl+L — book link; Ctrl+F — search; Ctrl+D — download selected; Ctrl+Q — queue; Ctrl+H — history; F1 — this help.",
++    "DNS/маршрут: {value}": "DNS/route: {value}",
+     "DNS:": "DNS:",
+     "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; custom proxy: {proxy}",
++    "DNS: {value} мс": "DNS: {value} ms",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter or Space stops playback and saves the position",
+     "Enter или пробел открывает выбор аудиофайла": "Enter or Space opens the audio-file chooser",
+     "Enter или пробел открывает выбор папки с книгой": "Enter or Space opens the book-folder chooser",
+@@ -621,9 +627,16 @@
+     "Enter или пробел перематывает вперёд на 30 секунд": "Enter or Space skips forward 30 seconds",
+     "Enter или пробел перематывает назад на 30 секунд": "Enter or Space skips back 30 seconds",
+     "Enter или пробел переходит в начало текущего аудиофайла": "Enter or Space jumps to the beginning of the current audio file",
++    "HTTP-ответ: {value} мс": "HTTP response: {value} ms",
++    "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)": "HTTP: Timed out waiting for server response (TCP/TLS connected)",
++    "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)": "HTTP: Timed out waiting for server response (connected)",
+     "ID библиотеки Audiobookshelf": "Audiobookshelf library ID",
++    "IP: {value}": "IP: {value}",
+     "Qt не смог воспроизвести выбранный аудиофайл.": "Qt could not play the selected audio file.",
+     "Range от размера:": "Range min. file size:",
++    "TCP: {value} мс": "TCP: {value} ms",
++    "TLS: {value} мс": "TLS: {value} ms",
++    "TLS: тайм-аут защищённого соединения (TCP установлен)": "TLS: Handshake timed out (TCP connected)",
+     "Tab и Shift+Tab используют штатный порядок фокуса Qt; Escape отменяет текущий анализ/скачивание; модальные окна блокируют основной интерфейс до ответа.": "Tab and Shift+Tab use Qt's standard focus order; Escape cancels the current analysis/download; modal dialogs block the main interface until answered.",
+     "URL выбранной части скопирован.": "Selected part URL copied.",
+     "max {peak:.1f} МБ/с": "max {peak:.1f} MB/s",
+@@ -633,6 +646,7 @@
+     "Автоматически": "Automatic",
+     "Автоматически замечать ссылку в буфере обмена": "Automatically detect links in the clipboard",
+     "Автоматически — Cloudflare с резервным системным DNS": "Automatic — Cloudflare with system DNS fallback",
++    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Automatic mode prefers Cloudflare. On DNS or TCP errors, it checks the fallback system route. If both routes fail, a proxy or WARP may be needed.",
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Automatic mode uses Cloudflare first. If Cloudflare is unavailable, the app temporarily switches to system DNS and checks Cloudflare again later.",
+     "Автор": "Author",
+     "Автор: {value}": "Author: {value}",
+@@ -995,6 +1009,7 @@
+     "Предыдущий поиск ещё выполняется.": "The previous search is still running.",
+     "Приоритет": "Priority",
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Priority is unavailable: analyze the imported book again first.",
++    "Проверен резервный системный маршрут": "System fallback route tested",
+     "Проверить голос": "Test voice",
+     "Проверить доступность": "Check accessibility",
+     "Проверить подключение ко всем источникам": "Test connectivity to all sources",
+@@ -1204,14 +1219,7 @@
+     "соединение установлено": "connected",
+     "№": "No.",
+     "−30 с": "−30 s",
+-    "▶ Воспроизвести": "▶ Play",
+-    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Automatic mode prefers Cloudflare. On DNS or TCP errors, it checks the fallback system route. If both routes fail, a proxy or WARP may be needed.",
+-    "DNS/маршрут: {value}": "DNS/route: {value}",
+-    "IP: {value}": "IP: {value}",
+-    "DNS: {value} мс": "DNS: {value} ms",
+-    "TCP: {value} мс": "TCP: {value} ms",
+-    "TLS: {value} мс": "TLS: {value} ms",
+-    "Проверен резервный системный маршрут": "System fallback route tested"
++    "▶ Воспроизвести": "▶ Play"
+   },
+   "uk": {
+     "+ Добавить URL…": "+ Додати URL…",
+@@ -1219,8 +1227,10 @@
+     "Cloudflare DNS временно недоступен. Программа автоматически переключилась на системный DNS. Cloudflare будет проверен снова автоматически.": "Cloudflare DNS тимчасово недоступний. Програма автоматично перейшла на системний DNS. Cloudflare буде перевірено знову автоматично.",
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare DNS знову доступний. Програма повернулася до Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Ctrl+1…Ctrl+6 — відкрити розділ; Ctrl+L — посилання на книгу; Ctrl+F — пошук; Ctrl+D — завантажити вибране; Ctrl+Q — черга; Ctrl+H — історія; F1 — ця довідка.",
++    "DNS/маршрут: {value}": "DNS/маршрут: {value}",
+     "DNS:": "DNS:",
+     "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; користувацький проксі: {proxy}",
++    "DNS: {value} мс": "DNS: {value} мс",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter або пробіл зупиняє відтворення та зберігає позицію",
+     "Enter или пробел открывает выбор аудиофайла": "Enter або пробіл відкриває вибір аудіофайлу",
+     "Enter или пробел открывает выбор папки с книгой": "Enter або пробіл відкриває вибір папки з книгою",
+@@ -1228,9 +1238,16 @@
+     "Enter или пробел перематывает вперёд на 30 секунд": "Enter або пробіл перемотує вперед на 30 секунд",
+     "Enter или пробел перематывает назад на 30 секунд": "Enter або пробіл перемотує назад на 30 секунд",
+     "Enter или пробел переходит в начало текущего аудиофайла": "Enter або пробіл переходить на початок поточного аудіофайлу",
++    "HTTP-ответ: {value} мс": "HTTP-відповідь: {value} мс",
++    "HTTP: тайм-аут ожидания ответа сервера (TCP/TLS установлены)": "HTTP: час очікування відповіді сервера вичерпано (TCP/TLS встановлено)",
++    "HTTP: тайм-аут ожидания ответа сервера (соединение установлено)": "HTTP: час очікування відповіді сервера вичерпано (з’єднання встановлено)",
+     "ID библиотеки Audiobookshelf": "ID бібліотеки Audiobookshelf",
++    "IP: {value}": "IP: {value}",
+     "Qt не смог воспроизвести выбранный аудиофайл.": "Qt не зміг відтворити вибраний аудіофайл.",
+     "Range от размера:": "Range від розміру:",
++    "TCP: {value} мс": "TCP: {value} мс",
++    "TLS: {value} мс": "TLS: {value} мс",
++    "TLS: тайм-аут защищённого соединения (TCP установлен)": "TLS: час узгодження захищеного з’єднання вичерпано (TCP встановлено)",
+     "Tab и Shift+Tab используют штатный порядок фокуса Qt; Escape отменяет текущий анализ/скачивание; модальные окна блокируют основной интерфейс до ответа.": "Tab і Shift+Tab використовують штатний порядок фокуса Qt; Escape скасовує поточний аналіз/завантаження; модальні вікна блокують основний інтерфейс до відповіді.",
+     "URL выбранной части скопирован.": "URL вибраної частини скопійовано.",
+     "max {peak:.1f} МБ/с": "макс. {peak:.1f} МБ/с",
+@@ -1240,6 +1257,7 @@
+     "Автоматически": "Автоматично",
+     "Автоматически замечать ссылку в буфере обмена": "Автоматично виявляти посилання в буфері обміну",
+     "Автоматически — Cloudflare с резервным системным DNS": "Автоматично — Cloudflare із резервним системним DNS",
++    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Автоматичний режим віддає перевагу Cloudflare. У разі помилки DNS або TCP перевіряє резервний системний маршрут. Якщо сайт недоступний обома маршрутами, може знадобитися проксі або WARP.",
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Автоматичний режим спочатку використовує Cloudflare. Якщо Cloudflare недоступний, програма тимчасово перемикається на системний DNS і пізніше знову перевіряє Cloudflare.",
+     "Автор": "Автор",
+     "Автор: {value}": "Автор: {value}",
+@@ -1602,6 +1620,7 @@
+     "Предыдущий поиск ещё выполняется.": "Попередній пошук ще виконується.",
+     "Приоритет": "Пріоритет",
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Пріоритет недоступний: спочатку повторно проаналізуйте імпортовану книгу.",
++    "Проверен резервный системный маршрут": "Перевірено резервний системний маршрут",
+     "Проверить голос": "Перевірити голос",
+     "Проверить доступность": "Перевірити доступність",
+     "Проверить подключение ко всем источникам": "Перевірити з’єднання з усіма джерелами",
+@@ -1811,13 +1830,6 @@
+     "соединение установлено": "з’єднано",
+     "№": "№",
+     "−30 с": "−30 с",
+-    "▶ Воспроизвести": "▶ Відтворити",
+-    "Автоматический режим предпочитает Cloudflare. При ошибке DNS или TCP проверяет резервный системный маршрут. Если сайт недоступен на обоих маршрутах, может потребоваться прокси или WARP.": "Автоматичний режим віддає перевагу Cloudflare. У разі помилки DNS або TCP перевіряє резервний системний маршрут. Якщо сайт недоступний обома маршрутами, може знадобитися проксі або WARP.",
+-    "DNS/маршрут: {value}": "DNS/маршрут: {value}",
+-    "IP: {value}": "IP: {value}",
+-    "DNS: {value} мс": "DNS: {value} мс",
+-    "TCP: {value} мс": "TCP: {value} мс",
+-    "TLS: {value} мс": "TLS: {value} мс",
+-    "Проверен резервный системный маршрут": "Перевірено резервний системний маршрут"
++    "▶ Воспроизвести": "▶ Відтворити"
+   }
+ }
+--- a/tests/unit/test_network_auto_routes.py
++++ b/tests/unit/test_network_auto_routes.py
+@@ -277,3 +277,61 @@
+     assert item.reachable is True
+     assert item.status_code == 501
+     assert item.blocked is False
++
++
++# V9: distinguish successful TLS from a server that never answers HTTP.
++def _mock_detailed_tls(monkeypatch, *, recv, handshake_error=None):
++    sock = SocketStub("192.0.2.70")
++    monkeypatch.setattr(health, "_connect_target_with_info", lambda *a, **kw: (
++        sock, {"dns_provider": "Cloudflare", "address": "192.0.2.70", "dns_ms": 5, "tcp_ms": 9}
++    ))
++    class TLS:
++        def __enter__(self): return self
++        def __exit__(self, *args): return False
++        def settimeout(self, value): pass
++        def sendall(self, data): assert data.startswith(b"GET / HTTP/1.1")
++        def recv(self, count): return recv()
++    class Context:
++        def wrap_socket(self, *args, **kwargs):
++            if handshake_error: raise handshake_error
++            return TLS()
++    monkeypatch.setattr(health.ssl, "create_default_context", lambda: Context())
++    return sock
++
++
++def test_detailed_http_read_timeout_is_not_tcp_timeout(monkeypatch):
++    sock = _mock_detailed_tls(monkeypatch, recv=lambda: (_ for _ in ()).throw(socket.timeout("read timed out")))
++    result = health._probe_source_detailed("example.org", timeout=.25)
++    assert result.reachable is False
++    assert "HTTP: тайм-аут ожидания ответа" in result.error
++    assert result.ip_address == "192.0.2.70"
++    assert result.tcp_ms == 9 and result.tls_ms is not None
++    assert result.http_ms is not None
++    assert sock.closed
++
++
++def test_detailed_tls_timeout_is_not_tcp_timeout(monkeypatch):
++    sock = _mock_detailed_tls(monkeypatch, recv=lambda: b"", handshake_error=socket.timeout("handshake timed out"))
++    result = health._probe_source_detailed("example.org", timeout=.25)
++    assert result.reachable is False
++    assert result.error.startswith("TLS: тайм-аут")
++    assert result.tls_ms is None and result.http_ms is None
++    assert sock.closed
++
++
++def test_detailed_http_response_includes_elapsed_time(monkeypatch):
++    _mock_detailed_tls(monkeypatch, recv=lambda: b"HTTP/1.1 500 Internal Server Error\r\n")
++    result = health._probe_source_detailed("example.org", timeout=.25)
++    assert result.reachable is True and result.status_code == 500
++    assert result.http_ms is not None
++
++
++def test_read_timeout_classified_as_http_phase_without_leaking_url():
++    import requests
++    error = requests.exceptions.ReadTimeout("https://private.example/?token=secret, read timed out")
++    result = health.classify_network_error(error)
++    assert result.startswith("HTTP:") and "secret" not in result
++    nested = requests.exceptions.ConnectionError("request failed")
++    nested.__cause__ = error
++    assert health.classify_network_error(nested).startswith("HTTP:")
++    assert health.classify_network_error(requests.exceptions.ConnectTimeout("timeout")).startswith("HTTPS/TCP")
+--- /dev/null
++++ b/README_HTTP_PHASE_DIAGNOSTIC_V9.md
+@@ -0,0 +1,12 @@
++# AudioKnigi V9 – separate HTTP response timeout from TCP/TLS errors
++
++Based on the user-verified Akniga V7 functionality and V8 description/HLS cache updates.
++
++- Manual HTTPS diagnostic now reports **HTTP response time** separately from DNS, TCP and TLS, including on HTTP 500 responses.
++- TCP/TLS success followed by a stalled HTTP response is labeled as HTTP timeout, not suspected TCP filtering.
++- A TLS handshake timeout is distinguished from a TCP connect timeout.
++- Search diagnostics classify Requests `ReadTimeout` as waiting for a server reply; `ConnectTimeout` remains a TCP error.
++- Localized new phrases for English, German and Ukrainian, retaining Russian defaults. No raw request URLs or authentication tokens are shown.
++- Does **not** attempt to bypass blocked routes, does not change search APIs or downloading logic. HTTP 500 means remote server error, not a network failure.
++
++Testing: offline unit/integration tests; Windows/real ISP behavior remains to be confirmed by running manual tests on the user's machine.

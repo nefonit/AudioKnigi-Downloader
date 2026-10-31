@@ -1,0 +1,951 @@
+--- a/README_NETWORK_PROXY_DIAGNOSTIC.md
++++ b/README_NETWORK_PROXY_DIAGNOSTIC.md
+@@ -0,0 +1,11 @@
++# Эксперимент: диагностика сети и пользовательский прокси
++
++## Настройка
++В «Настройки → Загрузка и сеть» добавлены поле «Прокси (необязательно)» и кнопка «Проверить подключение ко всем источникам». Пример адреса прокси: `http://127.0.0.1:8080` или `socks5h://127.0.0.1:1080`. Поле можно оставить пустым. Поддерживаются **только прокси без логина и пароля**; приложение отклоняет адреса с учётными данными и не сохраняет их в настройках. Само приложение **не поднимает внешний прокси или VPN**: он должен существовать и быть доступен заранее.
++
++Прокси используется для поиска, сетевых запросов, Playwright, FFmpeg/FFprobe и параллельной HLS-загрузки через внутренний HTTP-мост на `127.0.0.1`. При указании внешнего HTTP или SOCKS5-прокси доменное имя сайта разрешается на стороне этого прокси. В режиме без прокси прежняя DNS-политика остаётся без изменений. После смены прокси настройки действуют на новые операции; текущие загрузки следует закончить или отменить перед изменением.
++
++## Ограничения
++Cloudflare DoH — только DNS и **не является** альтернативой VPN/WARP. Успешный DNS при тайм-ауте TCP, как в предоставленных пользователем диагностических отчётах для akniga.org и uknig.com, сам по себе не позволяет восстановить связь. Подключение через прокси работает только при наличии отдельно запущенного, доступного и разрешённого прокси-сервера. Не пробует в обход явного пользовательского прокси и не подменяет его прямым соединением при сбое.
++
++Проверка доступности использует HTTP GET с кратким тайм-аутом; HTTP 403/429/503 означает, что сервер ответил, но контент может быть недоступен. Проверка сама не скачивает книги. Настройка не гарантирует доступность источников, которые находятся в другой стране или ограничены провайдером. Реальные проверки Windows/Edge/FFmpeg/SOCKS5/ NVDA/JAWS не проводились в этой среде.
+--- a/audioknigi/akniga.py
++++ b/audioknigi/akniga.py
+@@ -19,7 +19,7 @@
+ from .core import Cancelled, SiteStructureChanged, USER_AGENT, parse_time_seconds
+ from .models import Book, Track
+ from .network_dns import (
+-    DNS_MODE_AUTO, current_dns_mode, launch_playwright_chromium,
++    DNS_MODE_AUTO, current_dns_mode, user_proxy_enabled, launch_playwright_chromium,
+ )
+ from .logging_utils import app_logger
+ 
+@@ -244,6 +244,7 @@
+         except Exception as exc:
+             if (not _is_proxy_tunnel_error(exc)
+                     or current_dns_mode() != DNS_MODE_AUTO
++                    or user_proxy_enabled()
+                     or (cancel_event is not None and cancel_event.is_set())):
+                 raise
+             # The app's Cloudflare DNS mode 'auto' explicitly permits a
+--- a/audioknigi/config/settings.py
++++ b/audioknigi/config/settings.py
+@@ -49,6 +49,7 @@
+     "delete_source": True,
+     "playwright_fallback_enabled": True,
+     "dns_mode": "auto",
++    "proxy_url": "",
+     "parallel_single_source": False,
+     "segment_count": "auto",
+     "segment_threshold_mb": 16,
+@@ -144,6 +145,14 @@
+     raw["normalization_mode"] = safe_normalization_mode(raw.get("normalization_mode"))
+     dns_mode = str(raw.get("dns_mode") or "auto").strip().lower()
+     raw["dns_mode"] = dns_mode if dns_mode in {"auto", "cloudflare", "system"} else "auto"
++    # Do not silently accept proxy credentials in plaintext settings.json.
++    from ..network_dns import validate_user_proxy
++    try:
++        raw["proxy_url"] = validate_user_proxy(raw.get("proxy_url"))
++    except ValueError:
++        # A damaged/legacy settings file must not crash app startup. The UI
++        # validates user-entered values separately before saving.
++        raw["proxy_url"] = ""
+     raw["folder_template"] = str(raw.get("folder_template") or "{Book_Title}")
+     raw["track_template"] = str(raw.get("track_template") or "{Track_Number}.mp3")
+     raw["output_dir"] = str(raw.get("output_dir") or DEFAULT_OUTPUT)
+--- a/audioknigi/core.py
++++ b/audioknigi/core.py
+@@ -736,6 +736,12 @@
+     # the application's Cloudflare-only resolver. Playwright has its own local
+     # Cloudflare-resolving proxy; Python requests connect directly after DoH.
+     session.trust_env = False
++    # Both Python and Chromium/FFmpeg must use the same explicit upstream.
++    # Without a user proxy, Python keeps using the app's existing DNS policy.
++    from .network_dns import user_proxy_enabled, ensure_cloudflare_playwright_proxy
++    if user_proxy_enabled():
++        bridge = ensure_cloudflare_playwright_proxy()
++        session.proxies.update({"http": bridge, "https": bridge})
+     retry = Retry(
+         total=4,
+         connect=3,
+--- a/audioknigi/download/hls_parallel.py
++++ b/audioknigi/download/hls_parallel.py
+@@ -15,6 +15,7 @@
+ import threading
+ 
+ import requests
++from ..core import get_http_session
+ 
+ _KEY_URI_RE = re.compile(r'URI="([^"]+)"', re.I)
+ _UNSUPPORTED = (
+@@ -54,7 +55,7 @@
+     for _ in range(5):
+         if not _safe_http_url(current, allow_local_http=allow_local_http):
+             raise ValueError("Недопустимый адрес HLS-ресурса")
+-        response = requests.get(current, headers=headers, timeout=(10, 30),
++        response = get_http_session().get(current, headers=headers, timeout=(10, 30),
+                                 stream=True, allow_redirects=False)
+         if response.is_redirect:
+             target = response.headers.get("Location")
+--- a/audioknigi/locales/legacy_literals.json
++++ b/audioknigi/locales/legacy_literals.json
+@@ -6,6 +6,7 @@
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare-DNS ist wieder verfügbar. Die App verwendet wieder Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Strg+1…Strg+6 — Bereich öffnen; Strg+L — Buchlink; Strg+F — Suche; Strg+D — Auswahl herunterladen; Strg+Q — Warteschlange; Strg+H — Verlauf; F1 — diese Hilfe.",
+     "DNS:": "DNS:",
++    "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; Benutzer-Proxy: {proxy}",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter oder Leertaste stoppt die Wiedergabe und speichert die Position",
+     "Enter или пробел открывает выбор аудиофайла": "Enter oder Leertaste öffnet die Auswahl einer Audiodatei",
+     "Enter или пробел открывает выбор папки с книгой": "Enter oder Leertaste öffnet die Auswahl eines Buchordners",
+@@ -28,6 +29,7 @@
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Der automatische Modus verwendet zuerst Cloudflare. Wenn Cloudflare nicht verfügbar ist, wechselt die App vorübergehend zum System-DNS und prüft Cloudflare später erneut.",
+     "Автор": "Autor",
+     "Автор: {value}": "Autor: {value}",
++    "Адрес пользовательского HTTP или SOCKS5 прокси": "Adresse des HTTP- oder SOCKS5-Proxys",
+     "Адрес сервера Audiobookshelf": "Audiobookshelf-Serveradresse",
+     "Адрес сервера:": "Serveradresse:",
+     "Анализ выбранной озвучки завершён. Фокус на кнопке «Скачать книгу». Нажмите Enter или пробел, чтобы начать скачивание.": "Die Analyse der ausgewählten Aufnahme ist abgeschlossen. Der Fokus liegt auf „Buch herunterladen“. Drücken Sie Enter oder die Leertaste, um den Download zu starten.",
+@@ -134,6 +136,7 @@
+     "Два прохода — точнее": "Zwei Durchgänge – genauer",
+     "Действия ▾": "Aktionen ▾",
+     "Диагностика": "Diagnose",
++    "Диагностика сети": "Netzwerkdiagnose",
+     "Диагностический пакет создан.": "Diagnosepaket wurde erstellt.",
+     "Длительность": "Dauer",
+     "Длительность: {time}": "Dauer: {time}",
+@@ -181,6 +184,7 @@
+     "Использовать выбранную книгу": "Ausgewähltes Buch verwenden",
+     "Использовать собственные шаблоны": "Eigene Vorlagen verwenden",
+     "Использовать собственные шаблоны папок и файлов": "Eigene Ordner- und Dateivorlagen verwenden",
++    "Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются.": "Sie benötigen einen funktionierenden Proxy. DNS ersetzt weder VPN noch WARP. Proxy-Passwörter werden nicht gespeichert.",
+     "Используйте Tab и Shift+Tab для перехода между элементами.": "Verwenden Sie Tab und Shift+Tab, um zwischen den Elementen zu wechseln.",
+     "История": "Verlauf",
+     "История очищена.": "Verlauf geleert.",
+@@ -246,6 +250,7 @@
+     "Некорректный результат анализа.": "Ungültiges Analyseergebnis.",
+     "Нельзя изменять очередь во время активного скачивания.": "Die Warteschlange kann während eines aktiven Downloads nicht geändert werden.",
+     "Нельзя очищать очередь во время активного скачивания.": "Die Warteschlange kann während eines aktiven Downloads nicht geleert werden.",
++    "Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения.": "Optional. Ohne Benutzername und Passwort. Für eine direkte Verbindung leer lassen.",
+     "Неподдерживаемая ссылка": "Nicht unterstützter Link",
+     "Неподдерживаемая ссылка.": "Nicht unterstützter Link.",
+     "Нет": "Nein",
+@@ -324,6 +329,7 @@
+     "Очистить историю": "Verlauf leeren",
+     "Очистить очередь": "Warteschlange leeren",
+     "Ошибка воспроизведения": "Wiedergabefehler",
++    "Ошибка настройки прокси": "Fehler bei den Proxy-Einstellungen",
+     "Ошибка плеера: ": "Playerfehler: ",
+     "Ошибка: ": "Fehler: ",
+     "Панель выбранного раздела настроек": "Ausgewählter Einstellungsbereich",
+@@ -384,10 +390,15 @@
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Priorität nicht verfügbar: Analysieren Sie das importierte Buch zuerst erneut.",
+     "Проверить голос": "Sprachausgabe testen",
+     "Проверить доступность": "Barrierefreiheit prüfen",
++    "Проверить подключение ко всем источникам": "Verbindung zu allen Quellen prüfen",
++    "Проверить сеть и показать причины ошибок по каждому источнику": "Netzwerk prüfen und Fehlerursachen je Quelle anzeigen",
+     "Проверить системный звук": "Systemton testen",
+     "Проверить соединение": "Verbindung testen",
+     "Проверить соединение с Audiobookshelf": "Audiobookshelf-Verbindung prüfen",
+     "Проверка Audiobookshelf уже выполняется.": "Audiobookshelf-Prüfung läuft bereits.",
++    "Проверка сети завершена.": "Netzwerkprüfung abgeschlossen.",
++    "Проверка сети уже выполняется.": "Die Netzwerkprüfung läuft bereits.",
++    "Проверяется подключение к источникам…": "Verbindungen zu den Quellen werden geprüft…",
+     "Проверяю соединение с Audiobookshelf…": "Verbindung zu Audiobookshelf wird geprüft…",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.\n\nИсточники: {details}": "Die App kann keine Hörbuchquelle erreichen. Prüfen Sie Ihre Internetverbindung. Wenn die Websites von Ihrem Anbieter oder in Ihrem Land gesperrt werden, aktivieren Sie ein VPN auf dem Computer und versuchen Sie es erneut. Beispiele: Proton VPN oder Mullvad VPN. Cloudflare WARP kann bei Netzwerk- oder DNS-Filterung helfen, erlaubt aber nicht die Auswahl eines anderen Landes.\n\nQuellen: {details}",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.{dns_advice}\n\nИсточники: {details}": "Die App kann keine Verbindung zu einer Hörbuchquelle herstellen. Prüfen Sie die Internetverbindung. Wenn die Seiten durch Ihren Anbieter oder in Ihrem Land blockiert werden, aktivieren Sie ein VPN auf dem Computer und versuchen Sie es erneut. Beispiele: Proton VPN oder Mullvad VPN. Cloudflare WARP kann bei Netzwerk- oder DNS-Filterung helfen, erlaubt aber keine Auswahl eines anderen Landes.{dns_advice}\n\nQuellen: {details}",
+@@ -395,6 +406,7 @@
+     "Продолжение с {time}.": "Fortsetzung ab {time}.",
+     "Продолжить загрузку": "Download fortsetzen",
+     "Продолжить незавершённую загрузку": "Unvollständigen Download fortsetzen",
++    "Прокси (необязательно):": "Proxy (optional):",
+     "Пропустить часть и продолжить": "Teil überspringen und fortfahren",
+     "Пропустить эти части и продолжить": "Diese Teile überspringen und fortfahren",
+     "Прослушать голосовой звук события": "Sprach-Ereigniston anhören",
+@@ -539,6 +551,7 @@
+     "Удалить текст": "Löschen",
+     "Удалять временные исходные файлы после успешной обработки": "Temporäre Quelldateien nach erfolgreicher Verarbeitung löschen",
+     "Удалять временные файлы после скачивания": "Temporäre Dateien nach dem Download löschen",
++    "Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP.": "DNS-Erfolg garantiert keinen HTTPS-Zugriff. Integriertes DNS ersetzt kein VPN/WARP.",
+     "Файл": "Datei",
+     "Файл загружен: {name}": "Datei geladen: {name}",
+     "Файл: {name}": "Datei: {name}",
+@@ -569,6 +582,9 @@
+     "Эту импортированную задачу нужно заново проанализировать и добавить в очередь.": "Diese importierte Aufgabe muss erneut analysiert und zur Warteschlange hinzugefügt werden.",
+     "Язык сохранён. Изменения интерфейса полностью применятся после перезапуска программы.": "Sprache gespeichert. Die Oberflächenänderungen werden nach einem Neustart vollständig angewendet.",
+     "без названия": "ohne Titel",
++    "включён": "aktiviert",
++    "возможна проверка браузера или ограничение доступа": "Browserprüfung oder Zugriffsbeschränkung möglich",
++    "выключен": "deaktiviert",
+     "готово": "fertig",
+     "да": "ja",
+     "есть": "vorhanden",
+@@ -578,6 +594,7 @@
+     "нет данных": "keine Daten",
+     "нет соединения": "keine Verbindung",
+     "повреждён": "beschädigt",
++    "соединение установлено": "verbunden",
+     "№": "Nr.",
+     "−30 с": "−30 s",
+     "▶ Воспроизвести": "▶ Abspielen"
+@@ -589,6 +606,7 @@
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare DNS is available again. The app returned to Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Ctrl+1…Ctrl+6 — open a section; Ctrl+L — book link; Ctrl+F — search; Ctrl+D — download selected; Ctrl+Q — queue; Ctrl+H — history; F1 — this help.",
+     "DNS:": "DNS:",
++    "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; custom proxy: {proxy}",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter or Space stops playback and saves the position",
+     "Enter или пробел открывает выбор аудиофайла": "Enter or Space opens the audio-file chooser",
+     "Enter или пробел открывает выбор папки с книгой": "Enter or Space opens the book-folder chooser",
+@@ -611,6 +629,7 @@
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Automatic mode uses Cloudflare first. If Cloudflare is unavailable, the app temporarily switches to system DNS and checks Cloudflare again later.",
+     "Автор": "Author",
+     "Автор: {value}": "Author: {value}",
++    "Адрес пользовательского HTTP или SOCKS5 прокси": "Address of custom HTTP or SOCKS5 proxy",
+     "Адрес сервера Audiobookshelf": "Audiobookshelf server address",
+     "Адрес сервера:": "Server address:",
+     "Анализ выбранной озвучки завершён. Фокус на кнопке «Скачать книгу». Нажмите Enter или пробел, чтобы начать скачивание.": "The selected narration has been analyzed. Focus is on the Download book button. Press Enter or Space to start downloading.",
+@@ -717,6 +736,7 @@
+     "Два прохода — точнее": "Two passes — more accurate",
+     "Действия ▾": "Actions ▾",
+     "Диагностика": "Diagnostics",
++    "Диагностика сети": "Network diagnostics",
+     "Диагностический пакет создан.": "Diagnostic bundle created.",
+     "Длительность": "Duration",
+     "Длительность: {time}": "Duration: {time}",
+@@ -764,6 +784,7 @@
+     "Использовать выбранную книгу": "Use selected book",
+     "Использовать собственные шаблоны": "Use custom templates",
+     "Использовать собственные шаблоны папок и файлов": "Use custom folder and file templates",
++    "Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются.": "A working proxy must be provided by you. DNS is not a VPN or WARP replacement. Proxy passwords are not stored.",
+     "Используйте Tab и Shift+Tab для перехода между элементами.": "Use Tab and Shift+Tab to move between controls.",
+     "История": "History",
+     "История очищена.": "History cleared.",
+@@ -829,6 +850,7 @@
+     "Некорректный результат анализа.": "Invalid analysis result.",
+     "Нельзя изменять очередь во время активного скачивания.": "The queue cannot be changed during an active download.",
+     "Нельзя очищать очередь во время активного скачивания.": "The queue cannot be cleared during an active download.",
++    "Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения.": "Optional. No username or password. Leave empty for a direct connection.",
+     "Неподдерживаемая ссылка": "Unsupported link",
+     "Неподдерживаемая ссылка.": "Unsupported link.",
+     "Нет": "No",
+@@ -907,6 +929,7 @@
+     "Очистить историю": "Clear history",
+     "Очистить очередь": "Clear queue",
+     "Ошибка воспроизведения": "Playback error",
++    "Ошибка настройки прокси": "Proxy settings error",
+     "Ошибка плеера: ": "Player error: ",
+     "Ошибка: ": "Error: ",
+     "Панель выбранного раздела настроек": "Selected settings section",
+@@ -967,10 +990,15 @@
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Priority is unavailable: analyze the imported book again first.",
+     "Проверить голос": "Test voice",
+     "Проверить доступность": "Check accessibility",
++    "Проверить подключение ко всем источникам": "Test connectivity to all sources",
++    "Проверить сеть и показать причины ошибок по каждому источнику": "Check network and show errors for each source",
+     "Проверить системный звук": "Test system sound",
+     "Проверить соединение": "Test connection",
+     "Проверить соединение с Audiobookshelf": "Test Audiobookshelf connection",
+     "Проверка Audiobookshelf уже выполняется.": "Audiobookshelf test is already running.",
++    "Проверка сети завершена.": "Network check finished.",
++    "Проверка сети уже выполняется.": "Network check is already running.",
++    "Проверяется подключение к источникам…": "Checking connections to sources…",
+     "Проверяю соединение с Audiobookshelf…": "Testing the Audiobookshelf connection…",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.\n\nИсточники: {details}": "The app cannot connect to any audiobook source. Check your internet connection. If the sites are blocked by your provider or in your country, enable a VPN on the computer and try again. Examples: Proton VPN or Mullvad VPN. Cloudflare WARP can help with network or DNS filtering, but it does not let you choose another country.\n\nSources: {details}",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.{dns_advice}\n\nИсточники: {details}": "The app cannot connect to any audiobook source. Check your internet connection. If the sites are blocked by your provider or in your country, enable a VPN on the computer and try again. Examples: Proton VPN or Mullvad VPN. Cloudflare WARP may help with network or DNS filtering, but it does not let you choose another country.{dns_advice}\n\nSources: {details}",
+@@ -978,6 +1006,7 @@
+     "Продолжение с {time}.": "Resume from {time}.",
+     "Продолжить загрузку": "Resume download",
+     "Продолжить незавершённую загрузку": "Continue unfinished download",
++    "Прокси (необязательно):": "Proxy (optional):",
+     "Пропустить часть и продолжить": "Skip part and continue",
+     "Пропустить эти части и продолжить": "Skip these parts and continue",
+     "Прослушать голосовой звук события": "Preview voice event sound",
+@@ -1122,6 +1151,7 @@
+     "Удалить текст": "Delete",
+     "Удалять временные исходные файлы после успешной обработки": "Delete temporary source files after successful processing",
+     "Удалять временные файлы после скачивания": "Delete temporary files after download",
++    "Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP.": "DNS success does not guarantee HTTPS access. Built-in DNS does not replace VPN/WARP.",
+     "Файл": "File",
+     "Файл загружен: {name}": "File loaded: {name}",
+     "Файл: {name}": "File: {name}",
+@@ -1152,6 +1182,9 @@
+     "Эту импортированную задачу нужно заново проанализировать и добавить в очередь.": "This imported task must be analyzed again and added to the queue.",
+     "Язык сохранён. Изменения интерфейса полностью применятся после перезапуска программы.": "Language saved. Interface changes will be fully applied after restarting the app.",
+     "без названия": "untitled",
++    "включён": "enabled",
++    "возможна проверка браузера или ограничение доступа": "browser verification or access restriction possible",
++    "выключен": "disabled",
+     "готово": "ready",
+     "да": "yes",
+     "есть": "present",
+@@ -1161,6 +1194,7 @@
+     "нет данных": "no data",
+     "нет соединения": "no connection",
+     "повреждён": "damaged",
++    "соединение установлено": "connected",
+     "№": "No.",
+     "−30 с": "−30 s",
+     "▶ Воспроизвести": "▶ Play"
+@@ -1172,6 +1206,7 @@
+     "Cloudflare DNS снова доступен. Программа вернулась к Cloudflare.": "Cloudflare DNS знову доступний. Програма повернулася до Cloudflare.",
+     "Ctrl+1…Ctrl+6 — открыть раздел; Ctrl+L — ссылка на книгу; Ctrl+F — поиск; Ctrl+D — скачать выбранное; Ctrl+Q — очередь; Ctrl+H — история; F1 — эта справка.": "Ctrl+1…Ctrl+6 — відкрити розділ; Ctrl+L — посилання на книгу; Ctrl+F — пошук; Ctrl+D — завантажити вибране; Ctrl+Q — черга; Ctrl+H — історія; F1 — ця довідка.",
+     "DNS:": "DNS:",
++    "DNS: {mode}; пользовательский прокси: {proxy}": "DNS: {mode}; користувацький проксі: {proxy}",
+     "Enter или пробел останавливает воспроизведение и сохраняет позицию": "Enter або пробіл зупиняє відтворення та зберігає позицію",
+     "Enter или пробел открывает выбор аудиофайла": "Enter або пробіл відкриває вибір аудіофайлу",
+     "Enter или пробел открывает выбор папки с книгой": "Enter або пробіл відкриває вибір папки з книгою",
+@@ -1194,6 +1229,7 @@
+     "Автоматический режим сначала использует Cloudflare. Если Cloudflare недоступен, программа временно переключается на системный DNS и позже проверяет Cloudflare снова.": "Автоматичний режим спочатку використовує Cloudflare. Якщо Cloudflare недоступний, програма тимчасово перемикається на системний DNS і пізніше знову перевіряє Cloudflare.",
+     "Автор": "Автор",
+     "Автор: {value}": "Автор: {value}",
++    "Адрес пользовательского HTTP или SOCKS5 прокси": "Адреса користувацького HTTP- або SOCKS5-проксі",
+     "Адрес сервера Audiobookshelf": "Адреса сервера Audiobookshelf",
+     "Адрес сервера:": "Адреса сервера:",
+     "Анализ выбранной озвучки завершён. Фокус на кнопке «Скачать книгу». Нажмите Enter или пробел, чтобы начать скачивание.": "Аналіз вибраного озвучення завершено. Фокус на кнопці «Завантажити книгу». Натисніть Enter або пробіл, щоб почати завантаження.",
+@@ -1300,6 +1336,7 @@
+     "Два прохода — точнее": "Два проходи — точніше",
+     "Действия ▾": "Дії ▾",
+     "Диагностика": "Діагностика",
++    "Диагностика сети": "Діагностика мережі",
+     "Диагностический пакет создан.": "Діагностичний пакет створено.",
+     "Длительность": "Тривалість",
+     "Длительность: {time}": "Тривалість: {time}",
+@@ -1347,6 +1384,7 @@
+     "Использовать выбранную книгу": "Використати вибрану книгу",
+     "Использовать собственные шаблоны": "Використовувати власні шаблони",
+     "Использовать собственные шаблоны папок и файлов": "Використовувати власні шаблони папок і файлів",
++    "Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются.": "Потрібен вказаний вами робочий проксі. DNS не замінює VPN або WARP. Паролі проксі не зберігаються.",
+     "Используйте Tab и Shift+Tab для перехода между элементами.": "Використовуйте Tab і Shift+Tab для переходу між елементами.",
+     "История": "Історія",
+     "История очищена.": "Історію очищено.",
+@@ -1412,6 +1450,7 @@
+     "Некорректный результат анализа.": "Некоректний результат аналізу.",
+     "Нельзя изменять очередь во время активного скачивания.": "Не можна змінювати чергу під час активного завантаження.",
+     "Нельзя очищать очередь во время активного скачивания.": "Не можна очищати чергу під час активного завантаження.",
++    "Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения.": "Необов’язково. Без імені користувача та пароля. Залиште порожнім для прямого з’єднання.",
+     "Неподдерживаемая ссылка": "Непідтримуване посилання",
+     "Неподдерживаемая ссылка.": "Непідтримуване посилання.",
+     "Нет": "Ні",
+@@ -1490,6 +1529,7 @@
+     "Очистить историю": "Очистити історію",
+     "Очистить очередь": "Очистити чергу",
+     "Ошибка воспроизведения": "Помилка відтворення",
++    "Ошибка настройки прокси": "Помилка налаштування проксі",
+     "Ошибка плеера: ": "Помилка плеєра: ",
+     "Ошибка: ": "Помилка: ",
+     "Панель выбранного раздела настроек": "Панель вибраного розділу налаштувань",
+@@ -1550,10 +1590,15 @@
+     "Приоритет недоступен: сначала заново проанализируйте импортированную книгу.": "Пріоритет недоступний: спочатку повторно проаналізуйте імпортовану книгу.",
+     "Проверить голос": "Перевірити голос",
+     "Проверить доступность": "Перевірити доступність",
++    "Проверить подключение ко всем источникам": "Перевірити з’єднання з усіма джерелами",
++    "Проверить сеть и показать причины ошибок по каждому источнику": "Перевірити мережу та показати причини помилок для кожного джерела",
+     "Проверить системный звук": "Перевірити системний звук",
+     "Проверить соединение": "Перевірити з’єднання",
+     "Проверить соединение с Audiobookshelf": "Перевірити з’єднання з Audiobookshelf",
+     "Проверка Audiobookshelf уже выполняется.": "Перевірка Audiobookshelf вже виконується.",
++    "Проверка сети завершена.": "Перевірку мережі завершено.",
++    "Проверка сети уже выполняется.": "Перевірка мережі вже триває.",
++    "Проверяется подключение к источникам…": "Перевіряються з’єднання з джерелами…",
+     "Проверяю соединение с Audiobookshelf…": "Перевіряю з’єднання з Audiobookshelf…",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.\n\nИсточники: {details}": "Програма не може підключитися до жодного джерела аудіокниг. Перевірте інтернет. Якщо сайти блокуються вашим провайдером або у вашій країні, увімкніть VPN на комп’ютері та повторіть спробу. Приклади: Proton VPN або Mullvad VPN. Cloudflare WARP може допомогти при мережевій або DNS-фільтрації, але не дозволяє вибрати іншу країну.\n\nДжерела: {details}",
+     "Программа не может подключиться ни к одному источнику аудиокниг. Проверьте интернет. Если сайты блокируются вашим провайдером или в вашей стране, включите VPN на компьютере и повторите попытку. Примеры: Proton VPN или Mullvad VPN. Cloudflare WARP может помочь при сетевой или DNS-фильтрации, но не позволяет выбрать другую страну.{dns_advice}\n\nИсточники: {details}": "Програма не може підключитися до жодного джерела аудіокниг. Перевірте інтернет. Якщо сайти блокуються вашим провайдером або у вашій країні, увімкніть VPN на комп’ютері та повторіть спробу. Приклади: Proton VPN або Mullvad VPN. Cloudflare WARP може допомогти при мережевій або DNS-фільтрації, але не дає змоги вибрати іншу країну.{dns_advice}\n\nДжерела: {details}",
+@@ -1561,6 +1606,7 @@
+     "Продолжение с {time}.": "Продовження з {time}.",
+     "Продолжить загрузку": "Продовжити завантаження",
+     "Продолжить незавершённую загрузку": "Продовжити незавершене завантаження",
++    "Прокси (необязательно):": "Проксі (необов’язково):",
+     "Пропустить часть и продолжить": "Пропустити частину й продовжити",
+     "Пропустить эти части и продолжить": "Пропустити ці частини й продовжити",
+     "Прослушать голосовой звук события": "Прослухати голосовий звук події",
+@@ -1705,6 +1751,7 @@
+     "Удалить текст": "Видалити",
+     "Удалять временные исходные файлы после успешной обработки": "Видаляти тимчасові вихідні файли після успішної обробки",
+     "Удалять временные файлы после скачивания": "Видаляти тимчасові файли після завантаження",
++    "Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP.": "Успішний DNS не гарантує доступу HTTPS. Вбудований DNS не замінює VPN/WARP.",
+     "Файл": "Файл",
+     "Файл загружен: {name}": "Файл завантажено: {name}",
+     "Файл: {name}": "Файл: {name}",
+@@ -1735,6 +1782,9 @@
+     "Эту импортированную задачу нужно заново проанализировать и добавить в очередь.": "Це імпортоване завдання потрібно повторно проаналізувати й додати до черги.",
+     "Язык сохранён. Изменения интерфейса полностью применятся после перезапуска программы.": "Мову збережено. Зміни інтерфейсу повністю застосуються після перезапуску програми.",
+     "без названия": "без назви",
++    "включён": "увімкнений",
++    "возможна проверка браузера или ограничение доступа": "можлива перевірка браузера або обмеження доступу",
++    "выключен": "вимкнений",
+     "готово": "готово",
+     "да": "так",
+     "есть": "є",
+@@ -1744,6 +1794,7 @@
+     "нет данных": "немає даних",
+     "нет соединения": "немає з’єднання",
+     "повреждён": "пошкоджено",
++    "соединение установлено": "з’єднано",
+     "№": "№",
+     "−30 с": "−30 с",
+     "▶ Воспроизвести": "▶ Відтворити"
+--- a/audioknigi/network_dns.py
++++ b/audioknigi/network_dns.py
+@@ -478,6 +478,127 @@
+ _PROXY_SERVER = None
+ _PROXY_THREAD = None
+ _PROXY_ATEXIT_REGISTERED = False
++_USER_PROXY = ""
++_USER_PROXY_LOCK = threading.RLock()
++
++
++def validate_user_proxy(value: str | None) -> str:
++    """Optional unauthenticated HTTP or SOCKS5 upstream; never store credentials."""
++    value = str(value or "").strip()
++    if not value:
++        return ""
++    try:
++        parts = urlsplit(value)
++        if (parts.scheme.lower() not in {"http", "socks5", "socks5h"}
++                or not parts.hostname or parts.username is not None or parts.password is not None
++                or parts.path not in ("", "/") or parts.query or parts.fragment):
++            raise ValueError("Invalid upstream proxy URL")
++        port = parts.port
++        if port is None or not (1 <= port <= 65535):
++            raise ValueError("Missing or invalid upstream proxy port")
++    except (ValueError, TypeError) as exc:
++        raise ValueError("Прокси: укажите http://host:port или socks5h://host:port без логина и пароля") from exc
++    return value
++
++
++def configure_user_proxy(value: str | None) -> bool:
++    """Update proxy for all new network operations; caller refreshes HTTP pools."""
++    global _USER_PROXY
++    normalized = validate_user_proxy(value)
++    with _USER_PROXY_LOCK:
++        changed = normalized != _USER_PROXY
++        _USER_PROXY = normalized
++    if changed:
++        app_logger.info("NETWORK | upstream proxy=%s", "enabled" if normalized else "off")
++    return changed
++
++
++def current_user_proxy() -> str:
++    with _USER_PROXY_LOCK:
++        return _USER_PROXY
++
++
++def user_proxy_enabled() -> bool:
++    return bool(current_user_proxy())
++
++
++def _recv_exact(sock: socket.socket, count: int) -> bytes:
++    data = bytearray()
++    while len(data) < count:
++        chunk = sock.recv(count - len(data))
++        if not chunk:
++            raise OSError("SOCKS5: proxy closed the connection")
++        data.extend(chunk)
++    return bytes(data)
++
++
++def _connect_via_user_proxy(target_host: str, target_port: int, timeout: float) -> socket.socket:
++    """Tunnel to destination through configured proxy, with remote DNS lookup.
++
++    Uses the original OS connect operation to reach the proxy itself; the
++    requested target hostname is carried in CONNECT/SOCKS5 rather than looked
++    up locally. Never logs token-bearing request URLs or proxy credentials.
++    """
++    proxy_url = current_user_proxy()
++    parsed = urlsplit(proxy_url)
++    proxy_host, proxy_port = parsed.hostname, parsed.port
++    if not proxy_host or not proxy_port:
++        raise OSError("Прокси не настроен")
++    with _PROXY_LOCK:
++        if (_PROXY_SERVER is not None and proxy_host in {"localhost", "127.0.0.1", "::1"}
++                and proxy_port == _PROXY_SERVER.server_address[1]):
++            raise OSError("Прокси указывает на внутренний прокси программы")
++    upstream = _ORIGINAL_CREATE_CONNECTION((proxy_host, proxy_port), timeout=timeout)
++    upstream.settimeout(timeout)
++    try:
++        if parsed.scheme == "http":
++            authority_host = f"[{target_host}]" if ":" in target_host and not target_host.startswith("[") else target_host
++            authority = f"{authority_host}:{int(target_port)}"
++            upstream.sendall((f"CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\n"
++                              "Proxy-Connection: keep-alive\r\n\r\n").encode("ascii"))
++            # Do not consume any tunneled bytes that can arrive in the same
++            # TCP packet as the 200 response; recv(1) leaves them on the socket.
++            reply = bytearray()
++            while not reply.endswith(b"\r\n\r\n"):
++                part = upstream.recv(1)
++                if not part or len(reply) >= 8192:
++                    raise OSError("HTTP-прокси вернул некорректный ответ CONNECT")
++                reply.extend(part)
++            first_line = bytes(reply).split(b"\r\n", 1)[0]
++            fields = first_line.split()
++            if len(fields) < 2 or fields[1] != b"200":
++                status = fields[1].decode("ascii", "replace") if len(fields) > 1 else "invalid"
++                raise OSError(f"HTTP-прокси отклонил CONNECT: HTTP {status}")
++        else:
++            upstream.sendall(b"\x05\x01\x00")
++            if _recv_exact(upstream, 2) != b"\x05\x00":
++                raise OSError("SOCKS5-прокси требует авторизацию или не поддерживает протокол")
++            try:
++                addr = ipaddress.ip_address(target_host.strip("[]"))
++            except ValueError:
++                name = target_host.encode("idna")
++                if not (1 <= len(name) <= 255):
++                    raise OSError("SOCKS5: некорректное имя сервера")
++                address = b"\x03" + bytes([len(name)]) + name
++            else:
++                address = (b"\x01" if addr.version == 4 else b"\x04") + addr.packed
++            upstream.sendall(b"\x05\x01\x00" + address + int(target_port).to_bytes(2, "big"))
++            head = _recv_exact(upstream, 4)
++            if head[0] != 5 or head[1] != 0:
++                raise OSError(f"SOCKS5: соединение отклонено (код {head[1]})")
++            if head[3] == 1:
++                _recv_exact(upstream, 4 + 2)
++            elif head[3] == 4:
++                _recv_exact(upstream, 16 + 2)
++            elif head[3] == 3:
++                _recv_exact(upstream, _recv_exact(upstream, 1)[0] + 2)
++            else:
++                raise OSError("SOCKS5: неверный ответ прокси")
++        return upstream
++    except BaseException:
++        upstream.close()
++        raise
++
+ 
+ 
+ def _parse_proxy_authority(value: str, default_port: int) -> tuple[str, int]:
+@@ -516,6 +637,8 @@
+ 
+ 
+ def _connect_target(host: str, port: int, timeout: float = 12.0):
++    if user_proxy_enabled():
++        return _connect_via_user_proxy(host, port, timeout)
+     if _bypass_cloudflare(host) or current_dns_mode() == DNS_MODE_SYSTEM:
+         return _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
+     if _is_numeric_host(host):
+@@ -796,7 +919,7 @@
+ 
+ def cloudflare_ffmpeg_input_args() -> list[str]:
+     """Return FFmpeg/FFprobe DNS routing arguments for the current policy."""
+-    if current_dns_mode() == DNS_MODE_SYSTEM:
++    if current_dns_mode() == DNS_MODE_SYSTEM and not user_proxy_enabled():
+         return []
+     return ["-http_proxy", ensure_cloudflare_playwright_proxy()]
+ 
+@@ -809,7 +932,7 @@
+         "headless": True,
+         "args": cloudflare_chromium_args(policy) + ["--disable-quic"],
+     }
+-    if policy != DNS_MODE_SYSTEM:
++    if policy != DNS_MODE_SYSTEM or user_proxy_enabled():
+         options["proxy"] = {"server": ensure_cloudflare_playwright_proxy()}
+     return options
+ 
+@@ -823,7 +946,7 @@
+     kwargs = (
+         {"channel": "msedge", "headless": True,
+          "args": cloudflare_chromium_args(DNS_MODE_SYSTEM) + ["--disable-quic"]}
+-        if use_system_dns else cloudflare_playwright_launch_kwargs()
++        if use_system_dns and not user_proxy_enabled() else cloudflare_playwright_launch_kwargs()
+     )
+     try:
+         return browser_type.launch(**kwargs)
+--- a/audioknigi/qt/application.py
++++ b/audioknigi/qt/application.py
+@@ -14,7 +14,7 @@
+ from ..crash_report import build_report
+ from ..logging_utils import app_logger, log_runtime_context
+ from ..diagnostics.session import write_session_state
+-from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy
++from ..network_dns import install_cloudflare_dns, shutdown_cloudflare_playwright_proxy, configure_user_proxy
+ from .main_window import AudioKnigiQtWindow
+ from .onboarding import QtFirstRunWizard
+ from .theme import apply_theme
+@@ -99,6 +99,7 @@
+         ui_mode=str(settings.get("ui_mode", "easy") or "easy"),
+     )
+     write_session_state(running=True, settings=settings)
++    configure_user_proxy(settings.get("proxy_url", ""))
+     install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))
+     app = create_application(clean_argv, settings=settings)
+     original_excepthook = sys.excepthook
+--- a/audioknigi/qt/main_window_pages.py
++++ b/audioknigi/qt/main_window_pages.py
+@@ -503,6 +503,19 @@
+         dns_hint.setWordWrap(True)
+         configure_accessible(dns_hint, name=self._l("Описание режима DNS"), identifier="dns_mode_hint")
+         network.addRow("", dns_hint)
++        self.proxy_url_edit = QLineEdit(str(self.settings.get("proxy_url", "") or ""))
++        self.proxy_url_edit.setPlaceholderText("http://127.0.0.1:8080 или socks5h://127.0.0.1:1080")
++        configure_accessible(self.proxy_url_edit,
++            name=self._l("Адрес пользовательского HTTP или SOCKS5 прокси"), identifier="proxy_url",
++            description=self._l("Необязательно. Только без логина и пароля. Оставьте пустым для прямого соединения."))
++        network.addRow(self._l("Прокси (необязательно):"), self.proxy_url_edit)
++        proxy_hint = QLabel(self._l("Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются."))
++        proxy_hint.setWordWrap(True)
++        network.addRow("", proxy_hint)
++        self.network_check_button = QPushButton(self._l("Проверить подключение ко всем источникам"))
++        configure_accessible(self.network_check_button, name=self._l("Проверить сеть и показать причины ошибок по каждому источнику"), identifier="network_diagnostic")
++        self.network_check_button.clicked.connect(self._run_network_diagnostic)
++        network.addRow("", self.network_check_button)
+         add_combo(network, self._l("Соединений:"), "segment_count_combo", [(self._l("Автоматически"), "auto"), ("1", "1"), ("2", "2"), ("4", "4"), ("8", "8")], "segment_count", "auto", "Количество параллельных соединений", "segment_count")
+         add_combo(network, self._l("Range от размера:"), "segment_threshold_combo", [(f"{x} MB", x) for x in (4, 8, 16, 32, 64)], "segment_threshold_mb", 16, "Минимальный размер для Range-загрузки", "segment_threshold")
+         add_combo(network, self._l("Порог медленного соединения:"), "auto_chunk_combo", [(f"{x} KB/s", x) for x in (128, 256, 512, 1024)], "auto_chunk_min_kbytes_per_sec", 256, "Порог медленного соединения", "auto_chunk_threshold")
+--- a/audioknigi/qt/mixins/accessibility_ui.py
++++ b/audioknigi/qt/mixins/accessibility_ui.py
+@@ -79,6 +79,15 @@
+             self.set_status(message)
+             self._set_guidance(message, announce_now=True)
+ 
++    def _run_network_diagnostic(self, _checked=False) -> None:
++        """User-triggered nonblocking check with screen reader friendly output."""
++        if bool(getattr(self, "_source_health_running", False)):
++            self.set_status(self._l("Проверка сети уже выполняется."))
++            return
++        self._manual_network_check = True
++        self.set_status(self._l("Проверяется подключение к источникам…"))
++        self._start_source_health_check()
++
+     def _start_source_health_check(self) -> None:
+         # Offscreen/self-test windows are never shown. Do not start network I/O
+         # or a modal warning for them. Real startup schedules this after show.
+@@ -112,6 +121,30 @@
+         self._source_health_running = False
+         items = list(getattr(outcome, "items", None) or [])
+         if not items:
++            self._manual_network_check = False
++            return
++        if bool(getattr(self, "_manual_network_check", False)):
++            self._manual_network_check = False
++            dns = dns_runtime_status()
++            from ...network_dns import user_proxy_enabled
++            labels = [
++                self._l("DNS: {mode}; пользовательский прокси: {proxy}",
++                        mode=str(dns.get("mode", "auto")),
++                        proxy=self._l("включён") if user_proxy_enabled() else self._l("выключен")),
++            ]
++            for item in items:
++                source = str(getattr(item, "source", ""))
++                code = getattr(item, "status_code", None)
++                if getattr(item, "reachable", False):
++                    detail = f"HTTP {code}" if code else self._l("соединение установлено")
++                    if getattr(item, "blocked", False):
++                        detail += "; " + self._l("возможна проверка браузера или ограничение доступа")
++                else:
++                    detail = str(getattr(item, "error", "") or self._l("нет соединения"))
++                labels.append(f"{source}: {detail}")
++            labels.append(self._l("Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP."))
++            self._show_message(QMessageBox.Icon.Information, self._l("Диагностика сети"), "\n".join(labels))
++            self.set_status(self._l("Проверка сети завершена."))
+             return
+         reachable = int(getattr(outcome, "reachable_count", 0) or 0)
+         unavailable = int(getattr(outcome, "unavailable_count", 0) or 0)
+--- a/audioknigi/qt/mixins/settings.py
++++ b/audioknigi/qt/mixins/settings.py
+@@ -13,7 +13,7 @@
+ from ...i18n import tr
+ from ...core import DEFAULT_OUTPUT, safe_int
+ from ...config.settings import normalize_settings, save_app_settings
+-from ...network_dns import install_cloudflare_dns
++from ...network_dns import install_cloudflare_dns, configure_user_proxy, validate_user_proxy
+ from ..theme import THEMES, apply_theme
+ from ..workers import AudiobookshelfWorker as _AudiobookshelfWorker
+ 
+@@ -188,6 +188,7 @@
+             "delete_source": bool(self.delete_source_check.isChecked()),
+             "playwright_fallback_enabled": bool(self.playwright_check.isChecked()),
+             "dns_mode": self.dns_mode_combo.currentData() or "auto",
++            "proxy_url": self.proxy_url_edit.text().strip(),
+             "clipboard_auto": bool(self.clipboard_auto_check.isChecked()),
+             "parallel_single_source": bool(self.parallel_single_source_check.isChecked()),
+             "segment_count": self.segment_count_combo.currentData() or "auto",
+@@ -231,7 +232,12 @@
+ 
+     def _save_settings(self, _checked: bool = False, *, silent: bool = False):
+         updated = self._settings_from_ui()
+-        updated = normalize_settings(updated)
++        try:
++            validate_user_proxy(updated.get("proxy_url"))
++            updated = normalize_settings(updated)
++        except ValueError as exc:
++            self._show_message(QMessageBox.Icon.Warning, self._l("Ошибка настройки прокси"), str(exc))
++            return
+         if save_app_settings(updated):
+             # Keep object identity stable: other controllers can retain a
+             # reference to self.settings. Replacing the object would leave
+@@ -242,7 +248,11 @@
+             else:
+                 self.settings.clear()
+                 self.settings.update(updated)
++            proxy_changed = configure_user_proxy(updated.get("proxy_url", ""))
+             install_cloudflare_dns(mode=str(updated.get("dns_mode", "auto") or "auto"))
++            if proxy_changed:
++                from ...core import refresh_http_session_profile
++                refresh_http_session_profile()
+             self.language = str(updated.get("language", self.language) or self.language)
+             self.event_sound_manager.configure(
+                 enabled=bool(updated.get("event_sounds_enabled", True)),
+--- a/audioknigi/qt/settings_sync.py
++++ b/audioknigi/qt/settings_sync.py
+@@ -59,6 +59,7 @@
+         texts = (
+             ("folder_template_edit", "folder_template", "{Book_Title}"),
+             ("track_template_edit", "track_template", "{Track_Number}.mp3"),
++            ("proxy_url_edit", "proxy_url", ""),
+             ("abs_url_edit", "abs_url", ""),
+             ("abs_api_key_edit", "abs_api_key", ""),
+             ("abs_library_id_edit", "abs_library_id", ""),
+--- a/audioknigi/services/source_health_service.py
++++ b/audioknigi/services/source_health_service.py
+@@ -8,6 +8,7 @@
+ import requests
+ 
+ from ..core import USER_AGENT
++from ..network_dns import user_proxy_enabled
+ from ..logging_utils import app_logger
+ from ..sources import SUPPORTED_SOURCE_HOSTS
+ 
+@@ -43,21 +44,44 @@
+         return sum(1 for item in self.items if item.blocked)
+ 
+ 
++def classify_network_error(exc: BaseException) -> str:
++    """Explain connectivity failures without exposing signed URLs or secrets."""
++    if isinstance(exc, requests.exceptions.ProxyError):
++        return "Прокси/туннель: соединение не удалось"
++    if isinstance(exc, (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout, TimeoutError)):
++        return "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)"
++    if isinstance(exc, requests.exceptions.SSLError):
++        return "HTTPS: ошибка сертификата или TLS"
++    import socket
++    if isinstance(exc, socket.gaierror):
++        return "DNS: не удалось определить IP-адрес"
++    explanation = str(exc).lower()
++    if any(word in explanation for word in ("nameresolutionerror", "failed to resolve", "getaddrinfo failed", "name or service not known", "dns returned no", "hostname resolution")):
++        return "DNS: не удалось определить IP-адрес"
++    if any(word in explanation for word in ("timed out", "timeout", "winerror 10060")):
++        return "HTTPS/TCP: тайм-аут (возможна фильтрация или проблема маршрута)"
++    if "proxy" in explanation or "tunnel" in explanation:
++        return "Прокси/туннель: соединение не удалось"
++    if "connection refused" in explanation or "winerror 10061" in explanation:
++        return "TCP: удалённый узел отказал в соединении"
++    return f"Сеть: {type(exc).__name__} (проверьте DNS/прокси/доступ к серверу)"
++
++
+ def _probe_source(host: str, *, timeout: float) -> SourceHealthItem:
+     source = str(host or "").strip()
+     url = f"https://{source}/"
+     try:
+-        # Use a one-shot session with retries disabled. The application-wide
+-        # Cloudflare DoH socket resolver still applies, while startup probing
+-        # stays bounded instead of inheriting download-oriented retry delays.
++        # No download-style retries during health checks. Use the same optional
++        # local upstream bridge that Python search and FFmpeg use.
+         with requests.Session() as session:
+             session.trust_env = False
+             session.headers.update({"User-Agent": USER_AGENT})
++            if user_proxy_enabled():
++                from ..network_dns import ensure_cloudflare_playwright_proxy
++                bridge = ensure_cloudflare_playwright_proxy()
++                session.proxies.update({"http": bridge, "https": bridge})
+             response = session.get(
+-                url,
+-                timeout=(timeout, timeout),
+-                allow_redirects=True,
+-                stream=True,
++                url, timeout=(timeout, timeout), allow_redirects=True, stream=True,
+             )
+             try:
+                 status = int(getattr(response, "status_code", 0) or 0)
+@@ -83,7 +107,7 @@
+             url=url,
+             reachable=False,
+             blocked=False,
+-            error=str(exc).strip() or exc.__class__.__name__,
++            error=classify_network_error(exc),
+         )
+ 
+ 
+@@ -106,7 +130,7 @@
+                     source=host,
+                     url=f"https://{host}/",
+                     reachable=False,
+-                    error=str(exc).strip() or exc.__class__.__name__,
++                    error=classify_network_error(exc),
+                 )
+     outcome = SourceHealthOutcome([by_host[host] for host in hosts if host in by_host])
+     app_logger.info(
+@@ -119,4 +143,4 @@
+     return outcome
+ 
+ 
+-__all__ = ["SourceHealthItem", "SourceHealthOutcome", "check_source_health"]
++__all__ = ["SourceHealthItem", "SourceHealthOutcome", "check_source_health", "classify_network_error"]
+--- a/tests/unit/test_network_proxy_upgrade.py
++++ b/tests/unit/test_network_proxy_upgrade.py
+@@ -0,0 +1,163 @@
++"""Deterministic loopback-only tests for the optional upstream proxy."""
++from __future__ import annotations
++
++import socket
++import socketserver
++import threading
++
++import pytest
++import requests
++
++from audioknigi import network_dns as nd
++from audioknigi.core import build_http_session, refresh_http_session_profile
++from audioknigi.services.source_health_service import classify_network_error
++
++
++@pytest.fixture(autouse=True)
++def reset_upstream():
++    nd.configure_user_proxy("")
++    refresh_http_session_profile()
++    yield
++    nd.configure_user_proxy("")
++    refresh_http_session_profile()
++
++
++def test_proxy_url_validation():
++    assert nd.validate_user_proxy("") == ""
++    assert nd.validate_user_proxy("http://127.0.0.1:8080") == "http://127.0.0.1:8080"
++    assert nd.validate_user_proxy("socks5h://localhost:1080") == "socks5h://localhost:1080"
++    for candidate in ("http://user:secret@example.org:80", "https://example.org:443",
++                      "socks5h://localhost", "http://localhost:99999", "http://localhost:80/token"):
++        with pytest.raises(ValueError):
++            nd.validate_user_proxy(candidate)
++
++
++class _ProxyServer(socketserver.ThreadingTCPServer):
++    allow_reuse_address = True
++    daemon_threads = True
++
++
++class _FakeHttpProxy(socketserver.BaseRequestHandler):
++    def handle(self):
++        head, _ = nd._read_http_head(self.request)
++        assert head.startswith(b"CONNECT ")
++        self.server.targets.append(head.split(b"\r\n", 1)[0])
++        self.request.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
++        self.request.sendall(b"ok")
++
++
++class _FakeSocksProxy(socketserver.BaseRequestHandler):
++    def handle(self):
++        assert nd._recv_exact(self.request, 3) == b"\x05\x01\x00"
++        self.request.sendall(b"\x05\x00")
++        version, command, zero, address_type = nd._recv_exact(self.request, 4)
++        assert (version, command, zero) == (5, 1, 0)
++        if address_type == 3:
++            host_length = nd._recv_exact(self.request, 1)[0]
++            hostname = nd._recv_exact(self.request, host_length).decode("ascii")
++        elif address_type == 1:
++            hostname = socket.inet_ntoa(nd._recv_exact(self.request, 4))
++        else:
++            raise AssertionError("Unsupported ATYP")
++        port = int.from_bytes(nd._recv_exact(self.request, 2), "big")
++        self.server.targets.append((hostname, port))
++        self.request.sendall(b"\x05\x00\x00\x01" + b"\x00" * 4 + b"\x00\x00")
++        self.request.sendall(b"ok")
++
++
++@pytest.mark.parametrize("scheme,handler", [("http", _FakeHttpProxy), ("socks5h", _FakeSocksProxy)])
++def test_proxy_tunnel_connects_remotely(scheme, handler):
++    with _ProxyServer(("127.0.0.1", 0), handler) as server:
++        server.targets = []
++        thread = threading.Thread(target=server.serve_forever, daemon=True)
++        thread.start()
++        nd.configure_user_proxy(f"{scheme}://127.0.0.1:{server.server_address[1]}")
++        with nd._connect_target("example.invalid", 443, timeout=2) as remote:
++            assert remote.recv(2) == b"ok"
++        assert server.targets == ([b"CONNECT example.invalid:443 HTTP/1.1"]
++                                  if scheme == "http" else [("example.invalid", 443)])
++        server.shutdown()
++
++
++def test_requests_session_uses_local_bridge():
++    """No network services outside loopback; verify transport is consistent."""
++    with _ProxyServer(("127.0.0.1", 0), _FakeHttpProxy) as server:
++        server.targets = []
++        thread = threading.Thread(target=server.serve_forever, daemon=True)
++        thread.start()
++        nd.configure_user_proxy(f"http://127.0.0.1:{server.server_address[1]}")
++        session = build_http_session()
++        try:
++            assert session.trust_env is False
++            assert session.proxies["http"].startswith("http://127.0.0.1:")
++            assert session.proxies["https"] == session.proxies["http"]
++        finally:
++            session.close()
++            server.shutdown()
++
++
++def test_diagnostic_classes_are_specific_and_safe():
++    assert classify_network_error(requests.exceptions.ConnectTimeout("server" )).startswith("HTTPS/TCP")
++    assert classify_network_error(requests.exceptions.ProxyError("private-token=xyz")).startswith("Прокси")
++    assert "private-token" not in classify_network_error(requests.exceptions.ProxyError("private-token=xyz"))
++    assert classify_network_error(socket.gaierror(-2, "not found")).startswith("DNS")
++
++
++def test_proxy_dns_paths_are_consistent():
++    from audioknigi.network_dns import cloudflare_ffmpeg_input_args, cloudflare_playwright_launch_kwargs
++    nd.configure_dns_mode("system")
++    assert cloudflare_ffmpeg_input_args() == []
++    assert "proxy" not in cloudflare_playwright_launch_kwargs()
++    nd.configure_user_proxy("socks5h://127.0.0.1:1080")
++    assert cloudflare_ffmpeg_input_args()[0] == "-http_proxy"
++    assert cloudflare_playwright_launch_kwargs()["proxy"]["server"].startswith("http://127.0.0.1:")
++
++class _Origin(socketserver.BaseRequestHandler):
++    def handle(self):
++        nd._read_http_head(self.request)
++        self.request.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nHELLO")
++
++
++class _ForwardHttpProxy(socketserver.BaseRequestHandler):
++    def handle(self):
++        request, _ = nd._read_http_head(self.request)
++        hostport = request.split(b"\r\n", 1)[0].split()[1].decode()
++        hostname, port = hostport.rsplit(":", 1)
++        with socket.create_connection((hostname, int(port)), timeout=3) as target:
++            self.request.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
++            nd._relay_bidirectional(self.request, target, return_when_right_closes=True)
++
++
++class _ForwardSocksProxy(socketserver.BaseRequestHandler):
++    def handle(self):
++        assert nd._recv_exact(self.request, 3) == b"\x05\x01\x00"
++        self.request.sendall(b"\x05\x00")
++        head = nd._recv_exact(self.request, 4)
++        if head[3] == 1:
++            host = socket.inet_ntoa(nd._recv_exact(self.request, 4))
++        elif head[3] == 3:
++            host = nd._recv_exact(self.request, nd._recv_exact(self.request, 1)[0]).decode()
++        else:
++            raise AssertionError(head)
++        port = int.from_bytes(nd._recv_exact(self.request, 2), "big")
++        with socket.create_connection((host, port), timeout=3) as target:
++            self.request.sendall(b"\x05\x00\x00\x01" + b"\x00" * 4 + b"\x00\x00")
++            nd._relay_bidirectional(self.request, target, return_when_right_closes=True)
++
++
++@pytest.mark.parametrize("scheme,handler", [("http", _ForwardHttpProxy), ("socks5h", _ForwardSocksProxy)])
++def test_end_to_end_requests_through_proxy_bridge(scheme, handler):
++    with _ProxyServer(("127.0.0.1", 0), _Origin) as origin:
++        with _ProxyServer(("127.0.0.1", 0), handler) as remote:
++            threads = [threading.Thread(target=server.serve_forever, daemon=True)
++                       for server in (origin, remote)]
++            for thread in threads:
++                thread.start()
++            nd.configure_user_proxy(f"{scheme}://127.0.0.1:{remote.server_address[1]}")
++            refresh_http_session_profile()
++            with build_http_session() as session:
++                response = session.get(f"http://127.0.0.1:{origin.server_address[1]}/", timeout=3)
++                assert response.status_code == 200
++                assert response.text == "HELLO"
++            remote.shutdown()
++            origin.shutdown()

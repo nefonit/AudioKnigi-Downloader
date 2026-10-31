@@ -1,0 +1,357 @@
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/README_SEARCH_API_HLS_V6.md b/README_SEARCH_API_HLS_V6.md
+--- a/README_SEARCH_API_HLS_V6.md	1970-01-01 00:00:00.000000000 +0000
++++ b/README_SEARCH_API_HLS_V6.md	2026-10-31 12:43:02.417052006 +0000
+@@ -0,0 +1,27 @@
++# V6 — стабильность поискового API и защита HLS
++
++Экспериментальное дополнение к AudioKnigi Downloader 4.12.42 V5. Основная версия приложения не повышается; исходный код, не Windows EXE.
++
++## Что изменилось
++
++1. **Yakniga /graphql**: поисковые GraphQL-запросы и запросы сведений о книге являются операциями чтения. Для них задан ограниченный сетевой тайм-аут (connect 3 c, read 5 c), и ровно одна повторная попытка после `ConnectTimeout`, `ReadTimeout` или `ProxyError`. Мутации, ошибки HTTP, JSON и структуры данных повторять нельзя; отмена пользователя прерывает ожидание и попытку. Это не VPN и не способ устранить блокировку TCP.
++2. **Диагностика реального поиска**: отчёт сообщает тип поискового endpoint (для Yakniga — `GraphQL POST`, для Akniga/Izib — `Каталог GET`). Отказ внутреннего DNS-моста в AUTO, когда пользовательский прокси отключён, описывается как «Внутренний DNS-мост: HTTPS-соединение до сайта не установлено», а не как ошибка *пользовательского* прокси. HTTP-коды и изменения формата ответа API обозначаются отдельно. В журнал диагностики не попадают полные адреса запросов, токены, cookies или поисковые строки.
++3. **HLS**: если ожидаемая длительность известна и у движка есть анализатор длительности, создаваемый FFmpeg временный MP3 проверяется *до замены* итогового файла. Недостача более 1% либо 8 секунд — ошибка; уже имеющийся файл сохраняется. Для параллельного HLS остаётся возможность безопасно перейти к обычной загрузке FFmpeg. Если определить длительность нельзя, работает прежняя проверка таймкодов на следующем этапе. Проверка не гарантирует целостность каждой секунды аудио; она исключает лишь явно короткий результат.
++
++Все восемь источников, настройки DNS, выборочный пользовательский прокси, интерфейс и остальные функции не изменены.
++
++## Выполненные тесты в среде сборки
++
++- `python -m pytest -q tests/unit` — **114 passed**.
++- `python -m pytest -q tests/integration/test_search.py tests/integration/test_providers.py tests/integration/test_network.py tests/integration/test_localization.py tests/integration/test_privacy_diagnostics.py` — **376 passed**.
++- Архив и патч проверены отдельно.
++- Исторический `test_exception_allowlist_has_no_stale_entries_and_is_sorted` по-прежнему не проходит из-за двух обработчиков в `akniga.py:_find_hls`, присутствующих в V5 до этих изменений.
++- Не проводились живые запросы к yakniga.org, реальная загрузка с Akniga, Windows/Qt, NVDA или JAWS.
++
++## Проверка на Windows
++
++1. Сохраните резервную копию V5 и настройки/папку аудиокниг.
++2. Если зависимости ещё не установлены, установите их из штатного файла проекта в той же среде Python, из которой запускается приложение.
++3. Включите Cloudflare One. В поиске используйте «Шерлок Холмс» и повторите проверку поиска для yakniga.org и akniga.org, обращая внимание на пометки `GraphQL POST` и `Каталог GET`.
++4. Выключите Cloudflare One, повторите диагностику. Для Yakniga может остаться недоступность TCP; новая версия должна показывать «Внутренний DNS-мост» вместо ошибки пользовательского прокси, если выбран AUTO и пользовательский прокси отключён.
++5. При разрешённых к сохранению аудиоматериалах проверьте короткую главу Akniga. Если поток прервётся раньше конца, программа не должна заменять уже существующий MP3 неполной копией.
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/audioknigi/download/network.py b/audioknigi/download/network.py
+--- a/audioknigi/download/network.py	2026-10-31 12:18:38.000000000 +0000
++++ b/audioknigi/download/network.py	2026-10-31 12:40:00.614801979 +0000
+@@ -1197,6 +1197,22 @@
+                                     consumer.join(timeout=1.0)
+                                 self._check_cancel()
+                                 if proc.returncode == 0 and temp.exists() and temp.stat().st_size:
++                                    # FFmpeg can exit 0 for a prematurely ended HLS
++                                    # playlist. Do not replace a complete existing
++                                    # source with a short, seemingly valid MP3.
++                                    # The downloader's existing post-download
++                                    # timeline verification remains in place too.
++                                    if expected_duration and expected_duration > 0:
++                                        probe = getattr(self, "_probe_duration", None)
++                                        actual = probe(temp) if callable(probe) else None
++                                        if actual is not None and (
++                                            float(actual) + max(8.0, float(expected_duration) * 0.01)
++                                            < float(expected_duration)
++                                        ):
++                                            raise RuntimeError(
++                                                "HLS: получен неполный аудиофайл; "
++                                                "попытка не будет сохранена."
++                                            )
+                                     replace_with_retry(temp, target)
+                                     progress_cb = getattr(self, "set_progress", None)
+                                     if callable(progress_cb):
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/audioknigi/providers/extra_sources.py b/audioknigi/providers/extra_sources.py
+--- a/audioknigi/providers/extra_sources.py	2026-10-31 12:21:48.000000000 +0000
++++ b/audioknigi/providers/extra_sources.py	2026-10-31 12:40:00.614213542 +0000
+@@ -13,6 +13,7 @@
+ import json
+ import re
+ import threading
++import requests
+ from pathlib import PurePosixPath
+ from urllib.parse import quote, urljoin, urlparse
+ 
+@@ -23,6 +24,9 @@
+ from ..sources import normalize_supported_url, is_supported_url
+ 
+ _TIMEOUT = (6, 18)
++# GraphQL is a read-only catalogue API. Two short attempts are preferable to
++# one long blocked connection (and never retry mutations).
++_YAKNIGA_QUERY_TIMEOUT = (3, 5)
+ _SEARCH_LIMIT = 30
+ 
+ 
+@@ -34,10 +38,11 @@
+ def _request(url, *, cancel_event=None, json_payload=None, params=None):
+     _check_cancel(cancel_event)
+     session = get_http_session()
++    timeout = _YAKNIGA_QUERY_TIMEOUT if url == "https://yakniga.org/graphql" else _TIMEOUT
+     if json_payload is not None:
+-        response = session.post(url, json=json_payload, timeout=_TIMEOUT)
++        response = session.post(url, json=json_payload, timeout=timeout)
+     else:
+-        response = session.get(url, params=params, timeout=_TIMEOUT)
++        response = session.get(url, params=params, timeout=timeout)
+     response.raise_for_status()
+     _check_cancel(cancel_event)
+     return response
+@@ -263,11 +268,38 @@
+ 
+ 
+ def _yakniga_payload(payload, cancel_event=None):
+-    response = _request("https://yakniga.org/graphql", json_payload=payload, cancel_event=cancel_event)
+-    data = response.json()
+-    if not isinstance(data, dict) or data.get("errors"):
+-        raise SiteStructureChanged("yakniga.org: GraphQL вернул ошибку.")
+-    return data.get("data") or {}
++    """Read-only GraphQL request with one bounded transient-network retry.
++
++    POST is normally not safe to retry. Here the known payloads are GraphQL
++    *queries* only: never retry mutations, HTTP status errors or bad JSON.
++    Do not log the request body or signed links from any raised exception.
++    """
++    query = str(payload.get("query", "") if isinstance(payload, dict) else "")
++    is_read_only = bool(re.match(r"\s*(?:query\b|\{)", query, re.I)) and not re.search(
++        r"\bmutation\b", query, re.I
++    )
++    for attempt in range(2 if is_read_only else 1):
++        _check_cancel(cancel_event)
++        try:
++            response = _request("https://yakniga.org/graphql", json_payload=payload,
++                                cancel_event=cancel_event)
++            data = response.json()
++            if not isinstance(data, dict) or data.get("errors"):
++                raise SiteStructureChanged("yakniga.org: GraphQL вернул ошибку.")
++            if not isinstance(data.get("data"), dict):
++                raise SiteStructureChanged("yakniga.org: GraphQL вернул неверные данные.")
++            return data["data"]
++        except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout,
++                requests.exceptions.ProxyError) as exc:
++            if not is_read_only or attempt:
++                raise
++            # Cancellation-aware delay, no unbounded retries or sleep in UI.
++            if cancel_event is not None:
++                if cancel_event.wait(0.15):
++                    raise Cancelled("Операция отменена пользователем") from exc
++            else:
++                threading.Event().wait(0.15)
++    raise AssertionError("Unreachable: GraphQL retry loop exhausted")
+ 
+ 
+ def _yakniga_identity(url):
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/audioknigi/qt/mixins/accessibility_ui.py b/audioknigi/qt/mixins/accessibility_ui.py
+--- a/audioknigi/qt/mixins/accessibility_ui.py	2026-10-31 12:22:10.000000000 +0000
++++ b/audioknigi/qt/mixins/accessibility_ui.py	2026-10-31 12:40:00.614588066 +0000
+@@ -163,6 +163,9 @@
+                                   if count else self._l("Поиск выполнен; результатов нет"))
+                     else:
+                         detail = str(getattr(item, "error", "") or self._l("Ошибка поиска"))
++                    endpoint = str(getattr(item, "search_endpoint", "") or "")
++                    if endpoint:
++                        detail += f"; {endpoint}"
+                     ms = getattr(item, "tcp_ms", None)
+                     if ms is not None:
+                         detail += f"; {ms} мс"
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/audioknigi/services/source_health_service.py b/audioknigi/services/source_health_service.py
+--- a/audioknigi/services/source_health_service.py	2026-10-31 12:22:10.000000000 +0000
++++ b/audioknigi/services/source_health_service.py	2026-10-31 12:40:00.614397389 +0000
+@@ -41,6 +41,7 @@
+     search_checked: bool = False
+     search_results: int | None = None
+     search_supported: bool = True
++    search_endpoint: str = ""
+ 
+ 
+ @dataclass(slots=True)
+@@ -197,6 +198,33 @@
+                                 fallback_status=str(info.get("fallback_status", "")))
+ 
+ 
++def _search_endpoint(key: str) -> str:
++    """Safe, user-facing endpoint type, never a URL with search terms."""
++    return {
++        "yakniga": "GraphQL POST",
++        "akniga": "Каталог GET",
++        "izibuk": "Каталог GET",
++        "librivox": "Internet Archive API",
++        "uknig": "Каталог GET",
++    }.get(str(key or "").casefold(), "Поиск API")
++
++
++def _classify_search_error(exc: BaseException) -> str:
++    """Report a failing *internal* DNS bridge without implying user proxy use."""
++    from ..core import SiteStructureChanged
++    if isinstance(exc, requests.exceptions.ProxyError):
++        if current_dns_mode() == DNS_MODE_AUTO and not user_proxy_enabled():
++            return "Внутренний DNS-мост: HTTPS-соединение до сайта не установлено"
++    if isinstance(exc, requests.exceptions.HTTPError):
++        response = getattr(exc, "response", None)
++        code = getattr(response, "status_code", None)
++        if isinstance(code, int):
++            return f"Поисковый API ответил HTTP {code}"
++    if isinstance(exc, SiteStructureChanged):
++        return "Ответ поискового API не соответствует ожидаемой структуре"
++    return classify_network_error(exc)
++
++
+ def _probe_search(provider, query: str) -> SourceHealthItem:
+     """Query a real provider search, not just its site's homepage.
+ 
+@@ -206,23 +234,25 @@
+     import time
+     started = time.monotonic()
+     key = str(provider.display_name)
++    endpoint = _search_endpoint(str(getattr(provider, "key", "")))
+     from ..providers.base import SourceProvider
+     # Do not report the base provider's empty placeholder as a successful query.
+     # Lightweight fake providers used in offline tests do not derive from it.
+     if isinstance(provider, SourceProvider) and type(provider).search is SourceProvider.search:
+         return SourceHealthItem(key, "", False, error="Поиск не поддерживается",
+-                                search_checked=True, search_supported=False, tcp_ms=0)
++                                search_checked=True, search_supported=False, tcp_ms=0,
++                                search_endpoint=endpoint)
+     try:
+         results = provider.search(query)
+         count = len(list(results or ()))
+         return SourceHealthItem(key, "", True, search_checked=True, search_results=count,
+-                                tcp_ms=round((time.monotonic()-started)*1000))
++                                tcp_ms=round((time.monotonic()-started)*1000), search_endpoint=endpoint)
+     except Exception as exc:
+-        message = classify_network_error(exc)
++        message = _classify_search_error(exc)
+         if message.startswith("Сеть: "):
+             message = "Ошибка поиска: " + type(exc).__name__
+         return SourceHealthItem(key, "", False, error=message, search_checked=True,
+-                                tcp_ms=round((time.monotonic()-started)*1000))
++                                tcp_ms=round((time.monotonic()-started)*1000), search_endpoint=endpoint)
+ 
+ 
+ def check_source_search(query: str = "Поттер") -> SourceHealthOutcome:
+diff -ruN '--exclude=__pycache__' '--exclude=.pytest_cache' a/tests/unit/test_v6_api_and_hls_safety.py b/tests/unit/test_v6_api_and_hls_safety.py
+--- a/tests/unit/test_v6_api_and_hls_safety.py	1970-01-01 00:00:00.000000000 +0000
++++ b/tests/unit/test_v6_api_and_hls_safety.py	2026-10-31 12:40:50.667981862 +0000
+@@ -0,0 +1,129 @@
++"""V6: bounded GraphQL reads, truthful network labels, HLS publish safety."""
++from pathlib import Path
++from types import SimpleNamespace
++
++import pytest
++import requests
++
++from audioknigi.core import Cancelled, SiteStructureChanged
++from audioknigi.providers import extra_sources as extra
++from audioknigi.services import source_health_service as health
++from audioknigi.download import network
++
++
++def test_graphql_read_only_retries_once_then_succeeds(monkeypatch):
++    called = []
++    class Response:
++        def json(self):
++            return {"data": {"search": []}}
++    def request(url, *, json_payload=None, cancel_event=None):
++        called.append((url, json_payload))
++        if len(called) == 1:
++            raise requests.exceptions.ProxyError("secret=DO-NOT-PRINT")
++        return Response()
++    monkeypatch.setattr(extra, "_request", request)
++    assert extra._yakniga_payload({"query": "query ($term: String!) { search(term:$term) { title } }", "variables": {"term": "test"}}) == {"search": []}
++    assert len(called) == 2
++    assert extra._YAKNIGA_QUERY_TIMEOUT == (3, 5)
++
++
++def test_graphql_read_only_stops_after_two_network_failures(monkeypatch):
++    calls = []
++    def request(*args, **kwargs):
++        calls.append(1)
++        raise requests.exceptions.ConnectTimeout("blocked")
++    monkeypatch.setattr(extra, "_request", request)
++    with pytest.raises(requests.exceptions.ConnectTimeout):
++        extra._yakniga_payload({"query": "query Test { search { title } }"})
++    assert len(calls) == 2
++
++
++def test_graphql_non_read_only_or_bad_response_never_retried(monkeypatch):
++    calls = []
++    def request(*args, **kwargs):
++        calls.append(1)
++        raise requests.exceptions.ReadTimeout("timeout")
++    monkeypatch.setattr(extra, "_request", request)
++    with pytest.raises(requests.exceptions.ReadTimeout):
++        extra._yakniga_payload({"query": "mutation { changeBook }"})
++    assert len(calls) == 1
++    monkeypatch.setattr(extra, "_request", lambda *a, **kw: SimpleNamespace(json=lambda: {"data": None}))
++    with pytest.raises(SiteStructureChanged, match="неверные данные"):
++        extra._yakniga_payload({"query": "query { search { title } }"})
++
++
++def test_graphql_cancelled_prevents_retry(monkeypatch):
++    from threading import Event
++    event = Event()
++    calls = []
++    def request(*args, **kwargs):
++        calls.append(1)
++        event.set()
++        raise requests.exceptions.ProxyError("failed")
++    monkeypatch.setattr(extra, "_request", request)
++    with pytest.raises(Cancelled):
++        extra._yakniga_payload({"query": "query { search { title } }"}, cancel_event=event)
++    assert len(calls) == 1
++
++
++def test_search_internal_bridge_not_user_proxy(monkeypatch):
++    monkeypatch.setattr(health, "current_dns_mode", lambda: health.DNS_MODE_AUTO)
++    monkeypatch.setattr(health, "user_proxy_enabled", lambda: False)
++    class Provider:
++        key = "yakniga"
++        display_name = "yakniga.org"
++        def search(self, q):
++            raise requests.exceptions.ProxyError("secret_url=https://hidden.test/media?token=123")
++    result = health._probe_search(Provider(), "query")
++    assert result.reachable is False
++    assert "Внутренний DNS-мост" in result.error
++    assert "token" not in result.error
++    assert result.search_endpoint == "GraphQL POST"
++    monkeypatch.setattr(health, "user_proxy_enabled", lambda: True)
++    assert health._classify_search_error(requests.exceptions.ProxyError("private")) == "Прокси/туннель: соединение не удалось"
++
++
++def test_search_api_http_errors_no_sensitive_url():
++    response = requests.Response()
++    response.status_code = 503
++    response.url = 'https://yakniga.org/graphql?secret=x'
++    err = requests.exceptions.HTTPError('for secret=x', response=response)
++    assert health._classify_search_error(err) == "Поисковый API ответил HTTP 503"
++    assert health._classify_search_error(SiteStructureChanged("private data")) == "Ответ поискового API не соответствует ожидаемой структуре"
++
++
++def test_hls_short_audio_never_overwrites_existing_target(monkeypatch, tmp_path):
++    monkeypatch.setattr(network, "resolve_executable", lambda _: "fake-ffmpeg")
++    monkeypatch.setattr(network, "hidden_subprocess_kwargs", lambda: {})
++    temporary_files = []
++    class Process:
++        returncode = 0
++        def poll(self): return 0
++    def popen(cmd, **kwargs):
++        p = Path(cmd[-1])
++        temporary_files.append(p)
++        p.write_bytes(b"valid-but-incomplete-media")
++        return Process()
++    monkeypatch.setattr(network.subprocess, "Popen", popen)
++    class Engine:
++        runtime_audio_preset = "copy"
++        runtime_normalization_mode = "off"
++        runtime_hls_parallel_enabled = False
++        def _check_cancel(self): pass
++        def _register_active_subprocess(self, p): pass
++        def _unregister_active_subprocess(self, p): pass
++        def set_status(self, message): pass
++        def log(self, message): pass
++        def _probe_duration(self, file_path): return 1111.176
++    target = tmp_path / "_source.mp3"
++    target.write_bytes(b"previous-fully-valid-source")
++    part = tmp_path / "_source.mp3.part"
++    part.write_bytes(b"locked-by-someone-else")
++    with pytest.raises(RuntimeError, match="неполный аудиофайл"):
++        network.NetworkDownloadMixin._run_hls_ffmpeg(
++            Engine(), "https://cdn.example.test/book.m3u8", target,
++            "https://akniga.org/book", expected_duration=33015,
++        )
++    assert target.read_bytes() == b"previous-fully-valid-source"
++    assert part.read_bytes() == b"locked-by-someone-else"
++    assert temporary_files and all(not p.exists() for p in temporary_files)

@@ -1,0 +1,310 @@
+--- a/audioknigi/download/hls_parallel.py
++++ b/audioknigi/download/hls_parallel.py
+@@ -100,6 +100,21 @@
+         try:
+             with _open_checked_response(url, headers, allow_local_http=allow_local_http) as response:
+                 length = 0
++                # Check the expected HTTP body size when the origin supplies
++                # Content-Length. A short, clean EOF must not become a cached
++                # "complete" segment. Compressed/chunked bodies are excluded:
++                # requests may transparently decode them.
++                response_headers = getattr(response, "headers", {}) or {}
++                content_length = response_headers.get("Content-Length", "")
++                content_encoding = str(response_headers.get("Content-Encoding", "") or "").lower()
++                transfer_encoding = str(response_headers.get("Transfer-Encoding", "") or "").lower()
++                expected_length = None
++                if not content_encoding or content_encoding == "identity":
++                    if "chunked" not in transfer_encoding:
++                        try:
++                            expected_length = int(content_length)
++                        except (TypeError, ValueError):
++                            pass
+                 with dest.open("wb") as out:
+                     for chunk in response.iter_content(chunk_size=128 * 1024):
+                         if stop_event.is_set():
+@@ -111,6 +126,8 @@
+                         length += len(chunk)
+                 if length <= 0:
+                     raise IOError("Пустой HLS-сегмент")
++                if expected_length is not None and expected_length >= 0 and length != expected_length:
++                    raise IOError("Неполный HLS-сегмент: длина HTTP-ответа не совпала")
+                 return index, length
+         except (requests.RequestException, OSError, IOError):
+             dest.unlink(missing_ok=True)
+@@ -186,7 +203,7 @@
+ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
+                   user_agent: str, check_cancel, on_progress,
+                   max_workers: int = 6, allow_local_http: bool = False, throttle=None,
+-                  segment_cache_dir: Path | None = None) -> Path | None:
++                  segment_cache_dir: Path | None = None, on_resume=None) -> Path | None:
+     """Fetch a supported HLS VOD concurrently and emit a *local* .m3u8.
+ 
+     No segmented download starts until the full manifest validates.
+@@ -271,15 +288,21 @@
+         (staging_dir / local_name).write_bytes(raw)
+     stop_event = threading.Event()
+     finished = 0
++    # Count only fresh network traffic in the throughput figure. Cached bytes
++    # are completed work but were not transferred over the network this run.
+     downloaded_bytes = 0
++    reused_count = 0
+ 
+     def fetch_or_reuse(index, remote, dest):
++        if stop_event.is_set():
++            raise RuntimeError("Загрузка сегментов остановлена")
++        check_cancel()
+         if cache_subdir is not None:
+             cache_path = cache_subdir / dest.name
+             cached_size = _reusable_segment(cache_path, dest)
+             if cached_size is not None:
+                 check_cancel()
+-                return index, cached_size
++                return index, cached_size, True
+         index, size = _download_segment(
+             index, remote, dest, headers, check_cancel, stop_event,
+             allow_local_http=allow_local_http, throttle=throttle,
+@@ -291,21 +314,31 @@
+                 # The cache is an optimization; inability to persist must not
+                 # invalidate a correctly downloaded segment.
+                 pass
+-        return index, size
+-
+-    try:
+-        with ThreadPoolExecutor(max_workers=max(1, min(12, int(max_workers)))) as pool:
+-            futures = [pool.submit(fetch_or_reuse, i, remote, dest)
+-                       for i, remote, dest in segments]
++        return index, size, False
++
++    with ThreadPoolExecutor(max_workers=max(1, min(12, int(max_workers)))) as pool:
++        futures = [pool.submit(fetch_or_reuse, i, remote, dest)
++                   for i, remote, dest in segments]
++        try:
+             for task in as_completed(futures):
+                 check_cancel()
+-                _index, size = task.result()
++                _index, size, reused = task.result()
+                 finished += 1
+-                downloaded_bytes += size
++                if reused:
++                    reused_count += 1
++                    if on_resume is not None:
++                        on_resume(reused_count, len(segments))
++                else:
++                    downloaded_bytes += size
+                 on_progress(finished, len(segments), downloaded_bytes)
+-    except BaseException:
+-        stop_event.set()
+-        raise
++        except BaseException:
++            # Set this while the pool is still open, rather than after its
++            # context manager has already waited for all queued downloads.
++            # The running response will stop at the next streamed chunk.
++            stop_event.set()
++            for future in futures:
++                future.cancel()
++            raise
+     dest = staging_dir / "media.m3u8"
+     dest.write_text("\n".join(updated) + "\n", encoding="utf-8")
+     return dest
+--- a/audioknigi/download/network.py
++++ b/audioknigi/download/network.py
+@@ -1076,6 +1076,9 @@
+             try:
+                 last_reported = [0.0]
+                 parallel_started = time.monotonic()
++                resumed = [0]
++                def parallel_resumed(reused, _total):
++                    resumed[0] = reused
+                 def parallel_progress(done, count, transferred):
+                     self._check_cancel()
+                     now = time.monotonic()
+@@ -1084,11 +1087,12 @@
+                         self.set_progress(progress_offset + progress_span * pct / 100.0)
+                         elapsed = max(0.01, now - parallel_started)
+                         avg_speed = transferred / elapsed
++                        restored = f", из кэша {resumed[0]}" if resumed[0] else ""
+                         self.set_status(
+-                            f"HLS: загружено {done} из {count} сегментов, "
+-                            f"{fmt_size(transferred)}, {fmt_size(avg_speed)}/с"
++                            f"HLS: готово {done} из {count} сегментов{restored}; "
++                            f"по сети {fmt_size(transferred)}, {fmt_size(avg_speed)}/с"
+                         )
+-                        if callable(getattr(self, "record_transfer_metrics", None)):
++                        if transferred and callable(getattr(self, "record_transfer_metrics", None)):
+                             self.record_transfer_metrics(avg_speed, workers)
+                         last_reported[0] = now
+                 mode = str(getattr(self, "runtime_segment_count", "auto") or "auto")
+@@ -1106,9 +1110,12 @@
+                     user_agent=USER_AGENT, check_cancel=self._check_cancel,
+                     on_progress=parallel_progress, max_workers=workers,
+                     throttle=throttle, segment_cache_dir=segment_cache_dir,
++                    on_resume=parallel_resumed,
+                 )
+                 if candidate is not None:
+                     working_url = str(candidate)
++                    if resumed[0]:
++                        self.log(f"HLS: восстановлено {resumed[0]} готовых сегментов из кэша.")
+                     self.log("HLS: сегменты загружены параллельно, собираю аудио локально.")
+                 else:
+                     staged_hls.cleanup()
+--- /dev/null
++++ b/tests/unit/test_v12_hls_resume.py
+@@ -0,0 +1,125 @@
++"""V12: checks for safe HLS resume, honest progress, and prompt cancellation."""
++from __future__ import annotations
++
++from contextlib import contextmanager
++import threading
++import time
++
++import pytest
++
++from audioknigi.core import Cancelled
++from audioknigi.download import hls_parallel
++
++URL = "https://audio.example.org/fiction/list.m3u8"
++BODY = b"#EXTM3U\n#EXTINF:3.0,\none.ts\n#EXTINF:3.0,\ntwo.ts\n#EXT-X-ENDLIST\n"
++THREE = b"#EXTM3U\n#EXTINF:3.0,\none.ts\n#EXTINF:3.0,\ntwo.ts\n#EXTINF:3.0,\nthree.ts\n#EXT-X-ENDLIST\n"
++
++
++def _stage(tmp_path, name, *, cache, on_progress=None, on_resume=None, workers=1):
++    return hls_parallel.stage_hls_vod(
++        URL, tmp_path / name, referer="", user_agent="test",
++        check_cancel=lambda: None, on_progress=on_progress or (lambda *_: None),
++        max_workers=workers, segment_cache_dir=cache, on_resume=on_resume,
++    )
++
++
++def test_restart_reuses_only_completed_segments_and_reports_network_bytes(monkeypatch, tmp_path):
++    monkeypatch.setattr(hls_parallel, "_get_bytes", lambda *_a, **_kw: BODY)
++    calls = []
++    fail = [True]
++
++    def fetch(index, _url, dest, *_args, **_kwargs):
++        calls.append(index)
++        if index == 1 and fail[0]:
++            raise Cancelled("cancel")
++        dest.write_bytes(b"12345")
++        return index, 5
++
++    monkeypatch.setattr(hls_parallel, "_download_segment", fetch)
++    cache = tmp_path / "shared"
++    with pytest.raises(Cancelled):
++        _stage(tmp_path, "first", cache=cache)
++    assert calls == [0, 1]
++
++    # A second invocation represents a fresh download worker/process.
++    fail[0] = False
++    progress, resumed = [], []
++    assert _stage(tmp_path, "second", cache=cache,
++                  on_progress=lambda *x: progress.append(x),
++                  on_resume=lambda *x: resumed.append(x)).exists()
++    assert calls == [0, 1, 1]
++    assert resumed == [(1, 2)]
++    assert progress[-1] == (2, 2, 5)  # not 10: one segment was reused
++    assert (tmp_path / "second" / "seq000000.ts").read_bytes() == b"12345"
++
++
++def test_clean_early_eof_with_content_length_is_retried_and_not_cached(monkeypatch, tmp_path):
++    calls = []
++
++    @contextmanager
++    def response(_url, _headers, **_kwargs):
++        calls.append(1)
++        class FakeResponse:
++            headers = {"Content-Length": "12"}
++            def iter_content(self, **_kwargs):
++                yield b"too-short"
++        yield FakeResponse()
++
++    monkeypatch.setattr(hls_parallel, "_open_checked_response", response)
++    dest = tmp_path / "seq000000.ts"
++    with pytest.raises(IOError, match="Неполный HLS-сегмент"):
++        hls_parallel._download_segment(0, "https://audio.example.org/one.ts", dest,
++            {}, lambda: None, threading.Event())
++    assert len(calls) == 3
++    assert not dest.exists()
++
++
++def test_exact_content_length_is_accepted(monkeypatch, tmp_path):
++    @contextmanager
++    def response(*_args, **_kwargs):
++        class FakeResponse:
++            headers = {"Content-Length": "5"}
++            def iter_content(self, **_kwargs):
++                yield b"hello"
++        yield FakeResponse()
++    monkeypatch.setattr(hls_parallel, "_open_checked_response", response)
++    dest = tmp_path / "ok.ts"
++    assert hls_parallel._download_segment(0, "https://audio.example.org/ok.ts", dest,
++        {}, lambda: None, threading.Event()) == (0, 5)
++    assert dest.read_bytes() == b"hello"
++
++
++def test_stop_event_signaled_before_pool_waits_on_running_workers(monkeypatch, tmp_path):
++    monkeypatch.setattr(hls_parallel, "_get_bytes", lambda *_a, **_kw: THREE)
++    other_started = threading.Event()
++
++    def fetch(index, _url, _dest, _headers, _check_cancel, stop_event, **_kw):
++        if index == 0:
++            assert other_started.wait(0.5)
++            raise Cancelled("cancelled")
++        other_started.set()
++        if not stop_event.wait(1.0):
++            raise AssertionError("running worker was not signaled to stop")
++        raise RuntimeError("stopped")
++
++    monkeypatch.setattr(hls_parallel, "_download_segment", fetch)
++    begin = time.monotonic()
++    with pytest.raises(Cancelled):
++        _stage(tmp_path, "cancel", cache=tmp_path / "cache", workers=2)
++    assert time.monotonic() - begin < 0.8
++
++
++def test_cache_rejects_stale_checksum_on_restart(monkeypatch, tmp_path):
++    monkeypatch.setattr(hls_parallel, "_get_bytes", lambda *_a, **_kw: BODY)
++    calls = []
++    def fetch(index, _url, dest, *_args, **_kwargs):
++        calls.append(index)
++        dest.write_bytes(f"part-{index}".encode())
++        return index, dest.stat().st_size
++    monkeypatch.setattr(hls_parallel, "_download_segment", fetch)
++    cache = tmp_path / "cache"
++    _stage(tmp_path, "before", cache=cache)
++    segment = next(cache.glob("*/seq000000.ts"))
++    segment.write_bytes(b"damaged")
++    _stage(tmp_path, "after", cache=cache)
++    assert calls == [0, 1, 0]  # good segment 1 was not re-fetched
+--- /dev/null
++++ b/README_HLS_RESUME_SAFETY_V12.md
+@@ -0,0 +1,30 @@
++# AudioKnigi Downloader V12 — safer HLS interruption and resume
++
++Based on **V11**, which remains unchanged. All eight audiobook sources, Akniga collections and book descriptions are retained.
++
++## Changes
++
++- Parallel HLS interruption: running workers receive their stop signal **before** waiting for the worker pool to finish; pending tasks are canceled. A blocked HTTP read can still take up to its socket timeout.
++- Previously completed HLS VOD segments are retained under the book's hidden `.hls-cache` directory and can be reused on the next attempt **only** for an identical signed playlist URL and manifest bytes. Their SHA-256 sidecars are checked before reuse.
++- A segment whose actual byte count differs from the HTTP `Content-Length` is rejected and retried, instead of being cached as complete. This extra check is available only for uncompressed non-chunked responses with a usable `Content-Length`; it does not by itself prove the media contents are intact.
++- The progress/status message distinguishes completed segments, reused segments, and bytes newly downloaded over the network. The network speed indicator no longer counts bytes read from disk cache.
++- After the full MP3 is successfully produced and validated, the existing successful-download cleanup still removes the book's HLS cache.
++
++## Important limitations
++
++- **Parallel HLS mode must be enabled**, and the operation must be for a whole supported VOD. Chapter-only FFmpeg seeks and unsupported playlists do not use this segment cache.
++- A re-analysis can produce a new expiring/signed URL or changed manifest. In that case the cache is **not** reused, by design. No auth tokens or playlist URLs are persisted to the cache.
++- This is not arbitrary MP3 Range resume. A server that does not declare a valid length may still terminate a segment early; downstream MP3 duration checks guard against publishing an obviously short file.
++- Repeated interruptions leave the hidden `.hls-cache` folder until a validated complete MP3 finishes. Old unused cache directories can occupy disk space and can be removed manually after the application is closed.
++- Network access restrictions without Cloudflare One/WARP remain unchanged.
++
++## Manual Windows verification
++
++1. Enable Cloudflare One if required for Akniga access and enable **parallel HLS** in the downloader.
++2. Analyze an authorized, longer Akniga audiobook and start downloading the **whole book**. Cancel after some segments finish (not while chapter-seek downloading).
++3. Reuse the **same analyzed book** and restart promptly. The status should indicate `из кэша N` and the log should report `HLS: восстановлено N готовых сегментов из кэша.` when a matching manifest is used.
++4. Verify the final MP3 plays to the last chapter; confirm the `.hls-cache` folder is cleared after successful validated completion.
++5. Retry after changing/reanalyzing the playlist; a changed signed manifest should download again rather than trust old parts.
++6. Check screen-reader status announcements on Windows with NVDA/JAWS if used.
++
++**Validation performed:** offline synthetic tests for cancellation timing, restart reuse, cached bytes not counted as network traffic, SHA-256 corruption and `Content-Length` mismatch. Also tested existing search, download-flow, network, localization and diagnostics regressions. Live Windows HLS download was not available in this environment.

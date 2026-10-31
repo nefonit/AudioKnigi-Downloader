@@ -1,0 +1,521 @@
+--- /dev/null
++++ b/README_DNS_TRACE_FALLBACK_V2.md
+@@ -0,0 +1,29 @@
++# AudioKnigi Downloader 4.12.42: расширенная проверка DNS / TCP (эксперимент)
++
++## Зачем обновление
++
++В диагностике пользователя без Cloudflare One доступно 4 из 8 источников и при выборе `auto`, и при выборе `cloudflare`. Четыре недоступных источника возвращали TCP-тайм-аут около трёх секунд. Это не доказывает сбой DNS: серверы могли быть недоступны на уровне сети, а диагностика показывала только один IP и не указывала, запускался ли резервный вариант.
++
++## Изменения
++
++- Ручная диагностика теперь получает до **8 секунд** на попытки TCP-подключения вместо 3 секунд; фоновая проверка при старте остаётся короткой (3 секунды).
++- Автоматический DNS резервирует часть **общего** времени соединения для альтернативного **отличающегося** IP системного DNS. Это исправляет ситуацию, когда первая попытка израсходовала весь бюджет и резервного подключения не было. Сокращение бюджета первого IP может изменить время ожидания медленных серверов; при необходимости используйте строгий режим DNS.
++- Сохраняется список IP, полученных от Cloudflare и системного DNS, а также статус каждого фактически выполненного TCP-подключения. Один и тот же IP не запрашивается повторно только ради другого названия DNS-провайдера.
++- При выборе `cloudflare` системный DNS может **опрашиваться только для сравнения в ручной диагностике**. Для TCP-подключения этот режим по-прежнему использует исключительно Cloudflare IP. Простой поиск и скачивание не выполняют сравнения.
++- В отчёте отдельно обозначены: одинаковые ответы DNS, отказ системного DNS, реальная попытка на другом IP, и исчерпание тайм-аута.
++- Отчёт остаётся текстовым, читается экранными дикторами; добавлены RU/UK/DE/EN подписи. Отчёт не показывает секретные URL, токены или cookies.
++- Запрос `HEAD /` проверяет только HTTPS главной страницы сайта. Это **не** проверка поискового API, выдачи книг и их скачивания.
++
++## Как проверить на Windows
++
++1. Распакуйте исходный ZIP отдельно от стабильной программы и запустите согласно `README.md` (для работы требуется установленное окружение Python/Qt). Это НЕ готовый EXE.
++2. Выключите Cloudflare One; сначала выберите `auto`, затем `cloudflare` и нажмите «Проверить подключение ко всем источникам».
++3. Сравните для `akniga.org`, `yakniga.org`, `uknig.com` и `knigavuhe.org` строки **Cloudflare DNS IP**, **Системный DNS IP**, **TCP-попытка** и **статус резервного подключения**.
++4. Если оба DNS возвращают одинаковый недоступный IP, смена DNS без VPN/WARP/рабочего прокси не улучшит маршрут.
++
++## Проведённые проверки
++
++- `pytest -q tests/unit tests/integration/test_network.py tests/integration/test_search.py tests/integration/test_privacy_diagnostics.py tests/integration/test_settings_contract.py`: 266 passed.
++- `pytest -q tests/integration/test_download_flow.py tests/integration/test_core_services.py tests/integration/test_providers.py tests/integration/test_queue_history.py tests/integration/test_media_processing.py`: 440 passed, 1 failed. Сбой только на `test_archived_behavioral_regressions_have_no_new_failures`: исторический аудит Qt-локализации уже падает с **теми же двумя именами тестов в исходной версии**.
++- Все сетевые тесты после изменения: 75 passed.
++- Запуск Windows, GUI, NVDA/JAWS, WARP off/on и реальные HTTP-запросы к сайтам здесь не проверялись.
+--- a/audioknigi/locales/runtime_exact.json
++++ b/audioknigi/locales/runtime_exact.json
+@@ -708,5 +708,60 @@
+     "de": "Unterstützt werden audioknigi.com.ua, knigavuhe.org, poleknig.com und akniga.org.",
+     "en": "Supported sources are audioknigi.com.ua, knigavuhe.org, poleknig.com, and akniga.org.",
+     "uk": "Підтримуються audioknigi.com.ua, knigavuhe.org, poleknig.com та akniga.org."
++  },
++  "Cloudflare DNS IP: {value}": {
++    "uk": "IP Cloudflare DNS: {value}",
++    "de": "Cloudflare-DNS-IP: {value}",
++    "en": "Cloudflare DNS IP: {value}"
++  },
++  "Системный DNS IP (сравнение): {value}": {
++    "uk": "IP системного DNS (порівняння): {value}",
++    "de": "System-DNS-IP (nur Vergleich): {value}",
++    "en": "System DNS IP (comparison only): {value}"
++  },
++  "Системный DNS: адреса не получены": {
++    "uk": "Системний DNS: адреси не отримано",
++    "de": "System-DNS: keine Adressen erhalten",
++    "en": "System DNS: no addresses returned"
++  },
++  "Системный DNS: ошибка {value}": {
++    "uk": "Системний DNS: помилка {value}",
++    "de": "System-DNS: Fehler {value}",
++    "en": "System DNS: error {value}"
++  },
++  "TCP-попытка: {via}, {ip}, {result}, {ms} мс": {
++    "uk": "TCP-спроба: {via}, {ip}, {result}, {ms} мс",
++    "de": "TCP-Versuch: {via}, {ip}, {result}, {ms} ms",
++    "en": "TCP attempt: {via}, {ip}, {result}, {ms} ms"
++  },
++  "Резервный DNS проверен: новых IP нет, повторять TCP на тот же IP бессмысленно": {
++    "uk": "Резервний DNS перевірено: нових IP немає, повторювати TCP для тієї ж IP-адреси немає сенсу",
++    "de": "Alternatives DNS geprüft: keine neuen IPs; erneuter TCP-Versuch an dieselbe IP wäre unnötig",
++    "en": "Alternate DNS checked: no new IPs; retrying TCP to the same IP would not help"
++  },
++  "Проверен другой IP системного DNS": {
++    "uk": "Перевірено іншу IP-адресу системного DNS",
++    "de": "Andere IP-Adresse des System-DNS wurde getestet",
++    "en": "A different IP from system DNS was tested"
++  },
++  "Резервное TCP-подключение не выполнено: истёк общий лимит времени": {
++    "uk": "Резервне TCP-з’єднання не виконано: загальний час очікування минув",
++    "de": "Alternative TCP-Verbindung nicht versucht: Gesamtzeitlimit überschritten",
++    "en": "Alternative TCP connection not attempted: total timeout elapsed"
++  },
++  "Резервный системный DNS не ответил": {
++    "uk": "Резервний системний DNS не відповів",
++    "de": "Alternatives System-DNS antwortete nicht",
++    "en": "Fallback system DNS did not respond"
++  },
++  "Режим Только Cloudflare: системные IP не используются для подключения": {
++    "uk": "Режим Лише Cloudflare: системні IP не використовуються для підключення",
++    "de": "Modus Nur Cloudflare: System-IP-Adressen werden nicht für Verbindungen verwendet",
++    "en": "Cloudflare-only mode: system IPs are not used for connections"
++  },
++  "Диагностика проверяет HTTPS главной страницы, а не поиск книг или скачивание.": {
++    "uk": "Діагностика перевіряє HTTPS головної сторінки, а не пошук книжок чи завантаження.",
++    "de": "Die Diagnose prüft die HTTPS-Startseite, nicht die Buchsuche oder den Download.",
++    "en": "Diagnostics check homepage HTTPS, not book search or downloading."
+   }
+ }
+--- a/audioknigi/network_dns.py
++++ b/audioknigi/network_dns.py
+@@ -644,120 +644,187 @@
+         self.details = details
+ 
+ 
+-def _connect_target_with_info(host: str, port: int, timeout: float = 12.0):
+-    """Connect via the configured policy, returning socket and safe route details.
+-
+-    AUTO: prefer Cloudflare DoH; if TCP cannot reach its addresses, try
+-    *different* system-DNS addresses. DNS selection is not a VPN, and a timeout
+-    on the same IP cannot be fixed by simply changing DNS providers.
+-
+-    A total connection deadline limits retries. STRICT Cloudflare never uses
+-    the system resolver; a configured upstream proxy always takes precedence.
++def _connect_target_with_info(
++    host: str, port: int, timeout: float = 12.0, *, diagnostic: bool = False
++):
++    """Connect without repeating a failed IP, return structured route diagnostics.
++
++    AUTO reserves a short part of the total TCP deadline for a genuinely
++    different system-DNS address. In diagnostic mode both DNS answers are
++    collected *for comparison*, even with strict Cloudflare selected; the
++    system answer is never used for connecting in strict mode.
+     """
+     timeout = max(0.1, float(timeout))
+     started = time.monotonic()
+-    details = {"dns_provider": "", "address": "", "dns_ms": 0,
+-               "tcp_ms": 0, "attempts": 0, "alternate_attempted": False}
++    deadline = started + timeout
++    details = {
++        "dns_provider": "", "address": "", "dns_ms": 0, "tcp_ms": 0,
++        "attempts": 0, "alternate_attempted": False,
++        "cloudflare_addresses": (), "system_addresses": (),
++        "system_dns_checked": False, "system_dns_error": "",
++        "attempt_log": [], "fallback_status": "not_needed",
++    }
+     if user_proxy_enabled():
+         sock = _connect_via_user_proxy(host, port, timeout)
+-        details.update(dns_provider="upstream proxy (remote DNS)",
+-                       address="via proxy", tcp_ms=round((time.monotonic()-started)*1000))
++        details.update(
++            dns_provider="upstream proxy (remote DNS)", address="via proxy",
++            tcp_ms=round((time.monotonic() - started) * 1000),
++            fallback_status="upstream_proxy",
++        )
+         return sock, details
+     mode = current_dns_mode()
+     if _bypass_cloudflare(host) or mode == DNS_MODE_SYSTEM:
+-        sock = _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
++        began = time.monotonic()
++        try:
++            sock = _ORIGINAL_CREATE_CONNECTION((host, int(port)), timeout=timeout)
++        except OSError as exc:
++            details.update(dns_provider="system", tcp_ms=round((time.monotonic()-began)*1000), attempts=1)
++            raise TargetConnectError("System TCP connection failed", dict(details)) from exc
+         try:
+             address = str(sock.getpeername()[0])
+         except (OSError, AttributeError):
+             address = ""
+-        details.update(dns_provider="system", address=address,
+-                       tcp_ms=round((time.monotonic()-started)*1000), attempts=1)
++        details.update(
++            dns_provider="system", address=address,
++            tcp_ms=round((time.monotonic()-began)*1000), attempts=1,
++            system_dns_checked=True, system_addresses=(address,) if address else (),
++        )
+         return sock, details
+ 
+-    deadline = started + timeout
+     tried: set[str] = set()
+-    failures: list[Exception] = []
++    failures: list[OSError] = []
++    addresses_cache: dict[str, tuple[str, ...]] = {}
+ 
+     def addresses_for(provider: str) -> tuple[str, ...]:
++        if provider in addresses_cache:
++            return addresses_cache[provider]
+         dns_start = time.monotonic()
+         try:
+             if provider == "system":
+                 ipv4 = _system_addresses(host, socket.AF_INET)
++                ips = tuple(ipv4 or _system_addresses(host, socket.AF_INET6))
+             elif mode == DNS_MODE_AUTO:
+                 ipv4 = _resolve(host, socket.AF_INET)
++                ips = tuple(ipv4 or _resolve(host, socket.AF_INET6))
+             else:
+                 ipv4 = _resolve_with_policy(host, socket.AF_INET)
+-            if ipv4:
+-                return tuple(ipv4)
++                ips = tuple(ipv4 or _resolve_with_policy(host, socket.AF_INET6))
++            # Drop duplicate answers while preserving DNS response order.
++            ips = tuple(dict.fromkeys(ips))
++            addresses_cache[provider] = ips
+             if provider == "system":
+-                return _system_addresses(host, socket.AF_INET6)
+-            if mode == DNS_MODE_AUTO:
+-                return _resolve(host, socket.AF_INET6)
+-            return _resolve_with_policy(host, socket.AF_INET6)
++                details["system_addresses"] = ips
++                details["system_dns_checked"] = True
++            else:
++                details["cloudflare_addresses"] = ips
++            return ips
++        except OSError as exc:
++            if provider == "system":
++                details["system_dns_checked"] = True
++                details["system_dns_error"] = type(exc).__name__
++            raise
+         finally:
+-            details["dns_ms"] += round((time.monotonic()-dns_start)*1000)
++            details["dns_ms"] += round((time.monotonic() - dns_start) * 1000)
+ 
+     primary = "Cloudflare"
+     if mode == DNS_MODE_AUTO and _circuit_is_open():
+         primary = "system"
++        details["fallback_status"] = "cloudflare_circuit_open"
+     try:
+         candidate_ips = addresses_for(primary)
+-        # _resolve() records recovery only after a *live* DoH transaction;
+-        # a cached DNS answer must not clear a previous fallback notification.
+     except OSError as exc:
+         if mode != DNS_MODE_AUTO or "CNAME loop" in str(exc):
+-            raise
++            raise TargetConnectError("Cloudflare DNS lookup failed", dict(details)) from exc
+         _record_cloudflare_failure(exc)
+         primary = "system"
+-        candidate_ips = addresses_for("system")
+-
+-    def attempt(ips: tuple[str, ...], provider: str):
+-        # Bound the number of connect attempts for hosts with large RR sets.
++        details["fallback_status"] = "cloudflare_dns_failed"
++        try:
++            candidate_ips = addresses_for("system")
++        except OSError as fallback_exc:
++            raise TargetConnectError("System DNS fallback failed", dict(details)) from fallback_exc
++
++    # Read-only comparison. Even in strict Cloudflare mode it does NOT select
++    # system IPs for TCP connections. Report DNS errors without exposing URLs.
++    if diagnostic and primary != "system":
++        try:
++            addresses_for("system")
++        except OSError:
++            pass
++
++    # Ordinary auto connections use the full deadline but set aside a modest
++    # slice for another route. Manual diagnostics receive a larger deadline.
++    reserve = min(2.5, timeout * 0.35) if mode == DNS_MODE_AUTO and primary == "Cloudflare" else 0.0
++
++    def attempt(ips: tuple[str, ...], provider: str, *, reserved_for_fallback: bool):
+         for address in ips[:3]:
+             if address in tried:
+                 continue
++            remaining = deadline - time.monotonic()
++            if reserved_for_fallback:
++                remaining -= reserve
++            if remaining <= 0:
++                break
+             tried.add(address)
+-            remaining = deadline - time.monotonic()
+-            if remaining <= 0:
+-                return None
+             details["attempts"] += 1
+             details["dns_provider"] = provider
+             details["address"] = address
+             began = time.monotonic()
+             try:
+-                sock = _ORIGINAL_CREATE_CONNECTION((address, int(port)), timeout=min(remaining, 4.0))
+-                details["tcp_ms"] += round((time.monotonic()-began)*1000)
++                sock = _ORIGINAL_CREATE_CONNECTION(
++                    (address, int(port)), timeout=min(remaining, 4.0)
++                )
++                elapsed = round((time.monotonic()-began)*1000)
++                details["tcp_ms"] += elapsed
++                details["attempt_log"].append((provider, address, "OK", elapsed))
+                 return sock
+             except OSError as exc:
+-                details["tcp_ms"] += round((time.monotonic()-began)*1000)
++                elapsed = round((time.monotonic()-began)*1000)
++                details["tcp_ms"] += elapsed
++                # Exception class only; no URL, bearer token or cookie in diagnostics.
++                kind = ("timeout" if isinstance(exc, (TimeoutError, socket.timeout))
++                        else "refused" if isinstance(exc, ConnectionRefusedError)
++                        else type(exc).__name__)
++                details["attempt_log"].append((provider, address, kind, elapsed))
+                 failures.append(exc)
+         return None
+ 
+-    socket_result = attempt(candidate_ips, primary)
++    socket_result = attempt(candidate_ips, primary, reserved_for_fallback=bool(reserve))
+     if socket_result is not None:
+         return socket_result, details
+-    if mode == DNS_MODE_AUTO and primary == "Cloudflare" and time.monotonic() < deadline:
++
++    if mode == DNS_MODE_AUTO and primary == "Cloudflare":
+         try:
+             other_ips = addresses_for("system")
+         except OSError as exc:
++            details["fallback_status"] = "system_dns_failed"
+             failures.append(exc)
+         else:
+-            if any(ip not in tried for ip in other_ips):
++            different = tuple(ip for ip in other_ips if ip not in tried and ip not in candidate_ips)
++            if not different:
++                details["fallback_status"] = "no_distinct_addresses"
++            elif time.monotonic() >= deadline:
++                details["fallback_status"] = "no_remaining_time"
++            else:
+                 details["alternate_attempted"] = True
+-                socket_result = attempt(other_ips, "system (TCP fallback)")
++                details["fallback_status"] = "tried_system_alternative"
++                socket_result = attempt(different, "system (TCP fallback)", reserved_for_fallback=False)
+                 if socket_result is not None:
+                     app_logger.info("NETWORK DNS | event=tcp_fallback_success | host=%s | selected=system", host)
+                     return socket_result, details
+-    if not candidate_ips and not failures:
+-        raise socket.gaierror(socket.EAI_NONAME, f"No DNS records for {host}")
++    elif mode == DNS_MODE_CLOUDFLARE:
++        details["fallback_status"] = "strict_cloudflare"
++
+     if failures:
+         cause = failures[-1]
+-        # Keep the original exception type in its chain for troubleshooting.
+         raise TargetConnectError(
+-            f"TCP connection failed after {details['attempts']} attempts: "
+-            f"{type(cause).__name__}: {cause}", dict(details)
++            f"TCP connection failed after {details['attempts']} attempts: {type(cause).__name__}",
++            dict(details),
+         ) from cause
+-    raise TargetConnectError("TCP connection deadline exceeded", dict(details))
++    if not candidate_ips:
++        exc = socket.gaierror(socket.EAI_NONAME, f"No DNS records for {host}")
++        exc.details = dict(details)
++        raise exc
++    raise TargetConnectError("TCP connection deadline exceeded", dict(details)) from TimeoutError("TCP deadline")
+ 
+ 
+ def _connect_target(host: str, port: int, timeout: float = 12.0):
+--- a/audioknigi/qt/mixins/accessibility_ui.py
++++ b/audioknigi/qt/mixins/accessibility_ui.py
+@@ -99,7 +99,8 @@
+ 
+         def run_check() -> None:
+             try:
+-                outcome = check_source_health(timeout=3.0, detailed=bool(getattr(self, "_manual_network_check", False)))
++                manual = bool(getattr(self, "_manual_network_check", False))
++                outcome = check_source_health(timeout=8.0 if manual else 3.0, detailed=manual)
+                 relay = relay_ref()
+                 if relay is not None:
+                     try:
+@@ -160,9 +161,36 @@
+                     extra.append(self._l("TCP: {value} мс", value=tcp_ms))
+                 if tls_ms is not None:
+                     extra.append(self._l("TLS: {value} мс", value=tls_ms))
+-                if bool(getattr(item, "alternate_attempted", False)):
+-                    extra.append(self._l("Проверен резервный системный маршрут"))
++                cf_ips = tuple(getattr(item, "cloudflare_addresses", ()) or ())
++                system_ips = tuple(getattr(item, "system_addresses", ()) or ())
++                system_checked = bool(getattr(item, "system_dns_checked", False))
++                if cf_ips:
++                    extra.append(self._l("Cloudflare DNS IP: {value}", value=", ".join(cf_ips)))
++                if system_checked:
++                    if system_ips:
++                        extra.append(self._l("Системный DNS IP (сравнение): {value}", value=", ".join(system_ips)))
++                    else:
++                        extra.append(self._l("Системный DNS: адреса не получены"))
++                    system_error = str(getattr(item, "system_dns_error", "") or "")
++                    if system_error:
++                        extra.append(self._l("Системный DNS: ошибка {value}", value=system_error))
++                attempt_rows = tuple(getattr(item, "attempted_routes", ()) or ())
++                for provider, address, result, elapsed in attempt_rows[:6]:
++                    extra.append(self._l("TCP-попытка: {via}, {ip}, {result}, {ms} мс",
++                                         via=provider, ip=address, result=result, ms=elapsed))
++                fallback_status = str(getattr(item, "fallback_status", "") or "")
++                if fallback_status == "no_distinct_addresses":
++                    extra.append(self._l("Резервный DNS проверен: новых IP нет, повторять TCP на тот же IP бессмысленно"))
++                elif fallback_status == "tried_system_alternative":
++                    extra.append(self._l("Проверен другой IP системного DNS"))
++                elif fallback_status == "no_remaining_time":
++                    extra.append(self._l("Резервное TCP-подключение не выполнено: истёк общий лимит времени"))
++                elif fallback_status == "system_dns_failed":
++                    extra.append(self._l("Резервный системный DNS не ответил"))
++                elif fallback_status == "strict_cloudflare":
++                    extra.append(self._l("Режим Только Cloudflare: системные IP не используются для подключения"))
+                 labels.append(f"{source}: {detail}" + ("; " + "; ".join(extra) if extra else ""))
++            labels.append(self._l("Диагностика проверяет HTTPS главной страницы, а не поиск книг или скачивание."))
+             labels.append(self._l("Успешный DNS не гарантирует HTTPS-доступ. Встроенный DNS не заменяет VPN/WARP."))
+             self._show_message(QMessageBox.Icon.Information, self._l("Диагностика сети"), "\n".join(labels))
+             self.set_status(self._l("Проверка сети завершена."))
+--- a/audioknigi/services/source_health_service.py
++++ b/audioknigi/services/source_health_service.py
+@@ -32,6 +32,12 @@
+     tls_ms: int | None = None
+     alternate_attempted: bool = False
+     error_code: str = ""
++    cloudflare_addresses: tuple[str, ...] = ()
++    system_addresses: tuple[str, ...] = ()
++    system_dns_checked: bool = False
++    system_dns_error: str = ""
++    attempted_routes: tuple[tuple[str, str, str, int], ...] = ()
++    fallback_status: str = ""
+ 
+ 
+ @dataclass(slots=True)
+@@ -135,7 +141,7 @@
+     info: dict[str, object] = {}
+     tls_ms = None
+     try:
+-        raw, info = _connect_target_with_info(source, 443, timeout=timeout)
++        raw, info = _connect_target_with_info(source, 443, timeout=timeout, diagnostic=True)
+         began_tls = time.monotonic()
+         try:
+             with ssl.create_default_context().wrap_socket(raw, server_hostname=source) as tls:
+@@ -154,7 +160,13 @@
+                                     status_code=code, dns_provider=str(info.get("dns_provider", "")),
+                                     ip_address=str(info.get("address", "")),
+                                     dns_ms=int(info.get("dns_ms", 0)), tcp_ms=int(info.get("tcp_ms", 0)),
+-                                    tls_ms=tls_ms, alternate_attempted=bool(info.get("alternate_attempted", False)))
++                                    tls_ms=tls_ms, alternate_attempted=bool(info.get("alternate_attempted", False)),
++                                    cloudflare_addresses=tuple(info.get("cloudflare_addresses", ())),
++                                    system_addresses=tuple(info.get("system_addresses", ())),
++                                    system_dns_checked=bool(info.get("system_dns_checked", False)),
++                                    system_dns_error=str(info.get("system_dns_error", "")),
++                                    attempted_routes=tuple(info.get("attempt_log", ())),
++                                    fallback_status=str(info.get("fallback_status", "")))
+         finally:
+             raw.close()
+     except Exception as exc:
+@@ -172,7 +184,13 @@
+                                 ip_address=str(info.get("address", "")),
+                                 dns_ms=info.get("dns_ms"), tcp_ms=info.get("tcp_ms"),
+                                 tls_ms=tls_ms,
+-                                alternate_attempted=bool(info.get("alternate_attempted", False)))
++                                alternate_attempted=bool(info.get("alternate_attempted", False)),
++                                cloudflare_addresses=tuple(info.get("cloudflare_addresses", ())),
++                                system_addresses=tuple(info.get("system_addresses", ())),
++                                system_dns_checked=bool(info.get("system_dns_checked", False)),
++                                system_dns_error=str(info.get("system_dns_error", "")),
++                                attempted_routes=tuple(info.get("attempt_log", ())),
++                                fallback_status=str(info.get("fallback_status", "")))
+ 
+ 
+ def check_source_health(*, timeout: float = 3.0, detailed: bool = False) -> SourceHealthOutcome:
+--- a/tests/unit/test_network_auto_routes.py
++++ b/tests/unit/test_network_auto_routes.py
+@@ -141,3 +141,80 @@
+     assert item.error.startswith("HTTPS/TCP")
+     assert "secret" not in item.error
+     assert item.ip_address=="192.0.2.1"
++
++
++# Detailed DNS comparison and fallback deadline regression cases.
++def test_diagnostic_cloudflare_only_compares_system_but_does_not_connect(monkeypatch):
++    nd.configure_dns_mode("cloudflare")
++    monkeypatch.setattr(nd, "_resolve", lambda *a: ("192.0.2.1",))
++    monkeypatch.setattr(nd, "_resolve_with_policy", lambda *a: ("192.0.2.1",))
++    monkeypatch.setattr(nd, "_system_addresses", lambda *a: ("192.0.2.2",))
++    attempted = []
++    def connect(target, timeout=None):
++        attempted.append(target[0])
++        raise TimeoutError("not reachable")
++    monkeypatch.setattr(nd, "_ORIGINAL_CREATE_CONNECTION", connect)
++    with pytest.raises(nd.TargetConnectError) as error:
++        nd._connect_target_with_info("example.org", 443, timeout=.4, diagnostic=True)
++    assert attempted == ["192.0.2.1"]
++    d = error.value.details
++    assert d["cloudflare_addresses"] == ("192.0.2.1",)
++    assert d["system_addresses"] == ("192.0.2.2",)
++    assert d["fallback_status"] == "strict_cloudflare"
++    assert not d["alternate_attempted"]
++
++
++def test_diagnostic_auto_reports_identical_answers_without_retry(monkeypatch):
++    monkeypatch.setattr(nd, "_resolve", lambda *a: ("192.0.2.1",))
++    monkeypatch.setattr(nd, "_system_addresses", lambda *a: ("192.0.2.1",))
++    attempts = []
++    def connect(target, timeout=None):
++        attempts.append(target[0])
++        raise TimeoutError("no response")
++    monkeypatch.setattr(nd, "_ORIGINAL_CREATE_CONNECTION", connect)
++    with pytest.raises(nd.TargetConnectError) as error:
++        nd._connect_target_with_info("example.org", 443, timeout=.2, diagnostic=True)
++    d = error.value.details
++    assert d["system_dns_checked"] is True
++    assert d["fallback_status"] == "no_distinct_addresses"
++    assert attempts == ["192.0.2.1"]
++    assert d["attempt_log"][0][:3] == ("Cloudflare", "192.0.2.1", "timeout")
++
++
++def test_auto_reserves_time_for_other_ip_after_primary_timeout(monkeypatch):
++    import time
++    monkeypatch.setattr(nd, "_resolve", lambda *a: ("192.0.2.1",))
++    monkeypatch.setattr(nd, "_system_addresses", lambda *a: ("192.0.2.2",))
++    attempted = []
++    def connect(target, timeout=None):
++        attempted.append((target[0], timeout))
++        if target[0] == "192.0.2.1":
++            time.sleep(timeout)  # simulate actual OS timeout consuming its budget
++            raise TimeoutError("primary TCP timeout")
++        return SocketStub(target[0])
++    monkeypatch.setattr(nd, "_ORIGINAL_CREATE_CONNECTION", connect)
++    sock, d = nd._connect_target_with_info("example.org", 443, timeout=.4, diagnostic=True)
++    assert [a for a, _ in attempted] == ["192.0.2.1", "192.0.2.2"]
++    assert attempted[0][1] < .4  # reserved time was not consumed by first attempt
++    assert d["alternate_attempted"]
++    assert d["attempt_log"][-1][2] == "OK"
++    assert d["dns_provider"] == "system (TCP fallback)"
++    sock.close()
++
++
++def test_health_diagnostic_keeps_dns_routes_on_connection_failure(monkeypatch):
++    error = nd.TargetConnectError("not connected", {
++        "dns_provider": "Cloudflare", "address": "192.0.2.3",
++        "dns_ms": 0, "tcp_ms": 3200,
++        "cloudflare_addresses": ("192.0.2.3",),
++        "system_addresses": ("192.0.2.3",),
++        "system_dns_checked": True, "fallback_status": "no_distinct_addresses",
++        "attempt_log": [("Cloudflare", "192.0.2.3", "timeout", 3200)],
++    })
++    error.__cause__ = TimeoutError("timed out")
++    monkeypatch.setattr(health, "_connect_target_with_info", lambda *a, **kw: (_ for _ in ()).throw(error))
++    item = health._probe_source_detailed("example.org", timeout=8)
++    assert item.cloudflare_addresses == item.system_addresses == ("192.0.2.3",)
++    assert item.system_dns_checked is True
++    assert item.fallback_status == "no_distinct_addresses"
++    assert item.attempted_routes[0][2] == "timeout"

@@ -1,0 +1,64 @@
+name: Import verified AudioKnigi V19 source
+on:
+  push:
+    branches:
+      - release/v19-source-20261031
+    paths:
+      - "migration/v19/patches/**"
+      - ".github/workflows/import_v19.yml"
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Apply the verified Round90 → V19 chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq -w 1 25); do
+            echo "Applying patch ${i}"
+            patch --batch --forward -p1 -i "migration/v19/patches/${i}.patch"
+          done
+          python -m compileall -q audioknigi audioknigi_qt.py
+      - name: Verify V19 critical source blobs
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from hashlib import sha1
+          expected = {
+              "audioknigi/providers/extra_sources.py": "ac2e823d3b377d65175289b4588aee0cd3db7624",
+              "audioknigi/qt/main_window_pages.py": "e7cb2e8d683e2b74091619751d139eb26140bda2",
+              "audioknigi/qt/mixins/search.py": "08a049295b0e66c895dd2e165b3a0712d1b783e5",
+              "audioknigi/services/search_service.py": "30e61b1467dab601e5179aaf4d6c6b3938c18a73",
+              "audioknigi/download/hls_parallel.py": "43dea602279af02c1f50eaab8282aefc4f91b518",
+              "audioknigi/akniga.py": "7b9805a9811ffc6595ca8f03c03f8583a5dac73a",
+              "audioknigi/network_dns.py": "0a4d31e374d72fdc2a59abb126133c31eb63ef5a",
+              "README.md": "d387ade542d3619ad5fa3cbbb83cb85feab9a4b8",
+              "CONTRIBUTING.md": "84b78b432be03d60f73de4aa5aca0e42acc72ec5",
+              "docs/architecture/REPOSITORY_GUIDE_V19.md": "b1f25c419da17dddbb474ba27407e509b785c353",
+          }
+          for path, want in expected.items():
+              data = Path(path).read_bytes()
+              got = sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+              if got != want:
+                  raise SystemExit(f"Content mismatch: {path} (got {got}, expected {want})")
+          print(f"Verified {len(expected)} V19 source files")
+          PY
+      - name: Commit reconstructed source to release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf migration/v19
+          rm -f .github/workflows/import_v19.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Release candidate: AudioKnigi V19 sources and developer layout"
+          git push origin HEAD:release/v19-source-20261031

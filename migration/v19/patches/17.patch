@@ -1,0 +1,138 @@
+--- a/audioknigi/akniga.py
++++ b/audioknigi/akniga.py
+@@ -83,6 +83,23 @@
+             return ""
+         value = _strip_akniga_seo(node.get_text(" ", strip=True))
+         return re.sub(r"^Описание\s*(?::|[–—])?\s+", "", value, count=1, flags=re.I)
++
++    # Akniga's current book pages keep the actual synopsis under this class.
++    # It must win over generic [itemprop=description], which may contain the
++    # *collection membership* banner instead of the book's own description.
++    # The nested caption is a label, not part of the annotation.
++    for el in soup.select(".description__article-main"):
++        captions = el.select(".content__main__book--item--caption")
++        if captions and not any(_clean(c.get_text(" ", strip=True)).casefold().strip(":") == "описание" for c in captions):
++            continue
++        # Copy before removing children; never mutate the source DOM in case
++        # another extractor needs it later.
++        fragment = BeautifulSoup(str(el), "html.parser")
++        for caption in fragment.select(".content__main__book--item--caption"):
++            caption.decompose()
++        value = readable(fragment.select_one(".description__article-main"))
++        if len(value) >= 20 and not value.casefold().startswith("входит в подборку"):
++            return value
+ 
+     selectors = (
+         "[itemprop='description']", "#book-description", ".book-description",
+@@ -93,7 +110,8 @@
+     for selector in selectors:
+         for el in soup.select(selector):
+             value = readable(el)
+-            if len(value) >= 20 and value.casefold() != "описание":
++            if (len(value) >= 20 and value.casefold() != "описание"
++                    and not value.casefold().startswith("входит в подборку")):
+                 return value
+ 
+     for string in soup.find_all(string=lambda item: bool(item and item.strip().casefold().strip(":") == "описание")):
+@@ -115,7 +133,7 @@
+                     "добавлено ", "комментарии", "рейтинг", "похожие книги",
+                 )):
+                     break
+-                if value and value.casefold() != "описание":
++                if value and value.casefold() != "описание" and not value.casefold().startswith("входит в подборку"):
+                     parts.append(value)
+                 if sum(len(part) for part in parts) >= 8000:
+                     break
+@@ -129,7 +147,9 @@
+     visible = _description_from_page(page_html)
+     if visible:
+         return visible
+-    return _strip_akniga_seo(_meta_value(page_html, "og:description", "description"))
++    fallback = _strip_akniga_seo(_meta_value(page_html, "og:description", "description"))
++    # Metadata describing a collection is not a synopsis, either.
++    return "" if fallback.casefold().startswith("входит в подборку") else fallback
+ 
+ 
+ def _parse_api_book(url: str, page_html: str, payload: dict, playlist_url: str) -> Book:
+--- a/tests/unit/test_v8_akniga_description_cache.py
++++ b/tests/unit/test_v8_akniga_description_cache.py
+@@ -53,6 +53,58 @@
+     text = 'На окраине деревни все шептались: слушайте бесплатно онлайн рассказы детей.'
+     assert _akniga_description(f'<meta name="description" content="{text}">') == text
+ 
++
++# Real Akniga markup provided by a user: the book description coexists with
++# a collection banner in the same page. Collection metadata is not synopsis.
++FULL_SNEG = (
++    "Рассказ-победитель первого в истории DARKER литературного конкурса «Чёртова дюжина». "
++    "Этнографическая экспедиция попадает в полузаброшенную деревню Маррь, "
++    "связанную с первыми упоминаниями легенды о Снегурочке. "
++    "Но реальность может оказаться гораздо страшнее привычной всем сказки…"
++)
++COLLECTION = "Входит в подборку В деревне явно творится какая-то хрень 16 аудиокниг"
++
++
++def test_akniga_user_book_block_beats_collection_membership_and_seo():
++    markup = f'''<html><head><meta name="description" content="{SEO}"></head><body>
++    <div itemprop="description">{COLLECTION}</div>
++    <div class="description__article-main">
++      <div class="content__main__book--item--caption">Описание</div>
++      {FULL_SNEG}
++    </div>
++    </body></html>'''
++    book = _parse_api_book(URL, markup, PAYLOAD, HLS)
++    assert book.description == FULL_SNEG
++    assert "Входит в подборку" not in book.description
++    assert "Слушайте бесплатно" not in book.description
++
++
++def test_akniga_current_description_container_removes_caption_not_prose():
++    html = f'''<div class="description__article-main">
++      <div class="content__main__book--item--caption">Описание</div>
++      <p> {FULL_SNEG} </p>
++    </div>'''
++    assert _akniga_description(html) == FULL_SNEG
++
++
++def test_akniga_collection_banner_not_accepted_as_book_synopsis():
++    markup = f'''<div itemprop="description">{COLLECTION}</div>
++    <meta name="description" content="{SEO}">'''
++    assert _akniga_description(markup).startswith("Рассказ-победитель")
++
++
++def test_akniga_collection_only_metadata_does_not_become_synopsis():
++    assert _akniga_description(f'<meta name="description" content="{COLLECTION}">') == ""
++
++
++def test_akniga_disambiguates_multiple_captioned_blocks():
++    markup = f'''<div class="description__article-main">
++      <div class="content__main__book--item--caption">Подборка</div>{COLLECTION}</div>
++      <div class="description__article-main">
++      <div class="content__main__book--item--caption">Описание</div>{FULL_SNEG}</div>'''
++    assert _akniga_description(markup) == FULL_SNEG
++
++
+ PLAYLIST = b'#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:4.0,\nfirst.ts\n#EXTINF:4.0,\nsecond.ts\n#EXT-X-ENDLIST\n'
+ 
+ 
+--- /dev/null
++++ b/README_AKNIGA_DESCRIPTION_V11.md
+@@ -0,0 +1,18 @@
++# Akniga.org: точное описание аудиокниги (V11)
++
++Основа: AudioKnigi Downloader 4.12.42, версия V10.
++
++Исправлено извлечение описания со страницы книги Akniga.org:
++
++- Извлекается текст именно из `.description__article-main`, если он содержит подпись «Описание».
++- Вложенная подпись `.content__main__book--item--caption` исключается из описания.
++- Надпись «Входит в подборку ... N аудиокниг» исключается из других HTML-полей и запасного метаописания.
++- Остальные источники, загрузчик HLS и сетевая маршрутизация не изменены.
++
++Проверка: https://akniga.org/kozhin-oleg-snegurochka
++
++Ожидаемое описание:
++
++Рассказ-победитель первого в истории DARKER литературного конкурса «Чёртова дюжина». Этнографическая экспедиция попадает в полузаброшенную деревню Маррь, связанную с первыми упоминаниями легенды о Снегурочке. Но реальность может оказаться гораздо страшнее привычной всем сказки…
++
++Производственный сайт/Windows GUI необходимо проверить отдельно. Тесты включают пользовательский пример HTML с блоком подборки перед реальным описанием.

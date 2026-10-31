@@ -1,0 +1,505 @@
+--- a/README.md
++++ b/README.md
+@@ -9,8 +9,9 @@
+ - `audioknigi.com.ua`
+ - `knigavuhe.org`
+ - `poleknig.com`
++- `akniga.org` (experimental direct book links only; HLS playback/download requires site access and live verification)
+ 
+-All three sources implement the common `SourceProvider` contract. Search, analysis, narration variants, resumable downloads, selected chapters, full-MP3 mode, history, queue, metadata/covers, and the built-in player are implemented in the GUI-independent `audioknigi` package where possible.
++The three original sources implement the common `SourceProvider` contract. Search, analysis, narration variants, resumable downloads, selected chapters, full-MP3 mode, history, queue, metadata/covers, and the built-in player are implemented in the GUI-independent `audioknigi` package where possible.
+ 
+ ## Quick start from source
+ 
+--- a/README_AKNIGA_EXPERIMENT.md
++++ b/README_AKNIGA_EXPERIMENT.md
+@@ -39,3 +39,14 @@
+ ## Что важно перед релизом
+ 
+ Рекомендуется отдельно проверить: обработку ошибок 401/403/404, истечение `expires`, сохранение/восстановление очереди, режим одного MP3, выбор одного отрывка, корректность метаданных, отмену через NVDA/JAWS, тесты на Windows. Пока это прототип, не заменяйте им стабильную сборку.
++
++## Оптимизация HLS (31 октября 2026, эксперимент)
++
++- При загрузке/восстановлении **не более 4 недостающих глав**, если их общая продолжительность составляет **не более 40% книги**, выбран исходный профиль без нормализации, используется прямое чтение временных интервалов HLS. При успешной проверке весь `_source.mp3` не загружается. Это работает только если HLS допускает позиционирование (`-ss`) и границы глав действительно совпадают с исходным потоком. Если нет — пробуем исходную полную загрузку; недостоверные частичные MP3 удаляются.
++- Для полной книги, если исходный аудиокодек HLS уже MP3 и выбран режим «оригинал без нормализации», применяется FFmpeg `-c:a copy`, без перекодирования. При неподходящем для MP3-контейнера аудиокодеке выполняется один проход MP3-кодирования. Специальные пресеты 64k mono / 96k mono / 128k stereo учитываются при HLS-перекодировании.
++- В ходе обработки FFmpeg отображает прогресс **медиавремени**, а также относительную скорость обработки в `x` (если она известна). Это не измерение фактической скорости Интернета и не обещание возобновления HLS с прежнего сетевого пакета. В режиме нескольких выбранных глав шкала прогресса теперь сквозная, без сброса на каждой главе.
++- Уникальные временные файлы создаются через `mkstemp`; старые `.part` не изменяются, после отмены собственные временные файлы удаляются. Готовые главы используются в текущих проверках, ID3, метаданных и истории.
++
++**Тесты:** 38 тестов `tests/unit` пройдены. Локальный тест FFmpeg с AAC-HLS подтвердил корректную нарезку временного отрезка и fallback при невозможности stream-copy. Полный `pytest tests --maxfail=1` остановился на существующей архитектурной проверке `test_active_tests_are_organized_by_behavior_not_phase_number`: в наборе уже есть тест с `audit`/`phase` в имени. Эта ошибка не связана с Akniga. Живая проверка сайта, Windows, JAWS/NVDA и точности всех границ книги не проводилась.
++
++**Ограничения:** при загрузке всех глав требуется получить весь исходный поток, поэтому полная загрузка по-прежнему зависит от сервера и сети. Загрузка с HLS не поддерживает HTTP Range-докачку из середины, как обычный MP3. Для поиска книг на Akniga адаптер пока не применяется — только прямые ссылки на страницы книг. Используйте лишь контент, на сохранение которого есть разрешение.
+--- a/audioknigi/download/book_flow.py
++++ b/audioknigi/download/book_flow.py
+@@ -427,6 +427,70 @@
+                     ) from refresh_exc
+                 refreshed_after_not_found = True
+ 
++    def _akniga_direct_chapters_eligible(self, book, tracks):
++        """Conservative fast path: few chapters and no audio transformations."""
++        if source_key(str(getattr(book, "url", ""))) != "akniga":
++            return False
++        if str(getattr(self, "runtime_audio_preset", "copy") or "copy") != "copy":
++            return False
++        if safe_normalization_mode(getattr(self, "runtime_normalization_mode", "off"), "off") != "off":
++            return False
++        if not tracks or len(tracks) > 4:
++            return False
++        durations = []
++        all_tracks = list(getattr(book, "tracks", []) or [])
++        for tr in all_tracks:
++            try:
++                durations.append(float(tr.end) - float(tr.start))
++            except (ValueError, TypeError, AttributeError):
++                return False
++        if not durations or min(durations) <= 0 or sum(durations) <= 0:
++            return False
++        try:
++            selected_time = sum(float(tr.end) - float(tr.start) for tr in tracks)
++        except (ValueError, TypeError, AttributeError):
++            return False
++        if selected_time > sum(durations) * 0.40:
++            return False
++        return all(str(getattr(tr, "file", "")).split("?", 1)[0].lower().endswith(".m3u8") for tr in tracks)
++
++    def _try_akniga_direct_chapters(self, book, tracks, report):
++        """Attempt selected HLS seeks; fallback cleanly to existing full flow."""
++        outputs = []
++        succeeded = False
++        try:
++            self.log(f"Akniga: скачиваю только выбранные главы ({len(tracks)}), без общего файла.")
++            self.set_stage(2, "Загрузка выбранных глав HLS")
++            report("Скачивается")
++            for number, tr in enumerate(tracks, 1):
++                self._check_cancel()
++                path = self._track_path(book, tr)
++                outputs.append(path)
++                self.set_status(f"Akniga: глава {number} из {len(tracks)}")
++                self._download_hls_chapter(book, tr, chapter_number=number, total_chapters=len(tracks))
++                status, _actual, _path = self._verify_track_file(book, tr)
++                if normalize_track_status(status) not in (TRACK_STATUS_READY, TRACK_STATUS_PRESENT):
++                    raise RuntimeError(f"Глава {tr.index}: получен неполный участок HLS.")
++                self.set_progress(number * 100.0 / len(tracks))
++            self.log(f"Akniga: {len(tracks)} глав получены напрямую; общая книга не скачивалась.")
++            succeeded = True
++            return True
++        except Cancelled:
++            raise
++        except Exception as exc:
++            self.log(f"Akniga: адресная загрузка не удалась ({exc}); перехожу к полной книге.")
++            return False
++        finally:
++            # On failure do not leave unverified chapters masquerading as
++            # completed files; on success ownership passes to normal verify.
++            # Never delete an original pre-existing READY/PRESENT chapter.
++            if not succeeded:
++                for path in outputs:
++                    try:
++                        unlink_with_retry(path, missing_ok=True)
++                    except OSError:
++                        pass
++
+     def _process_book_once(self, book, selected_indices=None, status_callback=None):
+         self._check_cancel()
+         if resolve_executable("ffmpeg") is None:
+@@ -525,6 +589,13 @@
+                     except Exception:
+                         pass
+ 
++        # For a small chapter-only repair/selection on Akniga, a seekable VOD
++        # HLS playlist can provide only requested segments. Do not change the
++        # book timeline or its original track URLs: sidecars/resume remain valid.
++        if mp3_needs_creation and self._akniga_direct_chapters_eligible(book, mp3_needs_creation):
++            if self._try_akniga_direct_chapters(book, mp3_needs_creation, report):
++                mp3_needs_creation = []
++
+         source_tracks = list(mp3_needs_creation)
+         missing_source_indices = []
+         for position, tr in enumerate(source_tracks, 1):
+@@ -550,6 +621,17 @@
+             fallback = str(getattr(tr, "fallback_file", "") or "")
+             if fallback and source_url not in fallback_by_file:
+                 fallback_by_file[source_url] = fallback
++
++        if source_key(str(getattr(book, "url", ""))) == "akniga":
++            self._hls_expected_durations = {
++                url: max(
++                    (float(getattr(tr, "end", 0) or 0)
++                     for tr in list(getattr(book, "tracks", []) or [])
++                     if str(getattr(tr, "file", "") or "") == url),
++                    default=0.0,
++                )
++                for url in unique_files
++            }
+ 
+         self._log_book_flow(
+             "download_plan", book, selected=len(chosen), existing_mp3=len(chosen) - len(mp3_needs_creation) if want_mp3 else 0,
+--- a/audioknigi/download/network.py
++++ b/audioknigi/download/network.py
+@@ -998,12 +998,14 @@
+             raise last_error
+         raise RuntimeError("Не указан адрес аудиофайла.")
+ 
+-    def _download_hls_to_mp3(self, url, target, referer):
+-        """Transcode a permitted plain HLS audio stream into the existing MP3 flow.
+-
+-        HLS is not byte-range-resumable like MP3. Each attempt creates its own
+-        temporary output; existing .part files belong to other attempts and
+-        are NEVER deleted here. No DRM/access restrictions are bypassed.
++    def _run_hls_ffmpeg(self, url, target, referer, *, start=None,
++                        duration=None, expected_duration=None, chapter_label="",
++                        progress_offset=0.0, progress_span=100.0):
++        """Download/remux HLS with measured FFmpeg media-time progress.
++
++        HLS is not ordinary MP3 HTTP Range: do not advertise network speed,
++        resumability, or packet-level progress. Every attempt exclusively owns
++        a unique temporary path; a Windows-locked old .part is untouched.
+         """
+         self._check_cancel()
+         ffmpeg = resolve_executable("ffmpeg")
+@@ -1011,61 +1013,171 @@
+             raise RuntimeError("Для HLS источника необходим FFmpeg.")
+         target = Path(target)
+         target.parent.mkdir(parents=True, exist_ok=True)
+-        # mkstemp atomically claims an individual path even if another running
+-        # app/FFmpeg process has the old _source.mp3.part open on Windows.
+-        fd, part_name = tempfile.mkstemp(
++        fd, temp_name = tempfile.mkstemp(
+             prefix=f".{target.stem}.hls-", suffix=".mp3", dir=str(target.parent),
+         )
+         os.close(fd)
+-        part = Path(part_name)
++        temp = Path(temp_name)
+         headers = f"User-Agent: {USER_AGENT}\r\n"
+         if referer:
+             headers += f"Referer: {referer}\r\n"
+-        cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
+-        if urlsplit(str(url)).scheme in ("http", "https"):
+-            cmd.extend(["-headers", headers])
+-        cmd += [
+-            "-i", str(url),
+-            "-map", "0:a:0", "-vn", "-c:a", "libmp3lame",
+-            "-b:a", "160k", "-f", "mp3", str(part),
+-        ]
+-        self.set_status("Обрабатываю HLS-аудиопоток через FFmpeg…")
++        # Stream-copy into MP3 is lossless and very quick when the HLS codec
++        # is MP3. AAC cannot be put in an MP3 container: only in that case
++        # retry once with libmp3lame. For chapter seeks, decode accurately:
++        # stream-copy would preserve the nearest HLS segment boundary instead.
++        allow_copy = start is None and (
++            str(getattr(self, "runtime_audio_preset", "copy") or "copy") == "copy"
++            and str(getattr(self, "runtime_normalization_mode", "off") or "off") == "off"
++        )
++        preset = str(getattr(self, "runtime_audio_preset", "copy") or "copy")
++        profile = {
++            "64k_mono": ("64k", "1"),
++            "96k_mono": ("96k", "1"),
++            "128k_stereo": ("128k", "2"),
++        }.get(preset)
++
++        def command(copy_mode):
++            cmd = [ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
++                   "-nostats", "-stats_period", "0.5", "-progress", "pipe:1", "-y"]
++            if start is not None:
++                # Input-side -ss uses the HLS VOD index, avoiding the download
++                # of all earlier segments on seekable playlists.
++                cmd += ["-ss", str(start)]
++            if urlsplit(str(url)).scheme in ("http", "https"):
++                cmd += ["-headers", headers]
++            cmd += ["-i", str(url)]
++            if duration is not None:
++                cmd += ["-t", str(duration)]
++            cmd += ["-map", "0:a:0", "-vn", "-c:a", "copy" if copy_mode else "libmp3lame"]
++            if not copy_mode:
++                cmd += ["-b:a", profile[0] if profile else "160k"]
++                if profile:
++                    cmd += ["-ac", profile[1]]
++            cmd += ["-f", "mp3", str(temp)]
++            return cmd
++
++        progress_seconds = {"value": 0.0, "speed": ""}
+         proc = None
++        title = chapter_label or "HLS-аудиопоток"
++        last_update = 0.0
++        self.set_status(f"Получаю {title} через FFmpeg…")
+         try:
+-            with tempfile.TemporaryFile(mode="w+b") as err_file:
+-                proc = subprocess.Popen(
+-                    cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+-                    stderr=err_file, shell=False, **hidden_subprocess_kwargs(),
+-                )
+-                self._register_active_subprocess(proc)
+-                while proc.poll() is None:
+-                    self._check_cancel()
++            for use_copy in ([True, False] if allow_copy else [False]):
++                self._check_cancel()
++                # Same uniquely owned staging path; not a shared .part.
++                progress_seconds.update(value=0.0, speed="")
++                with tempfile.TemporaryFile(mode="w+b") as err_file:
++                    proc = subprocess.Popen(
++                        command(use_copy), stdin=subprocess.DEVNULL,
++                        stdout=subprocess.PIPE, stderr=err_file, shell=False,
++                        **hidden_subprocess_kwargs(),
++                    )
++                    self._register_active_subprocess(proc)
++                    def consume_progress():
++                        stream = getattr(proc, "stdout", None)
++                        if stream is None:
++                            return
++                        try:
++                            for raw in stream:
++                                if b"=" not in raw:
++                                    continue
++                                key, value = raw.decode("utf-8", "replace").strip().split("=", 1)
++                                if key in ("out_time_us", "out_time_ms"):
++                                    try:
++                                        progress_seconds["value"] = max(0.0, int(value) / 1_000_000)
++                                    except ValueError:
++                                        pass
++                                elif key == "speed":
++                                    progress_seconds["speed"] = value.strip()
++                        except (OSError, ValueError):
++                            pass
++                        finally:
++                            try:
++                                stream.close()
++                            except OSError:
++                                pass
++                    consumer = None
++                    if getattr(proc, "stdout", None) is not None:
++                        consumer = threading.Thread(target=consume_progress, daemon=True)
++                        consumer.start()
+                     try:
+-                        proc.wait(timeout=0.2)
+-                    except subprocess.TimeoutExpired:
+-                        pass
+-                self._check_cancel()
+-                if proc.returncode != 0:
+-                    err_file.seek(0)
+-                    detail = err_file.read()[-2400:].decode("utf-8", errors="replace")
+-                    raise RuntimeError("FFmpeg не смог прочитать HLS: " + (detail.strip() or str(proc.returncode)))
+-            if not part.exists() or part.stat().st_size == 0:
+-                raise RuntimeError("FFmpeg завершился без сохранённого MP3.")
+-            replace_with_retry(part, target)
+-            return target
+-        except BaseException:
+-            if proc is not None and proc.poll() is None:
+-                proc.kill()
+-                proc.wait()
+-            raise
++                        while proc.poll() is None:
++                            self._check_cancel()
++                            now = time.monotonic()
++                            if now - last_update >= 0.7:
++                                seconds = progress_seconds["value"]
++                                if expected_duration and expected_duration > 0:
++                                    pct = min(99.5, seconds * 100.0 / expected_duration)
++                                    self.set_progress(progress_offset + progress_span * pct / 100.0)
++                                    state = f"{pct:.0f}% ({fmt_time(seconds)} / {fmt_time(expected_duration)})"
++                                else:
++                                    state = f"обработано {fmt_time(seconds)}"
++                                speed = progress_seconds["speed"]
++                                self.set_status(
++                                    f"HLS {title}: {state}"
++                                    + (f", обработка {speed}" if speed else "")
++                                )
++                                last_update = now
++                            try:
++                                proc.wait(timeout=0.2)
++                            except subprocess.TimeoutExpired:
++                                pass
++                        if consumer is not None:
++                            consumer.join(timeout=1.0)
++                        self._check_cancel()
++                        if proc.returncode == 0 and temp.exists() and temp.stat().st_size:
++                            replace_with_retry(temp, target)
++                            progress_cb = getattr(self, "set_progress", None)
++                            if callable(progress_cb):
++                                progress_cb(progress_offset + progress_span)
++                            return target
++                        err_file.seek(0)
++                        detail = err_file.read()[-4000:].decode("utf-8", "replace")
++                        if use_copy and any(token in detail.lower() for token in (
++                            "not supported in container", "codec not currently supported",
++                            "invalid audio stream", "could not write header",
++                            "codec type or id mismatches", "unsupported codec",
++                        )):
++                            self.log("HLS: кодек не подходит для прямого MP3-копирования; перекодирую один раз.")
++                            continue
++                        raise RuntimeError("FFmpeg не смог прочитать HLS: " + (detail.strip() or str(proc.returncode)))
++                    finally:
++                        if proc.poll() is None:
++                            proc.kill()
++                            proc.wait()
++                        if consumer is not None and consumer.is_alive():
++                            consumer.join(timeout=1.0)
++                        self._unregister_active_subprocess(proc)
++            raise RuntimeError("HLS: исходный кодек нельзя сохранить в MP3 без преобразования.")
+         finally:
+-            # A failed cancellation or file lock must not hide the original
+-            # network/FFmpeg exception. Only this attempt owns this temp file.
+-            try:
+-                unlink_with_retry(part, missing_ok=True)
++            try:
++                unlink_with_retry(temp, missing_ok=True)
+             except OSError as cleanup_exc:
+-                app_logger.warning("Failed cleaning HLS temp %s: %s", part, cleanup_exc)
+-            self._unregister_active_subprocess(proc)
++                app_logger.warning("Failed cleaning HLS temp %s: %s", temp, cleanup_exc)
++
++    def _download_hls_to_mp3(self, url, target, referer):
++        expected = (getattr(self, "_hls_expected_durations", None) or {}).get(str(url))
++        return NetworkDownloadMixin._run_hls_ffmpeg(
++            self, url, target, referer, expected_duration=expected,
++        )
++
++    def _download_hls_chapter(self, book, track, *, chapter_number=1, total_chapters=1):
++        """Seek and decode one selected chapter, without downloading whole book."""
++        start = float(track.start)
++        end = float(track.end)
++        if start < 0 or end <= start:
++            raise ValueError("Некорректные временные границы главы.")
++        url = str(track.file or "")
++        if not urlsplit(url).path.casefold().endswith(".m3u8"):
++            raise ValueError("Источник главы не является HLS.")
++        dest = self._track_path(book, track)
++        return self._run_hls_ffmpeg(
++            url, dest, book.url, start=start, duration=end - start,
++            expected_duration=end - start,
++            chapter_label=f"главу {chapter_number}/{total_chapters}",
++            progress_offset=(chapter_number - 1) * 100.0 / total_chapters,
++            progress_span=100.0 / total_chapters,
++        )
+ 
+     def _download_with_resume(self, url, target, referer):
+         """Resume-capable download with adaptive HTTP Range chunking."""
+--- /dev/null
++++ b/tests/unit/test_akniga_hls_optimized.py
+@@ -0,0 +1,128 @@
++"""Offline HLS regressions: selected chapters, fallback, progress and remux."""
++from __future__ import annotations
++
++from pathlib import Path
++import shutil
++import subprocess
++from types import SimpleNamespace
++
++import pytest
++
++from audioknigi.download.book_flow import BookFlowMixin
++from audioknigi.download.network import NetworkDownloadMixin
++from audioknigi.models import Book, Track, TRACK_STATUS_READY
++
++URL = "https://akniga.org/glubina-pogruzhenie-76-e"
++HLS = "https://cdn.example.org/a/stream.m3u8?token=fake"
++
++
++def book_with_chapters(count=10):
++    return Book(url=URL, title="Test Book", tracks=[
++        Track(index=i, title=f"Part {i}", file=HLS, start=(i-1)*10, end=i*10, duration=10)
++        for i in range(1, count+1)
++    ])
++
++
++def test_direct_hls_only_for_small_unchanged_audiobooks():
++    book = book_with_chapters()
++    engine = SimpleNamespace(runtime_audio_preset="copy", runtime_normalization_mode="off")
++    eligible = BookFlowMixin._akniga_direct_chapters_eligible
++    assert eligible(engine, book, book.tracks[:2])
++    assert eligible(engine, book, book.tracks[:5]) is False
++    engine.runtime_normalization_mode = "two_pass"
++    assert not eligible(engine, book, book.tracks[:2])
++    engine.runtime_normalization_mode = "off"
++    engine.runtime_audio_preset = "128k_stereo"
++    assert not eligible(engine, book, book.tracks[:2])
++    book.url = "https://knigavuhe.org/book/foo/"
++    assert not eligible(engine, book, book.tracks[:2])
++
++
++def test_direct_hls_success_does_not_change_chapter_timeline(tmp_path):
++    book = book_with_chapters()
++    selected = book.tracks[2:4]
++    old = [(tr.start, tr.end, tr.file) for tr in book.tracks]
++    results = []
++
++    class Engine:
++        def log(self, text): results.append(text)
++        def set_stage(self, *_args): pass
++        def set_status(self, *_args): pass
++        def set_progress(self, *_args): pass
++        def _check_cancel(self): pass
++        def _track_path(self, _book, tr): return tmp_path / f"{tr.index:02}.mp3"
++        def _download_hls_chapter(self, book, tr, **kwargs):
++            assert kwargs['chapter_number'] in (1, 2)
++            self._track_path(book, tr).write_bytes(b"ID3" + b"good"*100)
++        def _verify_track_file(self, book, tr):
++            return TRACK_STATUS_READY, 10.0, self._track_path(book, tr)
++
++    assert BookFlowMixin._try_akniga_direct_chapters(Engine(), book, selected, lambda _x: None)
++    assert [(tr.start, tr.end, tr.file) for tr in book.tracks] == old
++    assert all((tmp_path / f"{tr.index:02}.mp3").exists() for tr in selected)
++    assert not list(tmp_path.glob("_source*.mp3"))
++
++
++def test_direct_hls_failure_cleans_owned_outputs_only(tmp_path):
++    book = book_with_chapters()
++    selected = book.tracks[2:4]
++    existing = tmp_path / '01.mp3'
++    existing.write_bytes(b'original')
++    class Engine:
++        def log(self, _text): pass
++        def set_stage(self, *_args): pass
++        def set_status(self, *_args): pass
++        def set_progress(self, *_args): pass
++        def _check_cancel(self): pass
++        def _track_path(self, _book, tr): return tmp_path / f"{tr.index:02}.mp3"
++        def _download_hls_chapter(self, book, tr, **_kwargs):
++            if tr.index == 4:
++                raise RuntimeError("seek not available")
++            self._track_path(book, tr).write_bytes(b"partial")
++        def _verify_track_file(self, book, tr):
++            return TRACK_STATUS_READY, 10.0, self._track_path(book, tr)
++    assert not BookFlowMixin._try_akniga_direct_chapters(Engine(), book, selected, lambda _x: None)
++    assert existing.read_bytes() == b'original'
++    assert not (tmp_path/'03.mp3').exists()
++    assert not (tmp_path/'04.mp3').exists()
++
++
++@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="FFmpeg required")
++def test_local_hls_seek_cut_and_copy_fallback(tmp_path):
++    manifest = tmp_path / "test.m3u8"
++    subprocess.run([
++        "ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=660:duration=12",
++        "-c:a", "aac", "-b:a", "96k", "-f", "hls", "-hls_time", "2",
++        "-hls_playlist_type", "vod", str(manifest),
++    ], check=True)
++    progress = []
++    logs = []
++    class Engine:
++        runtime_audio_preset = "copy"
++        runtime_normalization_mode = "off"
++        def _check_cancel(self): pass
++        def _register_active_subprocess(self, _p): pass
++        def _unregister_active_subprocess(self, _p): pass
++        def set_progress(self, value): progress.append(value)
++        def set_status(self, _s): pass
++        def log(self, text): logs.append(text)
++    engine = Engine()
++    source = tmp_path / '_source.mp3'
++    old_part = tmp_path / '_source.mp3.part'
++    old_part.write_bytes(b'locked-file-do-not-touch')
++    NetworkDownloadMixin._run_hls_ffmpeg(engine, str(manifest), source, "", expected_duration=12)
++    assert source.stat().st_size > 0
++    assert any('перекодирую' in message for message in logs)
++    assert old_part.read_bytes() == b'locked-file-do-not-touch'
++    clip = tmp_path / '03.mp3'
++    NetworkDownloadMixin._run_hls_ffmpeg(
++        engine, str(manifest), clip, "", start=4, duration=3,
++        expected_duration=3, progress_offset=25, progress_span=25,
++    )
++    duration = float(subprocess.check_output([
++        'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
++        '-of', 'default=noprint_wrappers=1:nokey=1', str(clip),
++    ], text=True))
++    assert duration == pytest.approx(3, abs=0.3)
++    assert progress[-1] == 50
++    assert not list(tmp_path.glob('.*.hls-*.mp3'))
