@@ -6,7 +6,7 @@ import re
 import subprocess
 import threading
 import time
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import unquote, urljoin, urlsplit
@@ -39,6 +39,7 @@ from ..providers.audioknigi_search import (
     _strip_author_prefix_from_title as _strip_audioknigi_author_prefix,
 )
 from ..logging_utils import app_logger
+from ..engine.concurrency import iter_completed_cancellable as _iter_completed_cancellable
 from ..models import Book, Track, normalize_cover_cache
 from ..network_dns import cloudflare_ffmpeg_input_args, launch_playwright_chromium
 from ..sources import normalize_supported_url, source_key
@@ -49,18 +50,6 @@ except ImportError:  # pragma: no cover - optional runtime dependency
     sync_playwright = None
 
 ProgressCallback = Callable[[str], None]
-
-
-def _iter_completed_cancellable(futures, cancel_event):
-    pending = set(futures)
-    while pending:
-        if cancel_event is not None and cancel_event.is_set():
-            for future in pending:
-                future.cancel()
-            raise Cancelled("Операция отменена пользователем")
-        done, pending = wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)
-        for future in done:
-            yield future
 
 
 def _playlist_track_title(raw_title, file_url: str, index: int, book_title: str, total: int) -> str:

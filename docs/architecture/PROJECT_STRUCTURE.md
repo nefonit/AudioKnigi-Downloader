@@ -19,6 +19,7 @@ Do not add feature modules, audit reports, temporary scripts, or historical snap
 
 - `config/` — versioned settings schema, defaults, validation, and migrations.
 - `diagnostics/` — privacy-conscious support-bundle creation.
+- `engine/concurrency.py` — shared cancellable-future polling and non-blocking pool shutdown; headless parsers and analysis services reuse these primitives.
 - `download/` — focused download core:
   - `probe.py` — media probing and validation;
   - `source_analysis.py` — source/page analysis and recovery;

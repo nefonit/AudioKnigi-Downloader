@@ -4,12 +4,16 @@ import ast
 import html as html_lib
 import json
 import re
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlparse
 
 from ..network_dns import launch_playwright_chromium
 from ..core import Cancelled, USER_AGENT, get_http_session, load_browser_context_profile, parse_time_seconds
+from ..engine.concurrency import (
+    iter_completed_cancellable as _iter_completed_cancellable,
+    shutdown_pool_now as _shutdown_pool_now,
+)
 from ..models import Book, NarrationVariant, SearchResult, Track
 from ..logging_utils import app_logger
 from ..sources import POLEKNIG_HOST, normalize_supported_url
@@ -31,25 +35,6 @@ _RESTRICTED_MARKERS = (
 SEARCH_RESULT_LIMIT = 100
 SEARCH_PAGE_LIMIT = 10
 SEARCH_PAGE_WORKERS = 4
-
-
-def _iter_completed_cancellable(futures, cancel_event=None):
-    pending = set(futures)
-    while pending:
-        if cancel_event is not None and cancel_event.is_set():
-            for future in pending:
-                future.cancel()
-            raise Cancelled("Операция отменена пользователем")
-        done, pending = wait(pending, timeout=0.10, return_when=FIRST_COMPLETED)
-        for future in done:
-            yield future
-
-
-def _shutdown_pool_now(pool, futures) -> None:
-    for future in futures:
-        if not future.done():
-            future.cancel()
-    pool.shutdown(wait=False, cancel_futures=True)
 
 
 AUTHOR_SEARCH_PAGE_LIMIT = 10
