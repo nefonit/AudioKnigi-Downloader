@@ -24,6 +24,7 @@ from .errors import RangeUnsupported
 from .hls_parallel import stage_hls_vod
 from .resume_validation import is_complete_partial_after_416, validate_resumed_206
 from .range_retry import bounded_range_retry_delay
+from .segment_integrity import SegmentChecksums, copy_verified_segment
 
 _ACTIVE_IO_INIT_LOCK = threading.Lock()
 
@@ -607,6 +608,11 @@ class NetworkDownloadMixin:
             json.dumps(segment_signature, ensure_ascii=False, sort_keys=True),
             encoding="utf-8",
         )
+        # Match checkpoint hashes against the current URL/size/range layout.
+        # Legacy segments without a checksum are redownloaded rather than
+        # trusting their size alone.
+        checksum_meta = part.with_name(part.name + ".segments.sha256.json")
+        checksums = SegmentChecksums(checksum_meta, segment_signature)
 
         # Drop oversized/corrupted resume segments before seeding aggregate
         # progress. Otherwise their capped size is counted here, then the worker
@@ -618,8 +624,10 @@ class NetworkDownloadMixin:
                 continue
             segment_size = end - start + 1
             existing = seg.stat().st_size
-            if existing > segment_size:
+            if existing > segment_size or not checksums.matches(seg):
+                self.log(f"Range-сегмент {seg.name} без проверенной суммы или изменён; скачиваю заново.")
                 unlink_with_retry(seg, missing_ok=True)
+                checksums.forget(seg)
                 continue
             aggregate += existing
         progress_lock = threading.Lock()
@@ -735,7 +743,16 @@ class NetworkDownloadMixin:
                         url, seg, start, end, referer, report,
                         peer_abort_event=peer_abort_event,
                     )
+                    checksums.record(seg)
                 except Exception as exc:
+                    # Keep verified partial bytes after a controlled transport
+                    # interruption. A missing checkpoint after an abrupt crash
+                    # causes a safe redownload on the next launch.
+                    if not isinstance(exc, RangeUnsupported) and seg.exists():
+                        try:
+                            checksums.record(seg)
+                        except OSError:
+                            pass
                     with errors_lock:
                         # Preserve the first failure. Signal peers immediately so
                         # their internal retry loops stop before the coordinator
@@ -800,6 +817,10 @@ class NetworkDownloadMixin:
                 except OSError:
                     pass
                 try:
+                    unlink_with_retry(checksum_meta, missing_ok=True)
+                except OSError:
+                    pass
+                try:
                     unlink_with_retry(part.with_name(part.name + ".assembling"), missing_ok=True)
                 except OSError:
                     pass
@@ -815,8 +836,14 @@ class NetworkDownloadMixin:
                     expected = end - start + 1
                     if not seg.exists() or seg.stat().st_size != expected:
                         raise RuntimeError(f"Не готов Range-сегмент {seg.name}.")
+                    expected_record = checksums.expected(seg)
+                    if expected_record is None or expected_record[0] != expected:
+                        raise RuntimeError(f"Нет контрольной суммы Range-сегмента {seg.name}.")
                     with open(seg, "rb") as inp:
-                        shutil.copyfileobj(inp, out, length=1024 * 1024)
+                        copy_verified_segment(
+                            inp, out, expected_size=expected,
+                            expected_sha256=expected_record[1], name=seg.name,
+                        )
             if assembling.stat().st_size != total_size:
                 raise RuntimeError("Ошибка объединения сегментов: итоговый размер не совпадает.")
             replace_with_retry(assembling, target)
@@ -839,6 +866,10 @@ class NetworkDownloadMixin:
             unlink_with_retry(segment_meta, missing_ok=True)
         except OSError:
             pass
+        try:
+            unlink_with_retry(checksum_meta, missing_ok=True)
+        except OSError:
+            pass
         if not bool(getattr(self, "_suppress_source_transfer_ui", False)):
             self.set_progress(100)
         try:
@@ -855,6 +886,7 @@ class NetworkDownloadMixin:
             part,
             part.with_name(part.name + ".assembling"),
             part.with_name(part.name + ".segments.json"),
+            part.with_name(part.name + ".segments.sha256.json"),
         ]
         try:
             candidates.extend(_segment_files(part))
