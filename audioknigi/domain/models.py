@@ -219,6 +219,16 @@ class QueueItem(MappingDataclass):
     output_folder: str = ""
     completed_files: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        """Keep the legacy boolean consistent with the canonical audio mode."""
+        mode = str(self.normalization_mode or "off").strip().casefold()
+        if mode not in {"off", "single", "two_pass"}:
+            mode = "off"
+        if mode == "off" and self.normalize_audio:
+            mode = "single"
+        self.normalization_mode = mode
+        self.normalize_audio = mode != "off"
+
 
 @dataclass(slots=True)
 class SearchResult(MappingDataclass):

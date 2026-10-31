@@ -180,9 +180,14 @@ def tail_error_log(max_lines: int = 200) -> str:
             handle.seek(0, 2)
             size = handle.tell()
             start = max(0, size - limit)
+            if start > 0:
+                handle.seek(start - 1)
+                starts_after_newline = handle.read(1) == b"\n"
+            else:
+                starts_after_newline = True
             handle.seek(start)
             payload = handle.read(limit)
-        if start > 0:
+        if not starts_after_newline:
             newline = payload.find(b"\n")
             if newline >= 0:
                 payload = payload[newline + 1:]

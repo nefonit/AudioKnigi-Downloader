@@ -166,6 +166,12 @@ def _sanitize_setting_value(key: str, value: Any) -> Any:
         return "<window-geometry>" if value else value
     if lowered in {"abs_url"}:
         return "<configured-url>" if value else value
+    # Proxy endpoints and host allowlists reveal private network topology.
+    # Redact even credential-free values before writing a support archive.
+    if lowered == "proxy_url":
+        return "<configured-proxy>" if value else value
+    if lowered == "proxy_only_hosts":
+        return "<configured-hosts>" if value else value
     if isinstance(value, Mapping):
         return {
             str(child_key): _sanitize_setting_value(str(child_key), child_value)
