@@ -173,4 +173,10 @@ from .sources_ext.librivox import (
     search_librivox,
 )
 
-__all__ = ['fetch_izibuk','search_izibuk','fetch_yakniga','search_yakniga','fetch_uknig','search_uknig','fetch_librivox','search_librivox']
+__all__ = [
+    'fetch_izibuk', 'search_izibuk',
+    'parse_akniga_collection', 'fetch_akniga_collection', 'search_akniga',
+    'fetch_yakniga', 'search_yakniga',
+    'fetch_uknig', 'search_uknig',
+    'fetch_librivox', 'search_librivox',
+]

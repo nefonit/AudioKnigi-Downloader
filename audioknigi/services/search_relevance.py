@@ -35,9 +35,11 @@ _CYRILLIC = {
 
 def _normalize(text: str) -> str:
     text = str(text or "").casefold().replace("ё", "е")
-    # Strip accent marks on Latin names, but keep Cyrillic intact.
-    text = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
-    return text
+    # Strip accent marks on Latin names, but preserve Cyrillic letters that
+    # NFKD decomposes (й -> и + breve, ї -> і + diaeresis).
+    decomposed = unicodedata.normalize("NFKD", text)
+    decomposed = decomposed.replace("и\u0306", "й").replace("і\u0308", "ї")
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
 def _tokens(text: str) -> list[str]:

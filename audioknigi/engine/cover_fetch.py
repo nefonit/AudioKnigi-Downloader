@@ -39,6 +39,12 @@ def fetch_cover_bytes(url: str, referer: str = "", *, cancel_event=None):
         if declared_size > _MAX_COVER_BYTES:
             app_logger.debug("Rejected oversized cover response: content_length=%s", declared_size)
             return None
+        mime = str(response.headers.get("content-type", "image/jpeg") or "image/jpeg")
+        mime = mime.split(";", 1)[0].strip() or "image/jpeg"
+        generic_mime = mime.casefold() in {"application/octet-stream", "binary/octet-stream"}
+        if not mime.casefold().startswith("image/") and not generic_mime:
+            app_logger.debug("Rejected non-image cover response before download: content_type=%s", mime)
+            return None
         chunks: list[bytes] = []
         total = 0
         for chunk in response.iter_content(chunk_size=64 * 1024):
@@ -53,11 +59,22 @@ def fetch_cover_bytes(url: str, referer: str = "", *, cancel_event=None):
         payload = b"".join(chunks)
         if not payload:
             return None
-        mime = str(response.headers.get("content-type", "image/jpeg") or "image/jpeg")
-        mime = mime.split(";", 1)[0].strip() or "image/jpeg"
-        if not mime.casefold().startswith("image/"):
-            app_logger.debug("Rejected non-image cover response: content_type=%s", mime)
-            return None
+        if generic_mime:
+            # Some CDNs serve artwork with a generic binary content type.
+            # Accept those only when the payload has a recognized image signature.
+            if payload.startswith(b"\xff\xd8\xff"):
+                mime = "image/jpeg"
+            elif payload.startswith(b"\x89PNG\r\n\x1a\n"):
+                mime = "image/png"
+            elif len(payload) >= 12 and payload[:4] == b"RIFF" and payload[8:12] == b"WEBP":
+                mime = "image/webp"
+            elif payload.startswith((b"GIF87a", b"GIF89a")):
+                mime = "image/gif"
+            elif payload.startswith(b"BM"):
+                mime = "image/bmp"
+            else:
+                app_logger.debug("Rejected unrecognized generic cover payload")
+                return None
         return payload, mime
     except Cancelled:
         raise
