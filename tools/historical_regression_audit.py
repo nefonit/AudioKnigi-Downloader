@@ -64,6 +64,18 @@ def main() -> int:
         # Archived source-shape tests inspect implementation text. Remap paths
         # only in temporary copied tests; keep original archived tests intact.
         moved = {
+            "brand.py": "identity/brand.py",
+            "metadata.py": "identity/metadata.py",
+            "version.py": "identity/version.py",
+            "cover_fetch.py": "engine/cover_fetch.py",
+            "crash_report.py": "diagnostics/crash_report.py",
+            "downloader.py": "download/downloader.py",
+            "i18n.py": "localization/i18n.py",
+            "integrations.py": "connectors/audiobookshelf.py",
+            "logging_utils.py": "diagnostics/logging_utils.py",
+            "qt_runtime_audit.py": "qt/runtime_audit.py",
+            "templates.py": "download/naming.py",
+            "download_engine.py": "download/engine.py",
             "akniga.py": "parsers/akniga.py",
             "knigavuhe.py": "parsers/knigavuhe.py",
             "poleknig.py": "parsers/poleknig.py",
@@ -86,6 +98,13 @@ def main() -> int:
                         quote + "audioknigi" + quote + " / "
                         + " / ".join(quote + item + quote for item in new_name.split("/")),
                     )
+            # The moved crash-report module imports its legacy brand facade
+            # from the package above, not from the original sibling directory.
+            if test_path.name == "test_audit4_followup_20260911.py":
+                updated = updated.replace(
+                    "from .brand import DISPLAY_NAME",
+                    "from ..brand import DISPLAY_NAME",
+                )
             if updated != content:
                 test_path.write_text(updated, encoding="utf-8")
         proc = subprocess.run(
