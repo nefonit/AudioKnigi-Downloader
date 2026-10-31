@@ -43,44 +43,7 @@ except ImportError:  # pragma: no cover - mutagen is a normal runtime dependency
     APIC = ID3 = TALB = TIT2 = TPE1 = None
 
 
-StatusCallback = Callable[[str], None]
-StageCallback = Callable[[int, str], None]
-ProgressCallback = Callable[[float], None]
-LogCallback = Callable[[str], None]
-TransferCallback = Callable[[float, int], None]
-MissingMediaCallback = Callable[[list[int], str, bool], str]
-HistoryCallback = Callable[[], None]
-RequestChangedCallback = Callable[[DownloadRequest], None]
-
-
-@dataclass(slots=True)
-class DownloadCallbacks:
-    status: StatusCallback | None = None
-    stage: StageCallback | None = None
-    progress: ProgressCallback | None = None
-    log: LogCallback | None = None
-    transfer: TransferCallback | None = None
-    missing_media: MissingMediaCallback | None = None
-    history_changed: HistoryCallback | None = None
-    request_changed: RequestChangedCallback | None = None
-
-
-@dataclass(slots=True)
-class DownloadResult:
-    folder: Path
-    selected_indices: list[int]
-    skipped_indices: list[int]
-    target_file: Path | None = None
-    book: Book | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class DuplicatePreflight:
-    exact_duplicate: bool
-    folder: Path
-    evidence: str = ""
-
-
+from .download.contracts import DownloadCallbacks, DownloadResult, DuplicatePreflight
 
 class _DownloadEngine(DownloaderMixin):
     """Headless adapter around the mature downloader core.
@@ -830,37 +793,7 @@ class _DownloadEngine(DownloaderMixin):
         )
 
 
-class DownloadService:
-    """Public GUI-neutral façade for one book download."""
-
-    def __init__(
-        self,
-        *,
-        settings: Mapping[str, object] | None = None,
-        cancel_event: threading.Event | None = None,
-        callbacks: DownloadCallbacks | None = None,
-    ) -> None:
-        self.settings = normalize_settings(settings)
-        self.cancel_event = cancel_event or threading.Event()
-        self.callbacks = callbacks or DownloadCallbacks()
-
-    def download(self, request: DownloadRequest) -> DownloadResult:
-        engine = _DownloadEngine(request, self.settings, self.cancel_event, self.callbacks)
-        return engine.run()
-
-    def download_full_mp3(self, request: DownloadRequest) -> DownloadResult:
-        engine = _DownloadEngine(request, self.settings, self.cancel_event, self.callbacks)
-        return engine.run_full_mp3()
-
-    def duplicate_preflight(
-        self, request: DownloadRequest, *, full_mp3: bool = False, probe_durations: bool = True
-    ) -> DuplicatePreflight:
-        engine = _DownloadEngine(request, self.settings, self.cancel_event, self.callbacks)
-        return engine.duplicate_preflight(full_mp3=full_mp3, probe_durations=probe_durations)
-
-    def delete_existing_outputs(self, request: DownloadRequest, *, full_mp3: bool = False) -> int:
-        engine = _DownloadEngine(request, self.settings, self.cancel_event, self.callbacks)
-        return engine.delete_existing_outputs(full_mp3=full_mp3)
+from .download.service import DownloadService
 
 
 __all__ = [
