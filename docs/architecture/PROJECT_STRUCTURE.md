@@ -99,3 +99,7 @@ One-off migration tools belong under `archive/tools/`.
 Legacy imports for core, models, DNS, sources and site parsers alias the same
 module objects for monkeypatch/class identity compatibility. Static imports in
 these aliases are intentional for Windows PyInstaller discovery.
+
+## V22: lean root and compatibility imports
+
+All application logic formerly in the root files for the engine, localization, templates, Audiobookshelf, branding, crash reports and cover downloading now belongs to focused packages. The original root modules are tiny import aliases; deleting them would break older imports and tests. See `docs/architecture/ROOT_MODULES_V22.md` for the owner of each implementation.

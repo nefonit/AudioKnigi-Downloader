@@ -998,7 +998,7 @@ def test_split_track_uses_retrying_unlink_before_ffmpeg_overwrite():
     assert 'out.unlink()' not in block
 
 def test_full_mp3_resume_and_id3_hardening_are_present():
-    source = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     run = source[source.index('def run_full_mp3'):source.index('def run(self)')]
     assert 'source_ready = source_target.is_file() and source_target.stat().st_size > 0' in run
     assert 'Использую уже полностью скачанный исходный аудиофайл книги.' in run

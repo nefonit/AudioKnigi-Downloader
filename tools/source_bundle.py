@@ -11,11 +11,11 @@ def source_paths(root: Path, rel: str) -> tuple[Path, ...]:
         paths = [root / rel, root / "audioknigi/qt/main_window_pages.py", root / "audioknigi/qt/player_mixin.py"]
         paths.extend(sorted((root / "audioknigi/qt/mixins").glob("*.py")))
         return tuple(p for p in paths if p.is_file())
-    if rel == "audioknigi/downloader.py":
+    if rel == "audioknigi/download/downloader.py":
         paths = [root / rel]
         paths.extend(sorted((root / "audioknigi/download").glob("*.py")))
         return tuple(p for p in paths if p.is_file())
-    if rel == "audioknigi/i18n.py":
+    if rel == "audioknigi/localization/i18n.py":
         paths = [root / rel]
         paths.extend(sorted((root / "audioknigi/locales").glob("*.json")))
         return tuple(p for p in paths if p.is_file())

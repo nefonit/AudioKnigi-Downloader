@@ -369,7 +369,7 @@ def test_german_help_engine_grammar_fixed() -> None:
     assert 'der Download-Engine ist jedoch derselbe' not in source
 
 def test_runtime_localization_regex_precedes_prefixes() -> None:
-    source = src__report_followup_round32_20260918('audioknigi/i18n.py')
+    source = src__report_followup_round32_20260918('audioknigi/localization/i18n.py')
     regex = source.index('for pattern, variants in _PHASE29_RUNTIME_REGEX')
     prefix = source.index('for prefix, variants in _PHASE29_RUNTIME_PREFIXES.items()')
     assert regex < prefix
@@ -424,9 +424,9 @@ def test_localization_detects_keyword_literals_and_dynamic_text(tmp_path, monkey
 
 def test_localization_reports_missing_required_file(monkeypatch):
     original = Path.is_file
-    missing = qt_localization_audit.ROOT / 'audioknigi/downloader.py'
+    missing = qt_localization_audit.ROOT / 'audioknigi/download/downloader.py'
     monkeypatch.setattr(Path, 'is_file', lambda self: False if self == missing else original(self))
-    assert 'missing runtime localization source: audioknigi/downloader.py' in qt_localization_audit.audit()
+    assert 'missing runtime localization source: audioknigi/download/downloader.py' in qt_localization_audit.audit()
 
 
 # Origin: test_report_followup_round54_20260926.py
@@ -509,7 +509,7 @@ def test_runtime_exact_json_has_no_duplicate_keys_at_any_object_level():
 def test_round63_removes_unreachable_unlink_return_and_keeps_runtime_regex_precedence():
     root = Path(__file__).resolve().parents[2]
     common = (root / 'audioknigi/download/common.py').read_text(encoding='utf-8')
-    i18n = (root / 'audioknigi/i18n.py').read_text(encoding='utf-8')
+    i18n = (root / 'audioknigi/localization/i18n.py').read_text(encoding='utf-8')
     unlink_block = common[common.index('def unlink_with_retry'):common.index('def atomic_write_text')]
     assert 'return False' not in unlink_block
     assert i18n.index('for pattern, variants in _PHASE29_RUNTIME_REGEX') < i18n.index('for prefix, variants in _PHASE29_RUNTIME_PREFIXES.items()')
@@ -536,7 +536,7 @@ def test_reported_runtime_exact_duplicate_is_not_present():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_runtime_regex_still_precedes_prefix_fallback__round67_runtime_followup_20260929():
-    source = (ROOT / 'audioknigi/i18n.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/localization/i18n.py').read_text(encoding='utf-8')
     regex_pos = source.index('for pattern, variants in _PHASE29_RUNTIME_REGEX')
     prefix_pos = source.index('for prefix, variants in _PHASE29_RUNTIME_PREFIXES.items()')
     assert regex_pos < prefix_pos
@@ -639,7 +639,7 @@ def test_search_parallel_source_status_is_localized():
     assert 'Шукаю одночасно на джерелах: 3' == localize_runtime_text('uk', source)
 
 def test_runtime_exact_lookup_precedes_regex_and_static_entries_moved_to_exact():
-    source = (ROOT / 'audioknigi/i18n.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/localization/i18n.py').read_text(encoding='utf-8')
     assert source.index('exact_entry = _PHASE29_RUNTIME_EXACT.get(raw)') < source.index('for pattern, variants in _PHASE29_RUNTIME_REGEX')
     exact = json.loads((ROOT / 'audioknigi/locales/runtime_exact.json').read_text(encoding='utf-8'))
     regex_rows = json.loads((ROOT / 'audioknigi/locales/runtime_regex.json').read_text(encoding='utf-8'))

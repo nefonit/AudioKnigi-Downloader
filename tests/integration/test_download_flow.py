@@ -420,7 +420,7 @@ def test_book_download_layout_reserves_graph_and_description_geometry():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_full_mp3_refresh_updates_manifest_and_result_indices():
-    source = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     block = source[source.index('def run_full_mp3'):source.index('def run(self)')]
     assert 'full_indices = list(req.selected_indices)' in block
     assert 'self._write_resume_manifest(book, full_indices, download_mode="full_mp3")' in block
@@ -447,7 +447,7 @@ def test_book_flow_remaining_track_index_paths_are_safe():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_download_engine_uses_retrying_unlink_for_manifest_and_full_source():
-    source = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     manifest = source[source.index('def _remove_resume_manifest'):source.index('@staticmethod', source.index('def _remove_resume_manifest'))]
     assert 'unlink_with_retry(path, missing_ok=True)' in manifest
     full = source[source.index('def run_full_mp3'):source.index('def run(self)')]

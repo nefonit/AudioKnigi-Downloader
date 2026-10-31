@@ -264,7 +264,7 @@ def test_reported_hardening_changes_are_present_in_sources():
     assert 'self._scan_book_files(book, create_folder=False)' in book_flow
     player = (ROOT / 'audioknigi/qt/player_mixin.py').read_text(encoding='utf-8')
     assert 'startswith(("_source", "_repair"))' in player
-    engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     assert 'tags.save(str(target))' in engine
     media = (ROOT / 'audioknigi/download/media.py').read_text(encoding='utf-8')
     assert 'author = str(getattr(book, "author", "") or "").strip()' in media
@@ -340,7 +340,7 @@ def test_csv_export_neutralizes_formula_cells(tmp_path):
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_round17_formatting_hygiene_for_reported_pep8_rough_edges() -> None:
-    crash = (ROOT / 'audioknigi/crash_report.py').read_text(encoding='utf-8')
+    crash = (ROOT / 'audioknigi/diagnostics/crash_report.py').read_text(encoding='utf-8')
     knigavuhe = (ROOT / 'audioknigi/parsers/knigavuhe.py').read_text(encoding='utf-8')
     assert 'import platform, sys, time, traceback' not in crash
     assert 'availability="available"' not in knigavuhe
@@ -450,7 +450,7 @@ def test_template_tokens_are_case_insensitive() -> None:
 
 def test_track_filename_extension_handling_is_already_space_safe() -> None:
     core_source = src__report_followup_round33_20260918('audioknigi/engine/core.py')
-    templates = src__report_followup_round33_20260918('audioknigi/templates.py')
+    templates = src__report_followup_round33_20260918('audioknigi/download/naming.py')
     assert 'name = re.sub(r"\\s+", " ", name).strip(". ")' in core_source
     assert '".ogg"' in templates and '".opus"' in templates
 
@@ -1019,7 +1019,7 @@ def test_missing_next_boundary_remains_a_shared_source_integrity_error(tmp_path)
 
 def test_round70_fixes_remain_present():
     player = (ROOT / 'audioknigi/qt/player_mixin.py').read_text(encoding='utf-8')
-    engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     progress = (ROOT / 'audioknigi/qt/search_progress.py').read_text(encoding='utf-8')
     settings = (ROOT / 'audioknigi/qt/mixins/settings.py').read_text(encoding='utf-8')
     assert '"cover.webp"' in player
@@ -1051,7 +1051,7 @@ def test_runtime_template_with_named_count_is_already_exact_format_safe():
 def test_round73_high_value_fixes_remain_present():
     library = (ROOT / 'audioknigi/services/library_service.py').read_text(encoding='utf-8')
     assert '_history_rows(data, strict=True, limit=None)' in library
-    engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     full = engine[engine.index('def run_full_mp3'):engine.index('def run(self)')]
     assert 'if source_ready:' in full
     assert 'tags.delall("TRCK")' in full
@@ -1112,7 +1112,7 @@ def test_expired_source_mapping_uses_normalized_url_and_safe_indices():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_integrations_json_decode_error_uses_old_requests_safe_fallback():
-    source = (ROOT / 'audioknigi/integrations.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/connectors/audiobookshelf.py').read_text(encoding='utf-8')
     assert '_JSONDecodeError = getattr(requests.exceptions, "JSONDecodeError", ValueError)' in source
     assert 'except (ValueError, _JSONDecodeError) as exc:' in source
 
@@ -1130,7 +1130,7 @@ def test_locale_catalog_has_no_reported_duplicate_or_prefix_regex_conflict():
     prefix = 'Скачивание завершено. Пропущены недоступные части: '
     assert prefix in prefixes
     assert any(('Пропущены недоступные части' in row[0] for row in regex_rows))
-    i18n_source = (ROOT / 'audioknigi/i18n.py').read_text(encoding='utf-8')
+    i18n_source = (ROOT / 'audioknigi/localization/i18n.py').read_text(encoding='utf-8')
     assert i18n_source.index('for pattern, variants in _PHASE29_RUNTIME_REGEX') < i18n_source.index('for prefix, variants in _PHASE29_RUNTIME_PREFIXES.items()')
 
 def test_reviewed_locale_wording_is_consistent():

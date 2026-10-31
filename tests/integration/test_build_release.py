@@ -468,9 +468,9 @@ def _full_mp3_engine(tmp_path, *, selected):
     return engine
 
 def test_packaged_locale_path_matches_pyinstaller_destination():
-    i18n = (ROOT / 'audioknigi/i18n.py').read_text(encoding='utf-8')
+    i18n = (ROOT / 'audioknigi/localization/i18n.py').read_text(encoding='utf-8')
     build = (ROOT / 'build_qt_ci.ps1').read_text(encoding='utf-8')
-    assert '_LOCALE_DIR = Path(__file__).with_name("locales")' in i18n
+    assert '_LOCALE_DIR = Path(__file__).resolve().parent.parent / "locales"' in i18n
     assert '"--add-data", "audioknigi\\locales;audioknigi\\locales"' in build
 
 
@@ -519,7 +519,7 @@ def test_changelog_release_hierarchy_and_architecture_docs_are_current():
     assert not any((line.startswith('## ') and 'Build system — Python 3.14.7' in line for line in changelog.splitlines()))
     assert '## 4.7.1.2' in changelog
     assert 'Additional late 4.12.31 accessibility and UI hardening' in changelog
-    assert '`audioknigi/download_engine.py`' in readme
+    assert '`audioknigi/download/engine.py`' in readme
 
 def test_qt_selftest_reports_current_runtime_stage_but_keeps_acceptance_marker():
     qt_init = (ROOT / 'audioknigi' / 'qt' / '__init__.py').read_text(encoding='utf-8')

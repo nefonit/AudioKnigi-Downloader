@@ -567,9 +567,9 @@ def test_appsettings_legacy_write_aliases_update_only_canonical_keys():
 def test_config_settings_imports_match_real_package_layout():
     assert (ROOT / 'audioknigi/config/settings.py').is_file()
     request_source = (ROOT / 'audioknigi/services/download_request.py').read_text(encoding='utf-8')
-    engine_source = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine_source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     assert 'from ..config.settings import normalize_settings' in request_source
-    assert 'from .config.settings import normalize_settings' in engine_source
+    assert 'from ..config.settings import normalize_settings' in engine_source
 
 
 # Origin: test_round78_external_review_followup_20261005.py

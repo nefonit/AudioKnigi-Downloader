@@ -303,8 +303,8 @@ def audit() -> list[str]:
     same_language_ok = {"Одним MP3", "Пауза…", "недоступно", "Незавершено"}
     runtime_literals = set(_runtime_visible_literals(main))
     runtime_paths = [
-        ROOT / "audioknigi/downloader.py",
-        ROOT / "audioknigi/download_engine.py",
+        ROOT / "audioknigi/download/downloader.py",
+        ROOT / "audioknigi/download/engine.py",
         ROOT / "audioknigi/services/book_analysis_service.py",
         ROOT / "audioknigi/qt/main_window_pages.py",
         ROOT / "audioknigi/qt/player_mixin.py",
