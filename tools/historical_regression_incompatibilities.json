@@ -42,6 +42,7 @@
   "test_phase17_audit_followup_41231.py::test_stage_four_progress_uses_i18n_key",
   "test_phase18_runtime_resource_hardening_41231.py::test_close_event_rechecks_without_second_hidden_modal",
   "test_phase18_runtime_resource_hardening_41231.py::test_ffmpeg_helpers_unregister_finished_processes",
+  "test_phase18_runtime_resource_hardening_41231.py::test_knigavuhe_and_poleknig_cancel_pools_without_waiting",
   "test_phase18_runtime_resource_hardening_41231.py::test_missing_media_cancel_rejects_without_forced_close_and_handles_deleted_cpp_object",
   "test_phase18_runtime_resource_hardening_41231.py::test_needs_analysis_task_cannot_receive_priority",
   "test_phase18_runtime_resource_hardening_41231.py::test_out_variable_claim_is_not_a_real_unbound_path",

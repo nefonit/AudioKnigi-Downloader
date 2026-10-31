@@ -6,6 +6,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 
 - [`architecture/PROJECT_STRUCTURE.md`](architecture/PROJECT_STRUCTURE.md) — canonical repository/package structure and placement rules.
 - [`architecture/ROOT_MODULES_V22.md`](architecture/ROOT_MODULES_V22.md) — current implementation owners and compatibility aliases.
+- [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.
 - [`user/DIAGNOSTICS.md`](user/DIAGNOSTICS.md) — privacy-conscious diagnostic support bundle.
