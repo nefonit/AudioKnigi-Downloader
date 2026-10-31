@@ -63,7 +63,7 @@ The current repository is organized by responsibility instead of migration phase
 
 - `audioknigi/config/` — versioned settings schema and migrations.
 - `audioknigi/download/` — media probe, source analysis, HTTP/range download, FFmpeg/media processing, and book flow. `audioknigi/downloader.py` is a compatibility facade.
-- `audioknigi/download_engine.py` — GUI-neutral request orchestration, duplicate preflight, resume manifests and full-MP3 coordination built on the `download/` subsystems.
+- `audioknigi/download/engine.py` — GUI-neutral internal engine, resume manifests and full-MP3 coordination built on the `download/` subsystems. `audioknigi/download_engine.py` remains a compatibility import alias.
 - `audioknigi/providers/` — common `SourceProvider` interface, adapters, and registry.
 - `audioknigi/services/` — GUI-independent analysis/search/queue/library/player-position services.
 - `audioknigi/diagnostics/` — redacted support-bundle generation.
