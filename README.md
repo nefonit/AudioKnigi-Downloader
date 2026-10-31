@@ -41,7 +41,7 @@ py -m pip install -r requirements-qt-build.txt
 
 `requirements-release.txt` is the pinned dependency baseline used for reproducible release work. Source/runtime compatibility is Python 3.11+, while the official Windows CI/release toolchain is intentionally pinned to CPython 3.14.7 x64. The normal CI also exercises Python 3.11 so the minimum supported version is tested. The PyInstaller build explicitly includes `assets/` and the external `audioknigi/locales/*.json` catalogs.
 
-Before release, the exact EXE should pass the Windows runtime/accessibility checks described in `docs/accessibility/ACCESSIBILITY.md` and `tools/qt_windows_acceptance.py`.
+Before release, the exact EXE should pass the Windows runtime/accessibility checks described in `docs/accessibility/ACCESSIBILITY.md` and `tools/qt_windows_acceptance.py`. Follow [the V37 isolated-profile upgrade rehearsal](docs/qa/UPGRADE_ACCEPTANCE_V37.md) with `run_qt_upgrade_acceptance.bat` to compare old/new state without exposing user data; both NVDA and JAWS manual sign-off, release licensing, and actual Windows replacement testing remain mandatory.
 
 ## Main features
 

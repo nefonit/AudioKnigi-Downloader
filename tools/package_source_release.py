@@ -49,11 +49,13 @@ def _excluded(relative: Path) -> bool:
 PRODUCTION_TOOLS = frozenset({
     "qt_import_audit.py", "pyinstaller_bootstrap.py", "windows_version_info.py",
     "qt_frozen_module_audit.py", "qt_windows_acceptance.py",
+    "qt_upgrade_acceptance.py",
 })
 PRODUCTION_ROOT_FILES = frozenset({
     "README.md", "THIRD_PARTY_NOTICES.md", "audioknigi_qt.py",
     "run.bat", "run_qt.bat", "run_qt_acceptance.bat",
     "check_qt_acceptance.bat", "build_qt_exe.bat", "build_qt_ci.ps1",
+    "run_qt_upgrade_acceptance.bat",
     "pyproject.toml", "requirements.txt", "requirements-qt.txt",
     "requirements-qt-build.txt", "requirements-release.txt",
 })
@@ -66,6 +68,7 @@ def _excluded_from_production(relative: Path) -> bool:
     if head == "docs":
         return relative.as_posix() not in {
             "docs/development/RELEASE_LICENSING.md",
+            "docs/qa/UPGRADE_ACCEPTANCE_V37.md",
             "docs/user/DIAGNOSTICS.md",
             "docs/architecture/REPOSITORY_GUIDE_V19.md",
             "docs/architecture/PROJECT_STRUCTURE.md",
