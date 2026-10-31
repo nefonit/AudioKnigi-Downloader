@@ -62,7 +62,7 @@ class BookFlowMixin:
         # as ``_source of wisdom.mp3``.
         owned = re.compile(
             r"^(?:_source(?:_\d+)?|_repair_source(?:_\d+)?)\.mp3"
-            r"(?:$|\.part(?:$|\.assembling$|\.segments\.json$|\.seg\d+$))"
+            r"(?:$|\.part(?:$|\.assembling$|\.segments(?:\.sha256)?\.json$|\.seg\d+$))"
         )
         removed = 0
         try:
