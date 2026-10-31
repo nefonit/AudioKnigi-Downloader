@@ -133,7 +133,10 @@ class DownloadWorker(QObject):
     request_changed = Signal(object)
     finished = Signal(object)
 
-    def __init__(self, request, settings: dict, cancel_event: threading.Event, mode: str = "selected"):
+    def __init__(
+        self, request, settings: dict, cancel_event: threading.Event,
+        mode: str = "selected", *, recover_existing: bool = False
+    ):
         super().__init__()
         # The engine may replace the book/selection when a media source is
         # refreshed or a cross-provider fallback is accepted.  Keep that
@@ -158,6 +161,7 @@ class DownloadWorker(QObject):
         self.settings = dict(settings or {})
         self.cancel_event = cancel_event
         self.mode = str(mode or "selected")
+        self.recover_existing = bool(recover_existing)
 
     def _missing_media(self, indices: list[int], detail: str, allow_skip: bool) -> str:
         prompt = MissingMediaDecision(indices, detail, allow_skip)
@@ -194,7 +198,13 @@ class DownloadWorker(QObject):
                 cancel_event=self.cancel_event,
                 callbacks=callbacks,
             )
-            result = (
+            recovered = (
+                service.recover_completed_download(
+                    self.request, full_mp3=self.mode == "full_mp3"
+                )
+                if self.recover_existing else None
+            )
+            result = recovered if recovered is not None else (
                 service.download_full_mp3(self.request)
                 if self.mode == "full_mp3"
                 else service.download(self.request)

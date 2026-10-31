@@ -570,6 +570,9 @@ class QueueUiMixin:
                 self._notify_tray_if_hidden(self._l("Очередь завершена."))
             return
         task = self.queue_tasks[idx]
+        # A crashed app can have fully written audio/metadata but a task that
+        # never received its final completed status; verify in the worker.
+        recover_existing = task.status_code == "interrupted"
         task.status = "Скачивается"
         task.status_code = "running"
         task.paused = False
@@ -581,7 +584,8 @@ class QueueUiMixin:
         self.queue_table.selectRow(idx)
         self.tabs.setCurrentIndex(self.TAB_QUEUE)
         self._launch_download(
-            task.request, self._live_download_settings(), from_queue=True, mode=task.download_mode
+            task.request, self._live_download_settings(), from_queue=True,
+            mode=task.download_mode, recover_existing=recover_existing
         )
 
     @Slot()

@@ -645,7 +645,11 @@ class AnalysisDownloadUiMixin:
                 sources.append(url)
         return len(sources) == 1
 
-    def _launch_download(self, request, settings: dict, *, from_queue: bool = False, mode: str = "selected"):
+    def _launch_download(
+        self, request, settings: dict, *,
+        from_queue: bool = False, mode: str = "selected",
+        recover_existing: bool = False,
+    ):
         cancel_event = threading.Event()
         # The downloader mutates Track status/duration fields. Give the worker an
         # isolated snapshot so the GUI thread never reads the same Book object
@@ -663,7 +667,10 @@ class AnalysisDownloadUiMixin:
             request.book.cover_cache = normalized_cover
         worker_request = copy.deepcopy(snapshot_source)
         thread = QThread(self)
-        worker = _DownloadWorker(worker_request, settings, cancel_event, mode=mode)
+        worker = _DownloadWorker(
+            worker_request, settings, cancel_event, mode=mode,
+            recover_existing=recover_existing if from_queue else False,
+        )
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.status.connect(self._worker_ui_relay.download_status, Qt.ConnectionType.QueuedConnection)
