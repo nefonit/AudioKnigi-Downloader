@@ -3,15 +3,18 @@ from __future__ import annotations
 """Create either a complete developer ZIP or a lean buildable production-source ZIP."""
 
 import argparse
+import re
 import zipfile
 from pathlib import Path
 
 EXCLUDED_DIR_NAMES = {
     ".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-    "build", "dist", ".venv", "venv", "env",
+    "build", "dist", ".venv", ".venv-qt", "venv", "env",
 }
 EXCLUDED_FILE_NAMES = {
-    "settings.json", "history.json", "qt_queue.json", "cookies.json", "session_profile.json",
+    "settings.json", "history.json", "qt_queue.json", "cookies.json",
+    "session_profile.json", "session_cookies.json", "session_state.json",
+    "player_positions.json", "last_crash_report.txt",
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".log", ".tmp", ".part", ".pyd", ".so", ".dll", ".orig"}
 
@@ -20,6 +23,16 @@ def _excluded(relative: Path) -> bool:
     if any(part in EXCLUDED_DIR_NAMES or part.startswith(".historical-regression-") for part in relative.parts[:-1]):
         return True
     name = relative.name
+    # V32/V33 engine artifacts are not source: they can contain user URLs,
+    # track audio bytes, history, and private queue/book information.
+    if (
+        name in {".env", ".env.local"}
+        or name.startswith(".env.")
+        or name.endswith(".lastgood.json")
+        or re.search(r"\.corrupt-[0-9a-f]{12}\.json$", name)
+        or re.search(r"\.part\.(?:seg[0-9]+|segments(?:\.sha256)?\.json|assembling)$", name)
+    ):
+        return True
     if len(relative.parts) == 1 and name.startswith("AUDIT_NOTES_") and name.endswith(".md"):
         return True
     # Keep intentional test fixtures; still exclude private runtime state from
@@ -76,7 +89,8 @@ def build_source_zip(
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in sorted(root.rglob("*")):
-            if not path.is_file():
+            # Never follow a symlink to a private file outside the checkout.
+            if path.is_symlink() or not path.is_file():
                 continue
             relative = path.relative_to(root)
             if (_excluded(relative) or path.resolve() == output

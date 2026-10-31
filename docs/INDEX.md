@@ -16,6 +16,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 - [`architecture/STATE_RECOVERY_V33.md`](architecture/STATE_RECOVERY_V33.md) — crash-safe queue and history snapshots, state restoration and UI continuity.
 - [`architecture/QUEUE_RECONCILIATION_V34.md`](architecture/QUEUE_RECONCILIATION_V34.md) — worker-side recovery of fully completed downloads after an abrupt application exit.
 - [`architecture/SHUTDOWN_SAFETY_V35.md`](architecture/SHUTDOWN_SAFETY_V35.md) — bounded exit protection for Audiobookshelf checks and final state flush.
+- [`development/RELEASE_PREFLIGHT_V36.md`](development/RELEASE_PREFLIGHT_V36.md) — source archive privacy, dependency parity, release candidate SHA-256 and outstanding manual gates.
 - [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.

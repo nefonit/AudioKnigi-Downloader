@@ -34,9 +34,14 @@ jobs:
           python -m pytest -q tests
       - shell: pwsh
         run: .\build_qt_ci.ps1
+      - shell: pwsh
+        run: python tools/release_candidate_audit.py --dist dist --tag "$env:GITHUB_REF_NAME"
       - uses: actions/upload-artifact@v7
         with:
-          name: AudioKnigiDownloader-Qt-${{ github.ref_name }}-windows-x64
+          name: AudioKnigiDownloader-Qt-${{ github.ref_name }}-windows-x64-candidate
+          if-no-files-found: error
           path: |
             dist/AudioKnigiDownloader_Qt.exe
             dist/qt_release_candidate.json
+            dist/THIRD_PARTY_NOTICES.md
+            dist/RELEASE_LICENSING.md
