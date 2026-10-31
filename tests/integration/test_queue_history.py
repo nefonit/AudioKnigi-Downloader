@@ -342,7 +342,7 @@ def test_round21_does_not_change_queue_empty_selection_or_proxy_drain_contracts(
     queue_source = (ROOT / 'audioknigi/services/queue_service.py').read_text(encoding='utf-8')
     assert 'An explicit empty' in queue_source
     assert 'return result' in queue_source
-    proxy_source = (ROOT / 'audioknigi/network_dns.py').read_text(encoding='utf-8')
+    proxy_source = (ROOT / 'audioknigi/network/dns.py').read_text(encoding='utf-8')
     assert 'half_close_deadline' in proxy_source
     assert 'return_when_right_closes=True' in proxy_source
 
@@ -409,8 +409,8 @@ def test_queue_selected_indices_reject_json_booleans() -> None:
     assert _parse_selected_indices_payload([True, False, 2, '3']) == [2, 3]
 
 def test_reported_save_json_and_queue_serialization_are_already_supported() -> None:
-    core = src__report_followup_round32_20260918('audioknigi/core.py')
-    models = src__report_followup_round32_20260918('audioknigi/models.py')
+    core = src__report_followup_round32_20260918('audioknigi/engine/core.py')
+    models = src__report_followup_round32_20260918('audioknigi/domain/models.py')
     assert 'def save_json(path, data, *, raise_errors=False):' in core
     assert 'class MappingDataclass' in models and 'def to_dict' in models
 

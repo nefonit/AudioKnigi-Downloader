@@ -212,7 +212,7 @@ def test_poleknig_playwright_cancelled_before_browser_work():
         poleknig._fetch_book_playwright('https://poleknig.com/books/1', cancel_event=event)
 
 def test_poleknig_author_catalog_future_does_not_swallow_cancelled():
-    source = (ROOT / 'audioknigi/poleknig.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/parsers/poleknig.py').read_text(encoding='utf-8')
     block = source[source.index('def _expand_matching_author_catalogs'):source.index('def search(', source.index('def _expand_matching_author_catalogs'))]
     assert 'except Cancelled:\n                raise' in block
 
@@ -354,8 +354,8 @@ def test_knigavuhe_call_argument_supports_backtick_template_strings():
     assert _extract_call_argument(source) == '`title: "A,B" (demo)`'
 
 def test_source_hosts_are_reused_by_provider_modules():
-    knigavuhe = (ROOT / 'audioknigi' / 'knigavuhe.py').read_text(encoding='utf-8')
-    poleknig = (ROOT / 'audioknigi' / 'poleknig.py').read_text(encoding='utf-8')
+    knigavuhe = (ROOT / 'audioknigi' / 'parsers' / 'knigavuhe.py').read_text(encoding='utf-8')
+    poleknig = (ROOT / 'audioknigi' / 'parsers' / 'poleknig.py').read_text(encoding='utf-8')
     adapters = (ROOT / 'audioknigi' / 'providers' / 'adapters.py').read_text(encoding='utf-8')
     assert 'KNIGAVUHE_HOST' in knigavuhe
     assert 'POLEKNIG_HOST' in poleknig
@@ -553,7 +553,7 @@ def test_poleknig_search_does_not_drop_site_ranked_result_for_extra_query_terms(
     assert [item.url for item in results] == [row.url]
 
 def test_poleknig_playwright_exposure_uses_circular_safe_json():
-    source = (ROOT / 'audioknigi' / 'poleknig.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi' / 'parsers' / 'poleknig.py').read_text(encoding='utf-8')
     assert 'const safeJson = (value) =>' in source
     assert "if (seen.has(item)) return '[Circular]'" in source
     assert 'values.push(JSON.stringify(v))' not in source
@@ -831,7 +831,7 @@ def src__report_followup_round33_20260918(relative: str) -> str:
     return (ROOT / relative).read_text(encoding='utf-8')
 
 def test_knigavuhe_grouped_search_collects_all_unique_narrators() -> None:
-    source = src__report_followup_round33_20260918('audioknigi/knigavuhe.py')
+    source = src__report_followup_round33_20260918('audioknigi/parsers/knigavuhe.py')
     block = source[source.index('# Collapse separate recording pages'):source.index('__all__', source.index('# Collapse separate recording pages'))]
     assert 'narrators = []' in block
     assert 'if narrator and narrator not in narrators:' in block
@@ -1497,7 +1497,7 @@ def test_playwright_uses_only_successful_playlist_response_body_and_shorter_navi
     assert 'if not 200 <= status < 300:' in block
     assert block.index('if not 200 <= status < 300:') < block.index('browser_response.body()')
     assert 'page.goto(url, wait_until="domcontentloaded", timeout=30000)' in analysis
-    poleknig = (ROOT / 'audioknigi/poleknig.py').read_text(encoding='utf-8')
+    poleknig = (ROOT / 'audioknigi/parsers/poleknig.py').read_text(encoding='utf-8')
     assert 'page.goto(url, wait_until="domcontentloaded", timeout=30000)' in poleknig
 
 def _full_mp3_engine(tmp_path, *, selected):
@@ -1605,7 +1605,7 @@ def test_refresh_playlist_ignores_invalid_track_indices_instead_of_crashing(tmp_
     assert original.tracks[1].file == 'new.mp3'
 
 def test_provider_variant_availability_is_case_insensitive_and_current_is_explicit():
-    poleknig = (ROOT / 'audioknigi/poleknig.py').read_text(encoding='utf-8')
+    poleknig = (ROOT / 'audioknigi/parsers/poleknig.py').read_text(encoding='utf-8')
     assert 'str(getattr(item, "availability", "") or "").casefold() == "restricted"' in poleknig
     assert 'str(getattr(item, "availability", "") or "").casefold() == "available"' in poleknig
     from audioknigi.knigavuhe import _extract_narration_variants
@@ -1676,7 +1676,7 @@ def test_knigavuhe_generic_div_exact_other_narrations_heading_is_recognized():
     assert any((item.url == 'https://knigavuhe.org/book/alt/' for item in variants))
 
 def test_reported_knigavuhe_groups_nameerror_is_not_present():
-    source = (ROOT / 'audioknigi/knigavuhe.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/parsers/knigavuhe.py').read_text(encoding='utf-8')
     grouping = source[source.index('grouped: dict'):source.index('unique: list', source.index('grouped: dict'))]
     assert 'groups[key]' not in grouping
     assert 'grouped[key]' in grouping

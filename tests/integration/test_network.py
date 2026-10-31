@@ -132,7 +132,7 @@ from audioknigi.providers.adapters import KnigavuheProvider, PoleKnigProvider
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_connect_proxy_preserves_full_duplex_after_upstream_half_close():
-    source = (ROOT / 'audioknigi/network_dns.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/network/dns.py').read_text(encoding='utf-8')
     connect_block = source[source.index('if method.upper() == "CONNECT"'):source.index('parsed = urlsplit(target)')]
     assert '_relay_bidirectional(client, upstream)' in connect_block
     assert 'return_when_right_closes=True' not in connect_block
@@ -177,7 +177,7 @@ def test_connect_relay_forwards_payload_before_returning_on_upstream_eof():
                 pass
 
 def test_connect_handler_keeps_full_duplex_half_close_contract():
-    source = (ROOT / 'audioknigi' / 'network_dns.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi' / 'network' / 'dns.py').read_text(encoding='utf-8')
     connect_start = source.index('if method.upper() == "CONNECT":')
     plain_start = source.index('parsed = urlsplit(target)', connect_start)
     connect_block = source[connect_start:plain_start]
@@ -307,7 +307,7 @@ def test_connect_relay_preserves_reverse_direction_after_upstream_half_close() -
                 pass
 
 def test_connect_handler_uses_full_duplex_relay_but_plain_http_can_end_on_upstream_eof() -> None:
-    source = (ROOT / 'audioknigi/network_dns.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/network/dns.py').read_text(encoding='utf-8')
     connect_block = source[source.index('if method.upper() == "CONNECT":'):source.index('parsed = urlsplit(target)')]
     assert '_relay_bidirectional(client, upstream)' in connect_block
     assert 'return_when_right_closes=True' not in connect_block
@@ -327,7 +327,7 @@ def test_round22_removes_only_confirmed_dead_checks_and_redundant_range_noop() -
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_network_proxy_and_media_edge_cases_are_hardened() -> None:
-    network = (ROOT / 'audioknigi/network_dns.py').read_text(encoding='utf-8')
+    network = (ROOT / 'audioknigi/network/dns.py').read_text(encoding='utf-8')
     media = (ROOT / 'audioknigi/download/media.py').read_text(encoding='utf-8')
     assert 'path = quote(path, safe="/:?#[]@!$&\'()*+,;=%")' in network
     assert 'except (OSError, ValueError):' in network
@@ -754,7 +754,7 @@ def test_empty_dns_resolution_raises_clear_gaierror(monkeypatch):
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_health_and_main_http_sessions_share_proxy_isolation_policy():
-    core_source = (ROOT / 'audioknigi/core.py').read_text(encoding='utf-8')
+    core_source = (ROOT / 'audioknigi/engine/core.py').read_text(encoding='utf-8')
     health_source = (ROOT / 'audioknigi/services/source_health_service.py').read_text(encoding='utf-8')
     build_block = core_source[core_source.index('def build_http_session'):core_source.index('def get_http_session')]
     assert 'session.trust_env = False' in build_block
@@ -804,7 +804,7 @@ def test_segmented_tiny_payload_never_creates_negative_or_empty_ranges(tmp_path)
     assert seen == [(0, 0)]
 
 def test_source_health_proxy_policy_matches_global_http_policy():
-    core = (ROOT / 'audioknigi/core.py').read_text(encoding='utf-8')
+    core = (ROOT / 'audioknigi/engine/core.py').read_text(encoding='utf-8')
     health = (ROOT / 'audioknigi/services/source_health_service.py').read_text(encoding='utf-8')
     assert 'session.trust_env = False' in core
     assert 'session.trust_env = False' in health
@@ -845,7 +845,7 @@ def test_source_health_503_is_reachable_but_blocked(monkeypatch):
 def test_reviewed_i18n_and_proxy_contracts_remain_intentional():
     assert localize_runtime_text('en', 'Анализирую audioknigi.com.ua быстрым HTTP-способом…') == 'Analyzing audioknigi.com.ua using the fast HTTP method…'
     assert localize_runtime_text('en', 'История обновлена: 12 записей.') == 'History refreshed: 12 entries.'
-    core = (ROOT / 'audioknigi/core.py').read_text(encoding='utf-8')
+    core = (ROOT / 'audioknigi/engine/core.py').read_text(encoding='utf-8')
     health = (ROOT / 'audioknigi/services/source_health_service.py').read_text(encoding='utf-8')
     assert 'session.trust_env = False' in core
     assert 'session.trust_env = False' in health

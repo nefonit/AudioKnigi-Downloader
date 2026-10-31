@@ -11,12 +11,12 @@ TARGETS = [
     *sorted((ROOT / "audioknigi" / "qt" / "mixins").glob("*.py")),
     *sorted((ROOT / "audioknigi" / "services").glob("*.py")),
     ROOT / "audioknigi" / "qt" / "main_window.py",
-    ROOT / "audioknigi" / "core.py",
+    ROOT / "audioknigi" / "engine" / "core.py",
     ROOT / "audioknigi" / "cover_fetch.py",
     ROOT / "audioknigi" / "i18n.py",
-    ROOT / "audioknigi" / "knigavuhe.py",
-    ROOT / "audioknigi" / "poleknig.py",
-    ROOT / "audioknigi" / "network_dns.py",
+    ROOT / "audioknigi" / "parsers" / "knigavuhe.py",
+    ROOT / "audioknigi" / "parsers" / "poleknig.py",
+    ROOT / "audioknigi" / "network" / "dns.py",
     ROOT / "audioknigi" / "diagnostics" / "support_bundle.py",
 ]
 

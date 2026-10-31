@@ -61,6 +61,33 @@ def main() -> int:
                 shutil.copytree(source, destination)
             else:
                 shutil.copy2(source, destination)
+        # Archived source-shape tests inspect implementation text. Remap paths
+        # only in temporary copied tests; keep original archived tests intact.
+        moved = {
+            "akniga.py": "parsers/akniga.py",
+            "knigavuhe.py": "parsers/knigavuhe.py",
+            "poleknig.py": "parsers/poleknig.py",
+            "network_dns.py": "network/dns.py",
+            "core.py": "engine/core.py",
+            "models.py": "domain/models.py",
+            "sources.py": "providers/source_urls.py",
+        }
+        for test_path in tmp_path.rglob("*.py"):
+            content = test_path.read_text(encoding="utf-8")
+            updated = content
+            for old_name, new_name in moved.items():
+                for quote in ("'", '"'):
+                    updated = updated.replace(
+                        quote + "audioknigi/" + old_name + quote,
+                        quote + "audioknigi/" + new_name + quote,
+                    )
+                    updated = updated.replace(
+                        quote + "audioknigi" + quote + " / " + quote + old_name + quote,
+                        quote + "audioknigi" + quote + " / "
+                        + " / ".join(quote + item + quote for item in new_name.split("/")),
+                    )
+            if updated != content:
+                test_path.write_text(updated, encoding="utf-8")
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", "-q", tmp_path.name, "--disable-warnings", "--tb=no"],
             cwd=ROOT,
