@@ -240,9 +240,9 @@ def src__report_followup_round34_20260919(relative: str) -> str:
     return (ROOT / relative).read_text(encoding='utf-8')
 
 def test_audit_items_intentionally_left_unchanged_have_existing_safety_contracts() -> None:
-    templates = src__report_followup_round34_20260919('audioknigi/templates.py')
+    templates = src__report_followup_round34_20260919('audioknigi/download/naming.py')
     analysis = src__report_followup_round34_20260919('audioknigi/qt/mixins/analysis_download.py')
-    i18n = src__report_followup_round34_20260919('audioknigi/i18n.py')
+    i18n = src__report_followup_round34_20260919('audioknigi/localization/i18n.py')
     assert 'values = template_values(book, output_dir="", language=language)' in templates
     assert 'if prompt.event.is_set()' in analysis
     assert 'return value.format(**kwargs)' in i18n

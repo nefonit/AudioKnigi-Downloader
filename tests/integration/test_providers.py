@@ -564,7 +564,7 @@ def test_narration_switch_preserves_selected_chapters_contract():
     assert 'pending_narration_selection = getattr(self, "_pending_narration_selected_indices", None)' in source
 
 def test_sidecar_metadata_uses_mapping_safe_track_fields():
-    source = (ROOT / 'audioknigi' / 'download_engine.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi' / 'download' / 'engine.py').read_text(encoding='utf-8')
     block = source[source.index('def _sidecar_metadata_matches_book'):source.index('def _full_mp3_target')]
     assert 'self._book_field(track, "index", -1)' in block
     assert 'self._book_field(track, "title", "")' in block
@@ -602,7 +602,7 @@ def test_knigavuhe_fallback_prefers_known_matching_narrator(monkeypatch) -> None
     assert selected.url.endswith('/exact/')
 
 def test_round19_duplicate_metadata_uses_mapping_aware_book_fields() -> None:
-    source = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     history = source.split('def _history_metadata_matches_book', 1)[1].split('def _sidecar_metadata_matches_book', 1)[0]
     sidecar = source.split('def _sidecar_metadata_matches_book', 1)[1].split('def _full_mp3_target', 1)[0]
     assert 'self._book_field(book, "url", "")' in history
@@ -1200,7 +1200,7 @@ def test_audioknigi_known_coauthor_prefixes_can_be_removed_consecutively() -> No
     assert title == 'Стихи'
 
 def test_full_mp3_playlist_refresh_resynchronizes_request_indices() -> None:
-    source = src__report_followup_round46_20260922('audioknigi/download_engine.py')
+    source = src__report_followup_round46_20260922('audioknigi/download/engine.py')
     start = source.index('def run_full_mp3')
     end = source.find('\n    def ', start + len('def run_full_mp3'))
     block = source[start:] if end < 0 else source[start:end]

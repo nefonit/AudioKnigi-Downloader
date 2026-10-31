@@ -185,7 +185,7 @@ def test_clipboard_suppression_compares_canonical_supported_urls():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_round18_full_mp3_history_and_event_sound_hardening_contracts() -> None:
-    engine = (ROOT / 'audioknigi/download_engine.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')
     sounds = (ROOT / 'audioknigi/qt/event_sounds.py').read_text(encoding='utf-8')
     assert 'history_saved = bool(save_json(HISTORY_FILE' in engine
     assert 'replace_with_retry(source_target, target)' in engine
