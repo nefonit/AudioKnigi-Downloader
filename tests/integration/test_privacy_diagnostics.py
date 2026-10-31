@@ -523,7 +523,7 @@ def test_history_lock_contracts_and_dead_privacy_bookkeeping_removed():
     assert 'with HISTORY_LOCK:\n        # A backup can contain several independent state files.' in library
     block = engine.split('def _history_metadata_matches_book', 1)[1].split('def _sidecar_metadata_matches_book', 1)[0]
     assert 'with HISTORY_LOCK:' in block
-    assert 'history = load_json(HISTORY_FILE, [])' in block
+    assert 'history = load_recoverable_list(HISTORY_FILE)' in block
 
 
 # Origin: test_round63_followup_20260929.py
