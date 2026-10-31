@@ -863,5 +863,15 @@
     "de": "Links zu einzelnen Büchern aus acht Quellen werden unterstützt. Für eine Akniga-Sammlung fügen Sie den Link in die Suche ein.",
     "en": "Links to individual books from eight sources are supported. Paste an Akniga collection link into Search.",
     "uk": "Підтримуються посилання на окремі книги з восьми джерел. Для добірки Akniga вставте посилання в пошук."
+  },
+  "Проверка Audiobookshelf выполняется": {
+    "de": "Audiobookshelf-Prüfung läuft",
+    "en": "Audiobookshelf check in progress",
+    "uk": "Триває перевірка Audiobookshelf"
+  },
+  "Проверка Audiobookshelf ещё выполняется. Закрыть программу после её остановки?": {
+    "de": "Die Audiobookshelf-Prüfung läuft noch. Anwendung schließen, sobald sie beendet ist?",
+    "en": "The Audiobookshelf check is still running. Close the app after it finishes?",
+    "uk": "Перевірка Audiobookshelf ще триває. Закрити програму після її завершення?"
   }
 }

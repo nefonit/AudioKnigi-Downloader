@@ -15,6 +15,7 @@ Current documentation is organized by purpose. Historical migration documents ar
 - [`architecture/SEGMENT_CHECKSUMS_V32.md`](architecture/SEGMENT_CHECKSUMS_V32.md) — persistent segment SHA-256 checkpoints and verification during assembly.
 - [`architecture/STATE_RECOVERY_V33.md`](architecture/STATE_RECOVERY_V33.md) — crash-safe queue and history snapshots, state restoration and UI continuity.
 - [`architecture/QUEUE_RECONCILIATION_V34.md`](architecture/QUEUE_RECONCILIATION_V34.md) — worker-side recovery of fully completed downloads after an abrupt application exit.
+- [`architecture/SHUTDOWN_SAFETY_V35.md`](architecture/SHUTDOWN_SAFETY_V35.md) — bounded exit protection for Audiobookshelf checks and final state flush.
 - [`architecture/CONCURRENCY_V25.md`](architecture/CONCURRENCY_V25.md) — shared asynchronous task cancellation and compatibility guarantees.
 - [`development/SETTINGS_SCHEMA.md`](development/SETTINGS_SCHEMA.md) — settings schema, defaults and migrations.
 - [`development/LOCALIZATION.md`](development/LOCALIZATION.md) — stable localization IDs and external catalogs.
