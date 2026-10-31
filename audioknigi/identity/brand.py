@@ -10,7 +10,7 @@ PRODUCT_NAME = "Downloader"
 DISPLAY_NAME = f"{BRAND_NAME} {PRODUCT_NAME}"
 BRAND_TAGLINE = "Аудиокниги без лишних шагов"
 BRAND_PROMISE = "Скачивайте, храните и слушайте в одном приложении"
-SOURCE_HOST = "audioknigi.com.ua / knigavuhe.org / poleknig.com"
+SOURCE_HOST = "audioknigi.com.ua / knigavuhe.org / poleknig.com / akniga.org / izib.uk / yakniga.org / uknig.com / archive.org"
 
 AUTHOR_NAME = "Едуард Саратовцев"
 AUTHOR_EMAIL = "serioussem39@gmail.com"

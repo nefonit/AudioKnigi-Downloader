@@ -14,6 +14,7 @@ import ipaddress
 import select
 import json
 import os
+import re
 import socket
 import socketserver
 import ssl
@@ -529,8 +530,7 @@ def normalize_proxy_hosts(value: str | None) -> str:
             raise ValueError("Укажите только имена сайтов через запятую, без URL и масок")
         # User may explicitly add media-CDN hostnames when a book site
         # redirects its HLS/MP3 URL to a different public domain.
-        import re
-        if len(host) > 253 or not re.fullmatch(
+        if not re.fullmatch(
             r"(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}", host
         ):
             raise ValueError("Укажите имя сайта или CDN, без URL и масок")
