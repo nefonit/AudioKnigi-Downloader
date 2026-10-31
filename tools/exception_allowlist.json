@@ -1,4 +1,6 @@
 {
+  "audioknigi/akniga.py:_find_hls:Exception#1": "Best-effort optional Akniga player helper; failure falls back to network HLS capture without hiding cancellation.",
+  "audioknigi/akniga.py:_find_hls:Exception#2": "Best-effort HTML audio element playback trigger; failure falls back to captured HLS requests.",
   "audioknigi/core.py:_load_persisted_cookies:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/core.py:get_http_session:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/core.py:hidden_subprocess_kwargs:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
