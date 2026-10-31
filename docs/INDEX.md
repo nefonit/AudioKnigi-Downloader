@@ -42,7 +42,8 @@ Current documentation is organized by purpose. Historical migration documents ar
 
 ## QA and release testing
 
-- [`qa/README.md`](qa/README.md) — test strategy, test plan, detailed test cases, checklists, requirements traceability, historical verification/defect evidence, risks and release readiness. The QA pack is retrospective and does not represent Windows NVDA/JAWS release acceptance.
+- [`qa/README.md`](qa/README.md) — test strategy, test plan, detailed test cases, checklists, requirements traceability, historical verification/defect evidence, risks and release readiness.
+- [`qa/UPGRADE_ACCEPTANCE_V37.md`](qa/UPGRADE_ACCEPTANCE_V37.md) — controlled Windows old-to-new EXE rehearsal with isolated profile, privacy-conscious before/after checks and separate NVDA/JAWS sign-off. The QA pack is retrospective and does not represent Windows NVDA/JAWS release acceptance.
 
 ## Audit evidence
 
