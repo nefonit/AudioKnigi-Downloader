@@ -341,7 +341,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_round17_formatting_hygiene_for_reported_pep8_rough_edges() -> None:
     crash = (ROOT / 'audioknigi/crash_report.py').read_text(encoding='utf-8')
-    knigavuhe = (ROOT / 'audioknigi/knigavuhe.py').read_text(encoding='utf-8')
+    knigavuhe = (ROOT / 'audioknigi/parsers/knigavuhe.py').read_text(encoding='utf-8')
     assert 'import platform, sys, time, traceback' not in crash
     assert 'availability="available"' not in knigavuhe
     assert 'availability = "available"' in knigavuhe
@@ -449,7 +449,7 @@ def test_template_tokens_are_case_insensitive() -> None:
     assert render_text_template('{author} - {BOOK_TITLE}', values) == 'Author - Book'
 
 def test_track_filename_extension_handling_is_already_space_safe() -> None:
-    core_source = src__report_followup_round33_20260918('audioknigi/core.py')
+    core_source = src__report_followup_round33_20260918('audioknigi/engine/core.py')
     templates = src__report_followup_round33_20260918('audioknigi/templates.py')
     assert 'name = re.sub(r"\\s+", " ", name).strip(". ")' in core_source
     assert '".ogg"' in templates and '".opus"' in templates
@@ -1211,7 +1211,7 @@ def test_process_book_once_accepts_mapping_tracks_and_string_selection(monkeypat
         harness._process_book_once(book, ['0'])
 
 def test_reported_already_fixed_round78_items_remain_fixed():
-    source = (ROOT / 'audioknigi/knigavuhe.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/parsers/knigavuhe.py').read_text(encoding='utf-8')
     grouping = source[source.index('grouped: dict'):source.index('unique: list', source.index('grouped: dict'))]
     assert 'groups[key]' not in grouping
     assert 'grouped[key]' in grouping
@@ -1424,7 +1424,7 @@ def test_archived_behavioral_regressions_have_no_new_failures():
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_retry_constructor_does_not_require_urllib3_2_only_other_keyword():
-    source = (ROOT / 'audioknigi' / 'core.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi' / 'engine' / 'core.py').read_text(encoding='utf-8')
     block = source[source.index('retry = Retry('):source.index('adapter = HTTPAdapter', source.index('retry = Retry('))]
     assert 'other=' not in block
 

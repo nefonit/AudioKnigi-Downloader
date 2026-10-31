@@ -401,7 +401,7 @@ def teardown_function(_function):
     network_dns._reset_dns_runtime_state()
 
 def test_auto_mode_limits_cloudflare_bootstraps_to_ipv4_pair():
-    source = (ROOT / 'audioknigi/network_dns.py').read_text(encoding='utf-8')
+    source = (ROOT / 'audioknigi/network/dns.py').read_text(encoding='utf-8')
     assert 'CLOUDFLARE_BOOTSTRAP_IPS[:2]' in source
 
 

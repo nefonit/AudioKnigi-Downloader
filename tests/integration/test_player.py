@@ -127,7 +127,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_refactored_network_and_playerjs_hot_paths_are_not_semicolon_compressed():
     network = (ROOT / 'audioknigi' / 'download' / 'network.py').read_text(encoding='utf-8')
-    pole = (ROOT / 'audioknigi' / 'poleknig.py').read_text(encoding='utf-8')
+    pole = (ROOT / 'audioknigi' / 'parsers' / 'poleknig.py').read_text(encoding='utf-8')
     network_head = network[:network.index('class NetworkDownloadMixin:')]
     playerjs = pole[pole.index('def _iter_js_object_literals'):pole.index('def _normalize_js_literals_for_python')]
     assert ';' not in network_head
@@ -519,7 +519,7 @@ def test_player_load_has_single_status_announcement_path_and_menu_has_no_text_ar
 ROOT = Path(__file__).resolve().parents[2]
 
 def test_existing_proxy_media_filter_folder_and_volume_guards_remain_present():
-    core = (ROOT / 'audioknigi/core.py').read_text(encoding='utf-8')
+    core = (ROOT / 'audioknigi/engine/core.py').read_text(encoding='utf-8')
     health = (ROOT / 'audioknigi/services/source_health_service.py').read_text(encoding='utf-8')
     lifecycle = (ROOT / 'audioknigi/qt/mixins/lifecycle.py').read_text(encoding='utf-8')
     settings = (ROOT / 'audioknigi/qt/mixins/settings.py').read_text(encoding='utf-8')

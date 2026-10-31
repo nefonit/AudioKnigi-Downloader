@@ -552,7 +552,7 @@ def src__report_followup_round43_20260920(relative: str) -> str:
     return (ROOT / relative).read_text(encoding='utf-8')
 
 def test_dead_browser_session_flag_and_dead_bookflow_transient_helper_are_removed() -> None:
-    assert 'cookies_provided =' not in src__report_followup_round43_20260920('audioknigi/core.py')
+    assert 'cookies_provided =' not in src__report_followup_round43_20260920('audioknigi/engine/core.py')
     assert 'def _is_transient_error' not in src__report_followup_round43_20260920('audioknigi/download/book_flow.py')
 
 
