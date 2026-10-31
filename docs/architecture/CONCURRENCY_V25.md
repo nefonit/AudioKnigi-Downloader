@@ -30,3 +30,12 @@ The biggest remaining components are the Qt Help Center, the Poleknig
 parser, and the HTTP download network mixin. Their size alone does not
 justify a split. Extract logic only after identifying a clear responsibility
 boundary and adding behavior-based regression tests.
+
+## Archived source-shape assertion
+
+The pre-refactor Phase 18 archived test looks for the exact old `wait(...)`
+loop and `pool.shutdown(...)` strings in both parser source files. Those
+statements now live once in `engine/concurrency.py`, so that historical
+source-layout assertion is recorded as a known structural incompatibility.
+The new V25 behavior tests check polling, cancellation and shutdown directly,
+and the historical suite continues to run all other tests unmodified.
