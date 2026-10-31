@@ -18,7 +18,6 @@ from ..core import (
     HISTORY_FILE,
     PLAYER_POSITIONS_FILE,
     SETTINGS_FILE,
-    load_json,
     save_json,
 )
 from ..metadata import APP_VERSION
