@@ -11,8 +11,8 @@ import re
 def is_complete_partial_after_416(existing_size: int, content_range: str) -> bool:
     """Recognize an already-complete partial after the server answers HTTP 416.
 
-    Keep compatibility with observed CDN headers: \`bytes */N\`,
-    \`bytes 0-(N-1)/N\`, and bare \`/N\`. The caller alone performs the final
+    Keep compatibility with observed CDN headers: `bytes */N`,
+    `bytes 0-(N-1)/N`, and bare `/N`. The caller alone performs the final
     atomic rename, and all mismatched/unknown totals require a fresh request.
     """
     if existing_size <= 0:
