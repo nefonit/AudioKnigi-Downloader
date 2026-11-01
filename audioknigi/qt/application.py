@@ -138,42 +138,44 @@ def run_qt(argv=None) -> int:
 
     if original_thread_excepthook is not None:
         threading.excepthook = _thread_exception_hook
-    focus_tracer = install_focus_trace(app, trace_path)
-    app.aboutToQuit.connect(shutdown_cloudflare_playwright_proxy)
-
-    # First-run setup happens before the main window is constructed.  This keeps
-    # the welcome screen compact and ensures the selected language/theme/mode are
-    # already active when the product UI first appears.
+    window = None
+    focus_tracer = None
     try:
-        apply_theme(app, str(settings.get("theme", "system") or "system"))
-    except Exception:
-        pass
-    if not bool(settings.get("first_run_complete", False)):
-        onboarding = QtFirstRunWizard(None, settings=settings)
-        accepted = bool(onboarding.exec())
-        if not accepted:
-            # Closing/cancelling the optional first-run wizard means "skip".
-            # Persist the choice and continue into the main application.
-            settings["first_run_complete"] = True
-            save_app_settings(settings)
+        focus_tracer = install_focus_trace(app, trace_path)
+        app.aboutToQuit.connect(shutdown_cloudflare_playwright_proxy)
+    
+        # First-run setup happens before the main window is constructed.  This keeps
+        # the welcome screen compact and ensures the selected language/theme/mode are
+        # already active when the product UI first appears.
+        try:
+            apply_theme(app, str(settings.get("theme", "system") or "system"))
+        except Exception:
+            pass
+        if not bool(settings.get("first_run_complete", False)):
+            onboarding = QtFirstRunWizard(None, settings=settings)
+            accepted = bool(onboarding.exec())
+            if not accepted:
+                # Closing/cancelling the optional first-run wizard means "skip".
+                # Persist the choice and continue into the main application.
+                settings["first_run_complete"] = True
+                save_app_settings(settings)
+            else:
+                settings = onboarding.result_settings()
+                save_app_settings(settings)
+                # The onboarding selection must be reflected in the first main-window
+                # paint, not only after the next application restart.
+                try:
+                    apply_theme(app, str(settings.get("theme", "system") or "system"))
+                    apply_ui_scale(app, settings)
+                except Exception:
+                    pass
+    
+        app.setProperty("audioknigi_language", str(settings.get("language", "ru") or "ru"))
+        window = AudioKnigiQtWindow()
+        if os.name == "nt" and not settings.get("geometry"):
+            window.showMaximized()
         else:
-            settings = onboarding.result_settings()
-            save_app_settings(settings)
-            # The onboarding selection must be reflected in the first main-window
-            # paint, not only after the next application restart.
-            try:
-                apply_theme(app, str(settings.get("theme", "system") or "system"))
-                apply_ui_scale(app, settings)
-            except Exception:
-                pass
-
-    app.setProperty("audioknigi_language", str(settings.get("language", "ru") or "ru"))
-    window = AudioKnigiQtWindow()
-    if os.name == "nt" and not settings.get("geometry"):
-        window.showMaximized()
-    else:
-        window.show()
-    try:
+            window.show()
         return int(app.exec())
     finally:
         sys.excepthook = original_excepthook

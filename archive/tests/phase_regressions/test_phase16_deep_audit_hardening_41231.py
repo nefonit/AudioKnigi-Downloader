@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from collections.abc import Mapping, MutableMapping
 import tempfile
+import re
 
 import pytest
 
@@ -169,7 +170,7 @@ def test_application_does_not_show_then_maximize_and_uses_captured_hook():
     assert "original_excepthook = sys.excepthook" in source
     fragment = source[source.index("window = AudioKnigiQtWindow()"):source.index("app.exec()") ]
     assert "window.showMaximized()" in fragment
-    assert "else:\n        window.show()" in fragment
+    assert re.search(r"(?m)^\s*else:\s*\n\s*window\.show\(\)", fragment)
     assert "window.show()\n    window.showMaximized()" not in fragment
 
 

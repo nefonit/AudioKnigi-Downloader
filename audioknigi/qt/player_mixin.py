@@ -314,8 +314,11 @@ class PlayerUiMixin:
         current_row = -1
         local_book_files = []
         for row, track in enumerate(tracks):
-            title = str(getattr(track, "title", "") or f"Часть {getattr(track, 'index', row + 1)}")
-            item = QListWidgetItem(f"{int(getattr(track, 'index', row + 1)):02d}. {title}")
+            index = safe_int(getattr(track, "index", None), row + 1)
+            if index < 0:
+                index = row + 1
+            title = str(getattr(track, "title", "") or f"Часть {index}")
+            item = QListWidgetItem(f"{index:02d}. {title}")
             local_text = str(getattr(track, "local_path", "") or "").strip()
             local = Path(local_text).expanduser() if local_text else None
             if local is not None and local.is_file():

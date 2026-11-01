@@ -625,10 +625,10 @@ class AudioKnigiQtWindow(
         # the visible "Скачать следующую книгу" action.
         self._easy_reset_to_initial_state(clear_input=False, focus=False)
 
-    def _update_easy_action_text(self, text: str = "") -> None:
+    def _update_easy_action_text(self, text: str | None = None) -> None:
         if not hasattr(self, "easy_action_button"):
             return
-        value = str(text if text is not None else self.easy_input.text()).strip()
+        value = str(self.easy_input.text() if text is None else text).strip()
         is_url = value.lower().startswith(("http://", "https://")) or valid_site_url(value)
         self.easy_action_button.setText(self._l("Открыть" if is_url else "Искать"))
         self.easy_action_button.setAccessibleName(

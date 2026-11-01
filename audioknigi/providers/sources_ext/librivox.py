@@ -94,7 +94,8 @@ def fetch_librivox(url: str, *, cancel_event=None) -> Book:
     if not tracks:
         raise SiteStructureChanged("LibriVox: для этой записи не найдены MP3-главы.")
     cover = next((x.get("name") for x in files if isinstance(x, dict) and x.get("format") == "JPEG" and x.get("name")), "")
-    author = info.get("creator") or ""
+    creator = info.get("creator") or ""
+    author = ", ".join(str(name).strip() for name in creator if name) if isinstance(creator, (list, tuple)) else str(creator)
     description = _clean(BeautifulSoup(str(info.get("description") or ""), "html.parser").get_text(" ", strip=True))
     return _meta_book(url, title=info.get("title"), author=author, description=description,
                       cover=("https://archive.org/download/" + quote(identifier) + "/" + quote(cover, safe="/")) if cover else "",

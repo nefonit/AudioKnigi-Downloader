@@ -176,29 +176,29 @@ class WindowsMediaKeyFilter(QAbstractNativeEventFilter):
 
     def nativeEventFilter(self, event_type, message):
         if os.name != "nt":
-            return False, 0
+            return False
         try:
             address = int(message)
             if not address:
-                return False, 0
+                return False
             msg = wintypes.MSG.from_address(address)
         except Exception:
-            return False, 0
+            return False
 
         if int(msg.message) == WM_HOTKEY:
             callback_name = self._callback_name_for_hotkey(int(msg.wParam))
             if callback_name and self._dispatch(callback_name, "hotkey"):
-                return True, 0
-            return False, 0
+                return True
+            return False
 
         if int(msg.message) != WM_APPCOMMAND:
-            return False, 0
+            return False
         # GET_APPCOMMAND_LPARAM: high word with the device bits removed.
         command = (int(msg.lParam) >> 16) & 0x0FFF
         callback_name = self._callback_name_for_app_command(command)
         if callback_name and self._dispatch(callback_name, "appcommand"):
-            return True, 0
-        return False, 0
+            return True
+        return False
 
 
 __all__ = [

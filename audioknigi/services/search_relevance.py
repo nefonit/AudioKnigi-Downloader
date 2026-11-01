@@ -59,10 +59,15 @@ def _matching_token(wanted: str, candidate: str) -> bool:
         wanted.startswith(candidate) or candidate.startswith(wanted)
     ):
         return True
-    # A Cyrillic-to-Latin match needs romanization before comparison.
-    # Do not fuzzy-match two same-script words: 'Сон' and 'Слон' are different.
+    # Allow one likely typo in long Latin words but keep short same-script
+    # words strict to prevent irrelevant catalogue results.
     if _latin(wanted) == wanted and _latin(candidate) == candidate:
-        return False
+        return (
+            min(len(wanted), len(candidate)) >= 6
+            and abs(len(wanted) - len(candidate)) <= 1
+            and wanted[:3] == candidate[:3]
+            and SequenceMatcher(None, wanted, candidate).ratio() >= 0.88
+        )
     left, right = _latin(wanted), _latin(candidate)
     if left == right:
         return True

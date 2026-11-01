@@ -186,7 +186,7 @@ def _probe_source_detailed_once(host: str, *, timeout: float) -> SourceHealthIte
             return SourceHealthItem(source, f"https://{source}/", True, blocked,
                                     status_code=code, dns_provider=str(info.get("dns_provider", "")),
                                     ip_address=str(info.get("address", "")),
-                                    dns_ms=int(info.get("dns_ms", 0)), tcp_ms=int(info.get("tcp_ms", 0)),
+                                    dns_ms=info.get("dns_ms"), tcp_ms=info.get("tcp_ms"),
                                     tls_ms=tls_ms, http_ms=http_ms, alternate_attempted=bool(info.get("alternate_attempted", False)),
                                     cloudflare_addresses=tuple(info.get("cloudflare_addresses", ())),
                                     system_addresses=tuple(info.get("system_addresses", ())),

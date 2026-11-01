@@ -50,11 +50,11 @@ class SearchUiMixin:
         self.search_filter_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.search_filter_menu = QMenu(self.search_filter_button)
         self._search_source_actions = {}
-        for source_name in (provider.display_name for provider in registered_providers()):
-            action = self.search_filter_menu.addAction(source_name)
+        for provider in registered_providers():
+            action = self.search_filter_menu.addAction(provider.display_name)
             action.setCheckable(True)
             action.setChecked(True)
-            self._search_source_actions[source_name] = action
+            self._search_source_actions[provider.key] = action
         self.search_filter_menu.addSeparator()
         self._show_related_search_action = self.search_filter_menu.addAction(
             self._l("Показывать возможные совпадения")
@@ -705,7 +705,8 @@ class SearchUiMixin:
         result = self._selected_search_result()
         if result is None:
             self.set_status("Сначала выберите книгу в результатах поиска.")
-            self.search_table.setFocus(Qt.FocusReason.OtherFocusReason)
+            target = self.easy_search_table if self.current_ui_mode() == "easy" else self.search_table
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
             return
         selected_result = result
         if self.current_ui_mode() == "easy":

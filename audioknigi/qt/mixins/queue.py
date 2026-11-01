@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QSignalBlocker, QSize, Slot, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLabel, QInputDialog, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidgetItem, QVBoxLayout, QWidget
-from ...core import valid_site_url
+from ...core import valid_site_url, safe_int
 from ...sources import is_akniga_collection_url
 from ...sources import normalize_supported_url
 from ...i18n import tr
@@ -364,7 +364,11 @@ class QueueUiMixin:
             if not self._book_supports_full_mp3(self.current_book):
                 self.set_status("У книги несколько исходных файлов. Используйте очередь по частям.", assertive=True)
                 return
-            selected = [int(track.index) for track in self.current_book.tracks]
+            selected = [
+                safe_int(getattr(track, "index", None), position)
+                for position, track in enumerate(self.current_book.tracks, 1)
+            ]
+            selected = [index if index >= 0 else position for position, index in enumerate(selected, 1)]
         else:
             selected = self.track_model.selected_indices()
         try:
