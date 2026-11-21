@@ -678,5 +678,13 @@
       "en": "Network: {0} (check DNS/proxy/server access)",
       "uk": "Мережа: {0} (перевірте DNS/проксі/доступ до сервера)"
     }
+  ],
+  [
+    "^Некорректные границы части: конец (.+?) с не позже начала (.+?) с\\.$",
+    {
+      "en": "Invalid chapter boundaries: end {0} s is not after start {1} s.",
+      "de": "Ungültige Kapitelgrenzen: Ende {0} s liegt nicht nach Anfang {1} s.",
+      "uk": "Некоректні межі частини: кінець {0} с не пізніше початку {1} с."
+    }
   ]
 ]

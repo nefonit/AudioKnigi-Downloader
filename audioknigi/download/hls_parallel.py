@@ -7,7 +7,7 @@ The original URLs are never stored in the user's book directory.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from ipaddress import ip_address
 import hashlib
 import os
@@ -68,29 +68,43 @@ def _open_checked_response(url: str, headers, *, allow_local_http: bool = False)
                 raise ValueError("HLS: перенаправление без адреса")
             current = urljoin(current, target)
             continue
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except BaseException:
+            # requests does not close a streamed response when raising for a
+            # non-2xx status, including expired signed HLS URLs (404/410).
+            response.close()
+            raise
         return response
     raise ValueError("HLS: слишком много перенаправлений")
 
 
 def _get_bytes(url: str, headers: dict[str, str], check_cancel,
-               *, allow_local_http: bool = False, max_length: int | None = None) -> bytes:
+               *, allow_local_http: bool = False, max_length: int | None = None,
+               register_response=None, unregister_response=None) -> bytes:
     if not _safe_http_url(url, allow_local_http=allow_local_http):
         raise ValueError("Недопустимый адрес HLS-ресурса")
     check_cancel()
     with _open_checked_response(url, headers, allow_local_http=allow_local_http) as response:
-        result = bytearray()
-        for chunk in response.iter_content(chunk_size=65536):
-            check_cancel()
-            result.extend(chunk)
-            if max_length and len(result) > max_length:
-                raise ValueError("Превышен размер файла HLS")
+        if callable(register_response):
+            register_response(response)
+        try:
+            result = bytearray()
+            for chunk in response.iter_content(chunk_size=65536):
+                check_cancel()
+                result.extend(chunk)
+                if max_length and len(result) > max_length:
+                    raise ValueError("Превышен размер файла HLS")
+        finally:
+            if callable(unregister_response):
+                unregister_response(response)
     return bytes(result)
 
 
 def _download_segment(index: int, url: str, dest: Path, headers,
                       check_cancel, stop_event: threading.Event,
-                      *, allow_local_http: bool = False, throttle=None) -> tuple[int, int]:
+                      *, allow_local_http: bool = False, throttle=None,
+                      register_response=None, unregister_response=None) -> tuple[int, int]:
     if not _safe_http_url(url, allow_local_http=allow_local_http):
         raise ValueError("Недопустимый адрес HLS-сегмента")
     for attempt in range(3):
@@ -99,36 +113,42 @@ def _download_segment(index: int, url: str, dest: Path, headers,
         check_cancel()
         try:
             with _open_checked_response(url, headers, allow_local_http=allow_local_http) as response:
-                length = 0
-                # Check the expected HTTP body size when the origin supplies
-                # Content-Length. A short, clean EOF must not become a cached
-                # "complete" segment. Compressed/chunked bodies are excluded:
-                # requests may transparently decode them.
-                response_headers = getattr(response, "headers", {}) or {}
-                content_length = response_headers.get("Content-Length", "")
-                content_encoding = str(response_headers.get("Content-Encoding", "") or "").lower()
-                transfer_encoding = str(response_headers.get("Transfer-Encoding", "") or "").lower()
-                expected_length = None
-                if not content_encoding or content_encoding == "identity":
-                    if "chunked" not in transfer_encoding:
-                        try:
-                            expected_length = int(content_length)
-                        except (TypeError, ValueError):
-                            pass
-                with dest.open("wb") as out:
-                    for chunk in response.iter_content(chunk_size=128 * 1024):
-                        if stop_event.is_set():
-                            raise RuntimeError("Загрузка сегментов остановлена")
-                        check_cancel()
-                        if throttle is not None:
-                            throttle(len(chunk))
-                        out.write(chunk)
-                        length += len(chunk)
-                if length <= 0:
-                    raise IOError("Пустой HLS-сегмент")
-                if expected_length is not None and expected_length >= 0 and length != expected_length:
-                    raise IOError("Неполный HLS-сегмент: длина HTTP-ответа не совпала")
-                return index, length
+                if callable(register_response):
+                    register_response(response)
+                try:
+                    length = 0
+                    # Check the expected HTTP body size when the origin supplies
+                    # Content-Length. A short, clean EOF must not become a cached
+                    # "complete" segment. Compressed/chunked bodies are excluded:
+                    # requests may transparently decode them.
+                    response_headers = getattr(response, "headers", {}) or {}
+                    content_length = response_headers.get("Content-Length", "")
+                    content_encoding = str(response_headers.get("Content-Encoding", "") or "").lower()
+                    transfer_encoding = str(response_headers.get("Transfer-Encoding", "") or "").lower()
+                    expected_length = None
+                    if not content_encoding or content_encoding == "identity":
+                        if "chunked" not in transfer_encoding:
+                            try:
+                                expected_length = int(content_length)
+                            except (TypeError, ValueError):
+                                pass
+                    with dest.open("wb") as out:
+                        for chunk in response.iter_content(chunk_size=128 * 1024):
+                            if stop_event.is_set():
+                                raise RuntimeError("Загрузка сегментов остановлена")
+                            check_cancel()
+                            if throttle is not None:
+                                throttle(len(chunk))
+                            out.write(chunk)
+                            length += len(chunk)
+                    if length <= 0:
+                        raise IOError("Пустой HLS-сегмент")
+                    if expected_length is not None and expected_length >= 0 and length != expected_length:
+                        raise IOError("Неполный HLS-сегмент: длина HTTP-ответа не совпала")
+                    return index, length
+                finally:
+                    if callable(unregister_response):
+                        unregister_response(response)
         except (requests.RequestException, OSError, IOError):
             dest.unlink(missing_ok=True)
             if attempt == 2 or stop_event.is_set():
@@ -203,7 +223,8 @@ def _persist_segment(stage: Path, cache: Path) -> None:
 def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
                   user_agent: str, check_cancel, on_progress,
                   max_workers: int = 6, allow_local_http: bool = False, throttle=None,
-                  segment_cache_dir: Path | None = None, on_resume=None) -> Path | None:
+                  segment_cache_dir: Path | None = None, on_resume=None,
+                  register_response=None, unregister_response=None) -> Path | None:
     """Fetch a supported HLS VOD concurrently and emit a *local* .m3u8.
 
     No segmented download starts until the full manifest validates.
@@ -216,7 +237,11 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
     headers = {"User-Agent": user_agent}
     if referer:
         headers["Referer"] = referer
-    body = _get_bytes(url, headers, check_cancel, allow_local_http=allow_local_http, max_length=2_000_000)
+    body = _get_bytes(
+        url, headers, check_cancel, allow_local_http=allow_local_http,
+        max_length=2_000_000,
+        register_response=register_response, unregister_response=unregister_response,
+    )
     try:
         playlist = body.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -282,7 +307,11 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
         cache_subdir = Path(segment_cache_dir) / fingerprint
 
     for remote_key, local_name in keys.items():
-        raw = _get_bytes(remote_key, headers, check_cancel, allow_local_http=allow_local_http, max_length=128)
+        raw = _get_bytes(
+            remote_key, headers, check_cancel, allow_local_http=allow_local_http,
+            max_length=128,
+            register_response=register_response, unregister_response=unregister_response,
+        )
         if len(raw) != 16:
             raise ValueError("Некорректный AES-128 HLS-ключ")
         (staging_dir / local_name).write_bytes(raw)
@@ -306,6 +335,7 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
         index, size = _download_segment(
             index, remote, dest, headers, check_cancel, stop_event,
             allow_local_http=allow_local_http, throttle=throttle,
+            register_response=register_response, unregister_response=unregister_response,
         )
         if cache_subdir is not None:
             try:
@@ -320,17 +350,26 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
         futures = [pool.submit(fetch_or_reuse, i, remote, dest)
                    for i, remote, dest in segments]
         try:
-            for task in as_completed(futures):
+            remaining = set(futures)
+            while remaining:
+                # as_completed() blocks until one segment finishes. A stalled
+                # CDN could make the Cancel button wait for the read timeout.
+                # Poll the cancellation hook even when every socket is idle.
                 check_cancel()
-                _index, size, reused = task.result()
-                finished += 1
-                if reused:
-                    reused_count += 1
-                    if on_resume is not None:
-                        on_resume(reused_count, len(segments))
-                else:
-                    downloaded_bytes += size
-                on_progress(finished, len(segments), downloaded_bytes)
+                completed, remaining = wait(
+                    remaining, timeout=0.2, return_when=FIRST_COMPLETED,
+                )
+                for task in completed:
+                    check_cancel()
+                    _index, size, reused = task.result()
+                    finished += 1
+                    if reused:
+                        reused_count += 1
+                        if on_resume is not None:
+                            on_resume(reused_count, len(segments))
+                    else:
+                        downloaded_bytes += size
+                    on_progress(finished, len(segments), downloaded_bytes)
         except BaseException:
             # Set this while the pool is still open, rather than after its
             # context manager has already waited for all queued downloads.
