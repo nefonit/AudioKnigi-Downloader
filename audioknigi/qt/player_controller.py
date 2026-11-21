@@ -115,6 +115,10 @@ class QtPlayerController(QObject):
             self.player.setPosition(0)
             self._at_end = False
         elif self._resume_after_stop_ms > 0 and self.player.position() < 1000:
+            # Backends apply setPosition asynchronously. Protect a pending
+            # resume against the periodic saver observing a transient zero.
+            self._last_seek_target_ms = self._resume_after_stop_ms
+            self._last_seek_at = time.monotonic()
             self.player.setPosition(self._resume_after_stop_ms)
         self._resume_after_stop_ms = 0
         self.player.play()

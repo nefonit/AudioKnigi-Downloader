@@ -144,6 +144,14 @@ def _privacy_path(value: Any, *, collapse_whole_path: bool = True) -> Any:
 def _sanitize_log_bytes(payload: bytes) -> bytes:
     """Redact paths and common credential forms before logs enter a support ZIP."""
     text = bytes(payload or b"").decode("utf-8", errors="replace")
+    # Logs and plugin-provided settings can contain private hostnames, book
+    # IDs and credential-bearing URLs. Never include raw URLs in a ZIP.
+    def mask_url(match):
+        raw = match.group(0)
+        trimmed = raw.rstrip(".,;:!?)]}")
+        return "<URL>" + raw[len(trimmed):]
+
+    text = re.sub(r"https?://[^\s<>\"']+", mask_url, text, flags=re.I)
     # A log tail is arbitrary multi-line diagnostic text, not one configured
     # path.  Never collapse the entire payload merely because the first line
     # happens to begin with ``C:\\`` or a UNC prefix.

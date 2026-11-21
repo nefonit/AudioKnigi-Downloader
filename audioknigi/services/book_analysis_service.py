@@ -830,7 +830,10 @@ class BookAnalysisService:
                 # instead of assuming a fixed 1.5-second delay is sufficient.
                 for _attempt in range(32):
                     self._check_cancel()
-                    if captured:
+                    # Request interception fires before response headers/body.
+                    # Wait for Chromium's response, so Cloudflare-only media
+                    # does not fall back prematurely to a blocked requests GET.
+                    if captured_responses:
                         break
                     page.wait_for_timeout(250)
                 self._check_cancel()

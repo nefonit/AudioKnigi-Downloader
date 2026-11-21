@@ -7,6 +7,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlparse
+from bs4 import BeautifulSoup
 
 from ..network_dns import launch_playwright_chromium
 from ..core import Cancelled, USER_AGENT, get_http_session, load_browser_context_profile, parse_time_seconds
@@ -266,15 +267,13 @@ def _poleknig_description_from_html(html_text: str, *, title: str = "", author: 
     html = str(html_text or "")
     candidates: list[str] = []
 
-    block_pattern = re.compile(
-        r'<(?P<tag>div|section|article)\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</(?P=tag)>',
-        re.I,
-    )
-    for match in block_pattern.finditer(html):
-        attrs = match.group("attrs") or ""
-        marker = " ".join(re.findall(r'(?:class|id)=["\']([^"\']+)["\']', attrs, re.I)).casefold()
+    # Nested divs are common in the synopsis (title, artwork, note). A
+    # non-greedy HTML regex stops at the first child </div> and truncates it.
+    soup = BeautifulSoup(html, "html.parser")
+    for node in soup.select("div, section, article"):
+        marker = " ".join([*(node.get("class") or []), str(node.get("id") or "")]).casefold()
         if any(token in marker for token in ("description", "annotation", "annot", "book-text", "book_text", "book__text", "book-description", "book_description")):
-            text = _clean_title_text(match.group("body"))
+            text = _clean_title_text(str(node))
             if text:
                 candidates.append(text)
 
@@ -1390,6 +1389,8 @@ def _discover_narration_variants(html_text: str, page_url: str, meta: dict[str, 
         first.raise_for_status()
         pages[1] = first.text or ""
         last_page = min(_search_last_page(first.text or ""), VARIANT_AUTHOR_PAGE_LIMIT)
+    except Cancelled:
+        raise
     except Exception:
         return [current]
 
@@ -1413,6 +1414,8 @@ def _discover_narration_variants(html_text: str, page_url: str, meta: dict[str, 
                 page = futures[future]
                 try:
                     pages[page] = future.result()
+                except Cancelled:
+                    raise
                 except Exception:
                     pages[page] = ""
         finally:
@@ -1446,6 +1449,8 @@ def _discover_narration_variants(html_text: str, page_url: str, meta: dict[str, 
             idx = futures[future]
             try:
                 found[idx] = future.result()
+            except Cancelled:
+                raise
             except Exception:
                 found[idx] = None
     finally:
@@ -1634,11 +1639,15 @@ def _expand_matching_author_catalogs(
                 idx = futures[future]
                 try:
                     expanded[idx] = future.result()
+                except Cancelled:
+                    raise
                 except Exception:
                     expanded[idx] = unique[idx]
         finally:
             _shutdown_pool_now(pool, futures)
 
+    if cancel_event is not None and cancel_event.is_set():
+        raise Cancelled("Операция отменена пользователем")
     return [item for item in expanded if _author_name_matches_query(query, item.author)]
 
 
@@ -1664,6 +1673,8 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
                     response = future.result()
                     search_page_html[page] = (response.text or "", response.url or BASE_URL)
                     pages[page] = parse_search_results(response.text or "", response.url or BASE_URL)
+                except Cancelled:
+                    raise
                 except Exception:
                     search_page_html[page] = ("", BASE_URL)
                     pages[page] = []
@@ -1695,6 +1706,8 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
                 idx = futures[future]
                 try:
                     hydrated[idx], hydrated_author_links[idx] = future.result()
+                except Cancelled:
+                    raise
                 except Exception:
                     hydrated[idx] = combined[idx]
                     hydrated_author_links[idx] = []

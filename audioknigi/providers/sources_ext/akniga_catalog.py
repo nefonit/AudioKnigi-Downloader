@@ -14,7 +14,7 @@ import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 from ...core import Cancelled, SiteStructureChanged
 from ...models import Book, Track, SearchResult
-from ...sources import normalize_supported_url, is_supported_url, normalize_akniga_collection_url
+from ...sources import normalize_supported_url, is_supported_url, normalize_akniga_collection_url, source_key
 from .. import extra_sources as _compat
 
 _TIMEOUT = _compat._TIMEOUT
@@ -61,8 +61,9 @@ def _akniga_search_card(card) -> SearchResult | None:
     if anchor is None:
         return None
     url = urljoin('https://akniga.org/', str(anchor.get('href') or ''))
-    if not is_supported_url(url):
+    if not is_supported_url(url) or source_key(url) != "akniga":
         return None
+    url = normalize_supported_url(url)
     author = _text(card, "span.link__action--author a[href*='author']")
     narrator = _text(card, "span.link__action--author a[href*='performer']")
     cover = anchor.select_one('img') or card.select_one('img')
@@ -107,7 +108,7 @@ def parse_akniga_collection(html_text: str) -> list[SearchResult]:
             raise SiteStructureChanged("akniga.org: не найдена область книг в подборке.")
         for anchor in main.select("a[href]"):
             href = urljoin("https://akniga.org/", str(anchor.get("href") or ""))
-            if not is_supported_url(href) or not href.startswith("https://akniga.org/"):
+            if not is_supported_url(href) or source_key(href) != "akniga":
                 continue
             image = anchor.select_one("img")
             title = _clean((image.get("alt") if image else "") or

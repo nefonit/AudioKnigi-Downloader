@@ -94,7 +94,11 @@ def fetch_izibuk(url: str, *, cancel_event=None) -> Book:
     for row in player["tracks"]:
         if not isinstance(row, (list, tuple)) or len(row) < 5 or not row[4]:
             continue
-        media = str(row[4]).lstrip("/")
+        media = str(row[4]).strip()
+        if media.startswith("//"):
+            media = "https:" + media
+        elif not media.startswith(("http://", "https://")):
+            media = media.lstrip("/")
         tracks.append(_track(len(tracks) + 1, row[1], _public_media(media, root.rstrip("/") + "/"), url, row[2]))
     if not tracks:
         raise SiteStructureChanged("izib.uk: доступных аудиодорожек не найдено.")
