@@ -134,11 +134,14 @@ def _record_cloudflare_failure(exc: BaseException) -> None:
                 _CLOUDFLARE_CIRCUIT_OPEN_UNTIL,
                 now + CLOUDFLARE_CIRCUIT_COOLDOWN_SECONDS,
             )
+        # Snapshot all fields together so another DNS worker cannot reset the
+        # circuit between the state update and the diagnostic log.
+        failures = _CLOUDFLARE_FAILURES
+        circuit_open = _CLOUDFLARE_CIRCUIT_OPEN_UNTIL > now
+        error_type = type(exc).__name__
     app_logger.warning(
         "NETWORK DNS | provider=Cloudflare | event=fallback_to_system | failures=%s | circuit_open=%s | error=%s",
-        _CLOUDFLARE_FAILURES,
-        _circuit_is_open(now),
-        _CLOUDFLARE_LAST_ERROR,
+        failures, circuit_open, error_type,
     )
 
 

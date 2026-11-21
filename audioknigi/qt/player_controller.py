@@ -101,6 +101,10 @@ class QtPlayerController(QObject):
                 return
             self._resume_applied = True
             if self._pending_resume_ms > 0:
+                # Initial resume has the same asynchronous backend seek race as
+                # play-after-stop. Guard the persisted target until it settles.
+                self._last_seek_target_ms = self._pending_resume_ms
+                self._last_seek_at = time.monotonic()
                 self.player.setPosition(self._pending_resume_ms)
         if self._pending_autoplay:
             self._pending_autoplay = False

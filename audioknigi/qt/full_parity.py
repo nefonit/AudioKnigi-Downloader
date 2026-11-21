@@ -29,7 +29,7 @@ FULL_PARITY_ITEMS = (
     FullParityItem("universal_input", "Название, автор или ссылка", "actions.py", "Qt Easy/Book routing"),
     FullParityItem("url_drag_drop", "Drag-and-drop ссылок/.url", "dnd.py", "Qt native drop events"),
     FullParityItem("clipboard", "Буфер обмена и предложение ссылки", "actions.py", "Qt clipboard watcher"),
-    FullParityItem("search", "Поиск по трём источникам", "search.py", "SearchService + Qt table"),
+    FullParityItem("search", "Поиск по поддерживаемым источникам", "search.py", "SearchService + Qt table"),
     FullParityItem("search_actions", "Открыть/копировать/контекстное меню поиска", "ui/search_tab.py", "Qt search table"),
     FullParityItem("search_availability", "Статус доступности результатов", "ui/search_tab.py", "Qt search model"),
     FullParityItem("analysis", "Анализ книги", "actions.py/downloader.py", "BookAnalysisService"),

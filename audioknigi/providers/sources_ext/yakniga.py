@@ -188,7 +188,7 @@ def search_yakniga(query: str, *, cancel_event=None) -> list[SearchResult]:
         if item.get("isBiblio"):
             continue
         try:
-            url = f"https://yakniga.org/{quote(item['authorAlias'])}/{quote(item['aliasName'])}"
+            url = f"https://yakniga.org/{quote(str(item['authorAlias']), safe='')}/{quote(str(item['aliasName']), safe='')}"
             book = _yakniga_book(item, url)
         except (SiteStructureChanged, TypeError, ValueError):
             continue

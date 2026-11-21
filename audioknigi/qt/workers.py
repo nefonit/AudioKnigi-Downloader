@@ -55,6 +55,9 @@ class SearchWorker(QObject):
             app_logger.info("SEARCH WORKER | event=finished_emit | query=%r", self.query)
             self.finished.emit(outcome)
             app_logger.info("SEARCH WORKER | event=finished_emit_return | query=%r", self.query)
+        except Cancelled:
+            # Cancellation is an expected control flow, not a search failure.
+            self.finished.emit(SearchOutcome(self.query, [], []))
         except Exception as exc:
             if self.cancel_event.is_set():
                 self.finished.emit(SearchOutcome(self.query, [], []))

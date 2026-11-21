@@ -18,6 +18,7 @@ from urllib.parse import urljoin, urlsplit
 
 from ..core import Cancelled, SiteStructureChanged, USER_AGENT, parse_time_seconds
 from ..models import Book, Track
+from ..sources import is_supported_url, normalize_supported_url, source_key
 from ..network_dns import (
     DNS_MODE_AUTO, current_dns_mode, user_proxy_enabled, launch_playwright_chromium,
 )
@@ -427,7 +428,13 @@ def _fetch_using_browser(playwright, url: str, cancel_event, *, use_system_dns: 
                     "Akniga: сайт не вернул данные глав через AJAX (возможны ограничения доступа)."
                 ) from exc
             playlist_url = _find_hls(page, payload, found, cancel_event)
-            return _parse_api_book(url, page_html, payload, playlist_url)
+            # A successful browser navigation may have redirected to a canonical
+            # book slug. Persist the final playable book identity, not a stale
+            # alias. Reject login/home redirects masquerading as a book.
+            final_url = str(getattr(page, "url", "") or url)
+            if not is_supported_url(final_url) or source_key(final_url) != "akniga":
+                raise SiteStructureChanged("Akniga: перенаправление ведёт не на страницу книги.")
+            return _parse_api_book(normalize_supported_url(final_url), page_html, payload, playlist_url)
         finally:
             context.close()
     finally:

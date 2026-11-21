@@ -270,6 +270,10 @@ def _poleknig_description_from_html(html_text: str, *, title: str = "", author: 
     # Nested divs are common in the synopsis (title, artwork, note). A
     # non-greedy HTML regex stops at the first child </div> and truncates it.
     soup = BeautifulSoup(html, "html.parser")
+    # Script/style text is never part of the visible synopsis. Remove it from
+    # the parsed copy; retain original HTML below for structured JSON-LD.
+    for hidden in soup.select("script, style, noscript, template"):
+        hidden.decompose()
     for node in soup.select("div, section, article"):
         marker = " ".join([*(node.get("class") or []), str(node.get("id") or "")]).casefold()
         if any(token in marker for token in ("description", "annotation", "annot", "book-text", "book_text", "book__text", "book-description", "book_description")):
@@ -277,8 +281,8 @@ def _poleknig_description_from_html(html_text: str, *, title: str = "", author: 
             if text:
                 candidates.append(text)
 
-    for body in re.findall(r'<p\b[^>]*>([\s\S]*?)</p>', html, re.I):
-        text = _clean_title_text(body)
+    for paragraph in soup.select("p"):
+        text = _clean_title_text(str(paragraph))
         if len(text) >= 80:
             candidates.append(text)
 
