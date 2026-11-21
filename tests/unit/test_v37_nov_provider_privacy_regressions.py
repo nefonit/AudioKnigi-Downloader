@@ -120,7 +120,7 @@ def test_audioknigi_description_preserves_ordinary_recommendations():
 
 
 def test_player_resume_after_stop_protects_async_seek_from_save_timer():
-    from audioknigi.qt.player_controller import PlayerController
+    from audioknigi.qt.player_controller import QtPlayerController
 
     class FakePlayer:
         def __init__(self):
@@ -148,7 +148,7 @@ def test_player_resume_after_stop_protects_async_seek_from_save_timer():
         _last_seek_target_ms=0,
         _last_seek_at=0.0,
     )
-    PlayerController.play(stub)
+    QtPlayerController.play(stub)
     assert player.seeks == [12_000]
     assert stub._last_seek_target_ms == 12_000
     assert stub._last_seek_at > 0
