@@ -137,7 +137,7 @@ def patch_settings_save(monkeypatch, tmp_path, actions, *, fail=False, raises=Fa
     file = tmp_path / "settings.json"
     monkeypatch.setattr(lifecycle, "SETTINGS_FILE", file)
 
-    def save(path, value):
+    def save(value, *, path):
         actions.append(("settings", "save", dict(value)))
         if raises:
             raise OSError("settings failure")
@@ -146,7 +146,7 @@ def patch_settings_save(monkeypatch, tmp_path, actions, *, fail=False, raises=Fa
         Path(path).write_text(json.dumps(dict(value)), encoding="utf-8")
         return True
 
-    monkeypatch.setattr(lifecycle, "save_json", save)
+    monkeypatch.setattr(lifecycle, "save_app_settings", save)
     return file
 
 
@@ -162,7 +162,9 @@ def test_accepted_exit_flushes_queue_settings_and_player_before_shutdown(monkeyp
     assert labels.index(("player", "save_position")) < labels.index(("player", "shutdown"))
     assert labels.index(("player", "shutdown")) < labels.index(("sound", "shutdown"))
     assert labels.index(("sound", "shutdown")) < labels.index(("tray", "shutdown"))
-    assert json.loads(path.read_text(encoding="utf-8"))["ui_mode"] == "easy"
+    # Closing persists committed preferences, not unsaved Settings-tab edits.
+    assert "ui_mode" not in json.loads(path.read_text(encoding="utf-8"))
+    assert ("settings", "collect") not in window.actions
     assert ("player", "save_position", True) in window.actions
     assert ("queue", "save", ["pending-one", "completed-two"]) in window.actions
 

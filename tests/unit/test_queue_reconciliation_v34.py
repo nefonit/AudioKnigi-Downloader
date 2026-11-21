@@ -221,6 +221,9 @@ def test_full_mp3_real_preflight_rebuilds_history_after_crash_without_touching_o
     }
     (folder / "metadata.json").write_text(json.dumps(sidecar), encoding="utf-8")
     (folder / "resume.json").write_text(json.dumps({"url": req.book.url}), encoding="utf-8")
+    # This test exercises crash recovery/history, not audio decoding: mock a
+    # validated duration for its deliberately synthetic output bytes.
+    monkeypatch.setattr(engine_module._DownloadEngine, "_probe_duration", lambda _self, _path: 120.0)
     assert worker.duplicate_preflight(full_mp3=True).exact_duplicate
 
     service = DownloadService()

@@ -173,7 +173,7 @@ def test_full_mp3_refresh_moves_manifest_and_output_to_updated_book_folder(tmp_p
 def test_exit_save_persists_mapping_without_saving_unsaved_editor_fields(monkeypatch):
     import audioknigi.qt.mixins.lifecycle as lifecycle
     saved = []
-    monkeypatch.setattr(lifecycle, "save_app_settings", lambda settings: saved.append(dict(settings)) or True)
+    monkeypatch.setattr(lifecycle, "save_app_settings", lambda settings, **_kw: saved.append(dict(settings)) or True)
     prefs = AppSettings({"output_dir": "D:/Committed", "geometry": ""})
     window = SimpleNamespace(
         settings=prefs,
