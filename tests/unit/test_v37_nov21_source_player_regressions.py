@@ -124,7 +124,7 @@ def test_akniga_browser_uses_redirected_canonical_book_url(monkeypatch):
         SimpleNamespace(chromium=object()),
         "https://akniga.org/old-book/", None, use_system_dns=False,
     )
-    assert result == "https://akniga.org/canonical-book/"
+    assert result == "https://akniga.org/canonical-book"
 
 
 def test_first_loaded_resume_is_guarded_from_premature_periodic_save():
