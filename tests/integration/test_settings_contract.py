@@ -629,7 +629,11 @@ def test_appsettings_is_used_by_qt_settings_sync_contract():
 def test_backup_restore_reloads_typed_settings():
     source = (ROOT / 'audioknigi' / 'qt' / 'mixins' / 'history.py').read_text(encoding='utf-8')
     assert 'load_app_settings' in source
-    assert 'self.settings = load_app_settings()' in source
+    # Restored preferences must keep AppSettings identity for controllers that
+    # already hold a reference, instead of replacing the mapping blindly.
+    assert 'restored_settings = load_app_settings()' in source
+    assert 'replace_settings(restored_settings.to_dict())' in source
+    assert 'self._apply_restored_runtime_settings()' in source
     assert 'self.settings = load_json' not in source
 
 def test_first_run_cancel_is_skip_not_process_exit():
