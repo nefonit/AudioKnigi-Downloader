@@ -109,6 +109,9 @@ def search_uknig(query: str, *, cancel_event=None) -> list[SearchResult]:
         if not anchor:
             continue
         url = urljoin("https://uknig.com", anchor.get("href", ""))
+        if not is_supported_url(url) or (urlparse(url).hostname or "").lower() not in {"uknig.com", "www.uknig.com"}:
+            continue
+        url = normalize_supported_url(url)
         title = _clean(anchor.get_text(" ", strip=True)) or _clean((el.select_one("img") or {}).get("alt", ""))
         if title:
             results.append(SearchResult(title=title, url=url, source="uknig.com",

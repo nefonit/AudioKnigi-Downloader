@@ -521,8 +521,9 @@ def _clean_audioknigi_description_candidate(value: str, *, title: str = "", auth
     # If a broad semantic container slipped through, cut everything after the
     # next site section rather than leaking player/comments/recommendations.
     text = re.split(
-        r"\s+(?:.{0,180}?\s+)?(?:слушать\s+онлайн\s+бесплатно|отзывы(?:\s+слушателей)?|"
-        r"комментарии|другие\s+озвучки|рекомендации)\b",
+        # Cut only at distinctive site-section labels. Ordinary synopsis
+        # words like "комментарии" or "рекомендации" are not a section.
+        r"\s+(?:слушать\s+онлайн\s+бесплатно|отзывы\s+слушателей|другие\s+озвучки)\b",
         text,
         maxsplit=1,
         flags=re.I,

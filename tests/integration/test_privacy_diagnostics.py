@@ -249,11 +249,11 @@ def test_logging_sanitizer_does_not_hide_harmless_token_words():
     assert 'active_session_cookie=<hidden>' in text
     assert 'secret' not in text
 
-def test_support_bundle_masks_only_private_configured_url():
+def test_support_bundle_masks_all_configured_urls_even_in_unknown_keys():
     from audioknigi.diagnostics.support_bundle import sanitized_settings
     result = sanitized_settings({'abs_url': 'http://private.local', 'update_url': 'https://public.example/release'})
     assert result['abs_url'] == '<configured-url>'
-    assert result['update_url'] == 'https://public.example/release'
+    assert result['update_url'] == '<URL>'
 
 def _request() -> DownloadRequest:
     book = Book(url='https://knigavuhe.org/book/1', title='Book', tracks=[Track(index=1, title='One', file='https://cdn.example/1.mp3')])

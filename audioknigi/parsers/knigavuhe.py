@@ -1281,6 +1281,8 @@ def _merge_narration_variants(*variant_lists) -> list[NarrationVariant]:
                 current.title = _clean_text(getattr(item, "title", ""))
             if getattr(item, "current", False):
                 current.current = True
+            if getattr(current, "available", None) is None and getattr(item, "available", None) is not None:
+                current.available = item.available
     return merged
 
 
@@ -1403,6 +1405,8 @@ def search(query: str, cancel_event=None) -> list[SearchResult]:
                         response.text or "",
                         response.url or SEARCH_URL,
                     )
+                except Cancelled:
+                    raise
                 except Exception:
                     # A transient page-specific failure must not destroy already
                     # collected results from the same provider.

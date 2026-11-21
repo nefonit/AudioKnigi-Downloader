@@ -770,7 +770,7 @@ class PlayerUiMixin:
 
     @Slot(bool)
     def _player_seekable_changed(self, seekable: bool):
-        self.player_seek_slider.setEnabled(bool(seekable) and self.player_seek_slider.maximum() > 1)
+        self.player_seek_slider.setEnabled(bool(seekable) and self.player_seek_slider.maximum() > 0)
 
     @Slot(str)
     def _player_state_changed(self, state: str):
