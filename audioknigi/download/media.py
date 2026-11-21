@@ -568,6 +568,21 @@ class MediaProcessingMixin:
             self.log(f"Не удалось записать ID3 в {Path(file_path).name}: {e}")
 
     def _split_track(self, book, track, source_path):
+        start = parse_time_seconds(getattr(track, "start", None))
+        end = parse_time_seconds(getattr(track, "end", None))
+        if start is not None and end is not None and end <= start:
+            # Never silently extend a malformed explicit interval to EOF:
+            # that could duplicate most of the audiobook into a single track.
+            # Fail before touching any previously complete output.
+            app_logger.warning(
+                "MEDIA | event=split_invalid_explicit_boundary | track=%s | start=%s | end=%s",
+                safe_int(getattr(track, "index", None), -1),
+                start,
+                end,
+            )
+            raise RuntimeError(
+                f"Некорректные границы части: конец {end} с не позже начала {start} с."
+            )
         out = self._track_path(book, track)
         if out.exists():
             try:
@@ -575,16 +590,7 @@ class MediaProcessingMixin:
             except OSError as exc:
                 raise RuntimeError(f"Не удалось подготовить файл {out.name} к перезаписи: {exc}") from exc
 
-        start = parse_time_seconds(getattr(track, "start", None))
-        end = parse_time_seconds(getattr(track, "end", None))
         duration = None
-        if start is not None and end is not None and end <= start:
-            app_logger.debug(
-                "MEDIA | event=split_invalid_explicit_boundary | track=%s | start=%s | end=%s",
-                safe_int(getattr(track, "index", None), -1),
-                start,
-                end,
-            )
         if start is not None and end is not None and end > start:
             duration = end - start
         elif start is None and end is None:

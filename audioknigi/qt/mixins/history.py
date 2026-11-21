@@ -5,16 +5,47 @@ from pathlib import Path
 
 from PySide6.QtCore import QSignalBlocker, QSize, Slot, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
-from PySide6.QtWidgets import QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
-from ...core import valid_site_url
+from PySide6.QtWidgets import QApplication, QAbstractItemView, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QMenu, QMessageBox, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from ...core import valid_site_url, refresh_http_session_profile
 from ...logging_utils import app_logger
 from ...config.settings import load_app_settings
+from ...network_dns import configure_user_proxy, configure_proxy_hosts, install_cloudflare_dns
 from ...services.library_service import clear_history, create_backup, export_history, load_history_records, restore_backup, save_history_records
 from ..accessibility import configure_accessible, focus_table_row
 from ..menu_utils import transient_menu
 
 class HistoryUiMixin:
     """History behavior for :class:`AudioKnigiQtWindow`."""
+
+    def _apply_restored_runtime_settings(self) -> None:
+        """Apply restored network, language and sound state in this process.
+
+        Disk restore has already finished and load_app_settings normalized the
+        payload. Always invalidate thread-local sessions: even unchanged proxy
+        settings can accompany a restored DNS mode with different routing.
+        """
+        settings = self.settings
+        try:
+            configure_user_proxy(settings.get("proxy_url", ""))
+            configure_proxy_hosts(settings.get("proxy_only_hosts", ""))
+            install_cloudflare_dns(mode=str(settings.get("dns_mode", "auto") or "auto"))
+            refresh_http_session_profile()
+        except Exception:
+            app_logger.warning("BACKUP RESTORE | event=network_reconfigure_failed", exc_info=True)
+        self.language = str(settings.get("language", "ru") or "ru")
+        app = QApplication.instance()
+        if app is not None:
+            app.setProperty("audioknigi_language", self.language)
+        manager = getattr(self, "event_sound_manager", None)
+        if manager is not None:
+            try:
+                manager.configure(
+                    enabled=bool(settings.get("event_sounds_enabled", True)),
+                    volume=float(settings.get("event_sound_volume", 100) or 100) / 100.0,
+                    language=self.language,
+                )
+            except Exception:
+                app_logger.warning("BACKUP RESTORE | event=sound_reconfigure_failed", exc_info=True)
 
     def _history_row_summary(self, row: int) -> str:
         if not (0 <= row < len(self._history_rows)):
@@ -354,7 +385,14 @@ class HistoryUiMixin:
                     controller.resume_position_persistence()
                 except Exception:
                     app_logger.debug("Could not resume player position persistence", exc_info=True)
-        self.settings = load_app_settings()
+        restored_settings = load_app_settings()
+        replace_settings = getattr(getattr(self, "settings", None), "replace_all", None)
+        if callable(replace_settings):
+            # Other controllers may hold this mapping; preserve its identity.
+            replace_settings(restored_settings.to_dict())
+        else:
+            self.settings = restored_settings
+        self._apply_restored_runtime_settings()
         self._apply_settings_to_qt_controls()
         self._load_history()
         self._load_queue()

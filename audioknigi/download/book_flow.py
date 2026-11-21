@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -66,12 +67,23 @@ class BookFlowMixin:
             r"^(?:_source(?:_\d+)?|_repair_source(?:_\d+)?)\.mp3"
             r"(?:$|\.part(?:$|\.assembling$|\.segments(?:\.sha256)?\.json$|\.seg\d+$))"
         )
+        # HLS parallel mode stores a resumption cache next to an engine-owned
+        # source. Once that media URL expires the signed segment manifest is
+        # obsolete; remove only the engine's own exact cache names.
+        owned_hls_cache = re.compile(r"^\._source(?:_\d+)?\.hls-cache$")
         removed = 0
         try:
             candidates = list(folder.iterdir())
         except OSError:
             candidates = []
         for candidate in candidates:
+            if candidate.is_dir() and not candidate.is_symlink() and owned_hls_cache.fullmatch(candidate.name):
+                try:
+                    shutil.rmtree(candidate)
+                    removed += 1
+                except OSError:
+                    pass
+                continue
             if not candidate.is_file() or not owned.fullmatch(candidate.name):
                 continue
             try:
