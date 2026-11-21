@@ -88,7 +88,6 @@
   "audioknigi/qt/main_window.py:_apply_large_mode:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
   "audioknigi/qt/media_keys.py:unregister_global_hotkeys:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/qt/mixins/analysis_download.py:_set_analysis_button_state:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
-  "audioknigi/qt/mixins/lifecycle.py:_persist_exit_state_best_effort:Exception#1": "best-effort emergency persistence: failure must not block application shutdown",
   "audioknigi/qt/mixins/lifecycle.py:_restore_window_geometry:Exception#1": "best-effort cleanup: failure must not mask the primary operation or shutdown",
   "audioknigi/qt/mixins/lifecycle.py:_save_window_geometry:Exception#1": "best-effort optional parsing/probing fallback; caller handles absence",
   "audioknigi/qt/mixins/lifecycle.py:changeEvent:Exception#1": "reviewed compatibility boundary; intentionally non-fatal",
