@@ -43,6 +43,8 @@ class BookFlowMixin:
                 or "410 client error" in text
                 or "http 404" in text
                 or "http 410" in text
+                or re.search(r"\b(?:http\s+error|server\s+returned)\s+(?:404|410)\b", text)
+                or re.search(r"\b(?:404|410)\s+(?:not found|gone)\b", text)
             ):
                 return True
             current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
@@ -276,14 +278,14 @@ class BookFlowMixin:
                         "В плейлисте общей аудиодорожки отсутствует корректная граница "
                         "следующей части. Повторите анализ книги или выберите другой источник."
                     ) from exc
-                if source_key(getattr(book, "url", "")) != "audioknigi":
-                    raise
                 if fallback_attempted:
                     raise RuntimeError(
                         "Резервный источник уже использовался один раз, но ошибка общей "
                         "аудиодорожки повторилась. Повторное автоматическое переключение "
                         "источника остановлено, чтобы избежать цикла."
                     ) from exc
+                if source_key(getattr(book, "url", "")) != "audioknigi":
+                    raise
                 self._log_book_flow(
                     "shared_source_local_validation_failed", book, level="warning",
                     expected_end=f"{float(issue.get('expected_end') or 0.0):.3f}",

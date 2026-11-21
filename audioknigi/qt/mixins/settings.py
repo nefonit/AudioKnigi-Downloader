@@ -232,6 +232,7 @@ class SettingsUiMixin:
             self.set_status(self._l("Системный звук Windows недоступен."), assertive=True)
 
     def _save_settings(self, _checked: bool = False, *, silent: bool = False):
+        previous_dns_mode = str(self.settings.get("dns_mode", "auto") or "auto")
         updated = self._settings_from_ui()
         try:
             validate_user_proxy(updated.get("proxy_url"))
@@ -253,10 +254,13 @@ class SettingsUiMixin:
             proxy_changed = configure_user_proxy(updated.get("proxy_url", ""))
             hosts_changed = configure_proxy_hosts(updated.get("proxy_only_hosts", ""))
             install_cloudflare_dns(mode=str(updated.get("dns_mode", "auto") or "auto"))
-            if proxy_changed or hosts_changed:
+            if proxy_changed or hosts_changed or previous_dns_mode != str(updated.get("dns_mode", "auto") or "auto"):
                 from ...core import refresh_http_session_profile
                 refresh_http_session_profile()
             self.language = str(updated.get("language", self.language) or self.language)
+            app = QApplication.instance()
+            if app is not None:
+                app.setProperty("audioknigi_language", self.language)
             self.event_sound_manager.configure(
                 enabled=bool(updated.get("event_sounds_enabled", True)),
                 volume=float(updated.get("event_sound_volume", 100) or 100) / 100.0,

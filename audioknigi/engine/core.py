@@ -100,6 +100,10 @@ def safe_normalization_mode(value, default="off") -> str:
     return mode if mode in NORMALIZATION_MODES else fallback
 
 def safe_int(value, default=0):
+    # int(12.5) silently truncates a real float while int("12.5")
+    # fails. Keep both representations consistent for track indices.
+    if isinstance(value, float) and (not math.isfinite(value) or not value.is_integer()):
+        value = None
     try:
         return int(value)
     except (TypeError, ValueError, OverflowError):
@@ -274,7 +278,7 @@ def safe_name(name: str) -> str:
     name = re.sub(r"\s+", " ", name).strip(". ")
     if not name:
         return "audiobook"
-    stem = name.split(".", 1)[0].upper()
+    stem = name.split(".", 1)[0].rstrip(" ").upper()
     if stem in WINDOWS_RESERVED:
         name = "_" + name
     return name[:180].rstrip(". ") or "audiobook"

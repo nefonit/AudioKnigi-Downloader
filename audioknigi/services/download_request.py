@@ -43,8 +43,8 @@ class DownloadRequest:
             raw = getattr(value, "index", value)
         if isinstance(raw, bool):
             raise ValueError(f"Некорректный индекс части: {raw!r}")
-        # safe_int intentionally truncates fractional floats for other callers;
-        # chapter selection must never silently round them to a *different* chapter.
+        # Selection indices must be integral even if an integration passed
+        # a Decimal/Fraction; unlike normal settings, no rounding is safe here.
         if isinstance(raw, Number) and not isinstance(raw, int):
             try:
                 # This also rejects fractional Decimal/Fraction values supplied

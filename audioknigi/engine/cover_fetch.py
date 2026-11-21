@@ -16,6 +16,8 @@ def fetch_cover_bytes(url: str, referer: str = "", *, cancel_event=None):
     response from being retained as artwork.
     """
     raw_url = str(url or "").strip()
+    if not raw_url:
+        return None
     if raw_url.startswith("//"):
         raw_url = "https:" + raw_url
     absolute_url = urljoin(str(referer or ""), raw_url)

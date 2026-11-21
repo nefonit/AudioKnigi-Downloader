@@ -5,7 +5,7 @@ import time
 from PySide6.QtCore import QByteArray, QEvent, Slot, Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QMessageBox
-from ...core import SETTINGS_FILE, save_json
+from ...config.settings import save_app_settings
 from ...logging_utils import app_logger
 from ..accessibility import focus_table_row
 
@@ -45,12 +45,10 @@ class LifecycleUiMixin:
             except Exception:
                 app_logger.warning("UI LIFECYCLE | event=queue_exit_save_failed", exc_info=True)
         self._save_window_geometry()
+        # Persist only previously committed preferences plus geometry.
+        # Unsaved edits in the Settings tab must not silently bypass validation.
         try:
-            self.settings.update(self._settings_from_ui())
-        except Exception:
-            pass
-        try:
-            if not save_json(SETTINGS_FILE, self.settings):
+            if not save_app_settings(self.settings):
                 app_logger.warning("UI LIFECYCLE | event=settings_exit_save_failed")
         except Exception:
             app_logger.warning("UI LIFECYCLE | event=settings_exit_save_failed", exc_info=True)
