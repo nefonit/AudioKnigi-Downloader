@@ -316,6 +316,7 @@ class AnalysisDownloadUiMixin:
                         break
             self._download_after_analysis = False
             self._full_mp3_after_analysis = False
+            self._history_redownload_confirmed = False
             self.book_summary.setText(self._rt("Не удалось проанализировать книгу."))
             self.book_details_panel.setVisible(False)
             self.track_controls_panel.setVisible(False)
@@ -467,6 +468,8 @@ class AnalysisDownloadUiMixin:
             # imports continue to the next candidate.
             self._queue_after_analysis = False
             self._download_after_analysis = False
+            self._full_mp3_after_analysis = False
+            self._history_redownload_confirmed = False
             self._queue_reanalyze_task_id = None
             if getattr(self, "_pending_queue_urls", None):
                 QTimer.singleShot(0, self._queue_next_dropped_url)

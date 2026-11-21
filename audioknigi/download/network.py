@@ -1058,6 +1058,15 @@ class NetworkDownloadMixin:
             except Exception as concurrent_exc:
                 staged_hls.cleanup()
                 staged_hls = None
+                # A missing/expired playlist cannot be repaired by retrying
+                # the same URL with FFmpeg. Let BookFlow refresh the book page.
+                expired = getattr(self, "_is_expired_media_error", None)
+                if (
+                    getattr(getattr(concurrent_exc, "response", None), "status_code", None) in (404, 410)
+                    or (callable(expired) and expired(concurrent_exc))
+                ):
+                    unlink_with_retry(temp, missing_ok=True)
+                    raise
                 app_logger.debug("HLS parallel fallback, exception class: %s", type(concurrent_exc).__name__)
                 self.log("HLS: параллельная загрузка недоступна; пробую обычный FFmpeg-поток.")
         progress_seconds = {"value": 0.0, "speed": ""}

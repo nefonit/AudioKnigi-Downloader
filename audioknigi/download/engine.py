@@ -460,6 +460,26 @@ class _DownloadEngine(DownloaderMixin):
                     return DuplicatePreflight(False, folder, "full-mp3-missing")
             except OSError:
                 return DuplicatePreflight(False, folder, "full-mp3-missing")
+            if probe_durations:
+                # Nonempty bytes alone are not proof of a playable full MP3.
+                # Recovery and validated duplicate checks must decode its
+                # duration and reject an obviously truncated shared source.
+                actual = self._probe_duration(target)
+                if actual is None or actual <= 0:
+                    return DuplicatePreflight(False, folder, "full-mp3-unverified")
+                from ..core import parse_time_seconds
+                explicit_ends = [
+                    end for track in tracks
+                    if (end := parse_time_seconds(getattr(track, "end", None))) is not None
+                ]
+                durations = [effective_track_duration(track) for track in tracks]
+                expected = max(
+                    max(explicit_ends, default=0.0),
+                    sum(float(value) for value in durations if value is not None)
+                    if all(value is not None for value in durations) else 0.0,
+                )
+                if expected > 0 and float(actual) + max(8.0, min(15.0, expected * 0.015)) < expected:
+                    return DuplicatePreflight(False, folder, "full-mp3-incomplete")
             sidecar = self._sidecar_metadata_matches_book(book, folder)
             evidence = "metadata.json" if sidecar is not None else "history.json"
             matched = bool(sidecar if sidecar is not None else self._history_metadata_matches_book(book, folder, expected_parts=1))
@@ -606,9 +626,13 @@ class _DownloadEngine(DownloaderMixin):
                     refreshed = True
                     self.log("Ссылка полного аудиофайла устарела. Обновляю страницу и плейлист один раз…")
                     self._cleanup_partial_download(source_target)
+                    old_folder = folder
                     selected = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
                     self._refresh_book_media_playlist(book, selected)
                     source_url, fallback_url = shared_source_urls()
+                    # A refreshed book can have a different title or variant,
+                    # which changes the output folder and its resume manifest.
+                    folder = Path(self._book_folder(book))
                     title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
                     target = self._full_mp3_target(book, folder)
                     source_target = folder / f".{title_name}.full-source"
@@ -622,6 +646,10 @@ class _DownloadEngine(DownloaderMixin):
                         ]
                         full_indices = list(req.selected_indices)
                         self._write_resume_manifest(book, full_indices, download_mode="full_mp3")
+                        if old_folder != folder:
+                            # Never leave a stale recovery prompt in the old
+                            # folder after successfully moving the manifest.
+                            unlink_with_retry(old_folder / "resume.json", missing_ok=True)
                         if callback is not None:
                             try:
                                 callback(req)
@@ -633,11 +661,11 @@ class _DownloadEngine(DownloaderMixin):
         info = self._cached_probe_audio_info(source_target)
         codec = str(info.get("codec") or "").strip().lower()
         copy_mode, bitrate, channels = self._effective_mp3_profile(source_target)
-        try:
-            unlink_with_retry(target, missing_ok=True)
-        except OSError:
-            pass
         if copy_mode:
+            try:
+                unlink_with_retry(target, missing_ok=True)
+            except OSError:
+                pass
             if self.runtime_delete_source:
                 replace_with_retry(source_target, target)
             else:
@@ -706,8 +734,22 @@ class _DownloadEngine(DownloaderMixin):
                 cmd += ["-q:a", "4"]
             if channels:
                 cmd += ["-ac", str(channels)]
-            cmd += [str(target)]
-            self._run_ffmpeg(cmd)
+            # An interrupted encoder must never expose a truncated MP3 at
+            # the final filename. Keep the previous output until replacement.
+            import tempfile
+            descriptor, staged_name = tempfile.mkstemp(
+                prefix=f".{target.stem}.encode-", suffix=".mp3", dir=str(folder)
+            )
+            os.close(descriptor)
+            staged_target = Path(staged_name)
+            try:
+                cmd += [str(staged_target)]
+                self._run_ffmpeg(cmd)
+                if not staged_target.is_file() or staged_target.stat().st_size <= 0:
+                    raise RuntimeError("FFmpeg не создал полный MP3.")
+                replace_with_retry(staged_target, target)
+            finally:
+                unlink_with_retry(staged_target, missing_ok=True)
             if self.runtime_delete_source:
                 try:
                     unlink_with_retry(source_target, missing_ok=True)
