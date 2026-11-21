@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 import requests
 
 from ..core import Cancelled, USER_AGENT, fmt_size, fmt_time, get_http_session, resolve_executable, hidden_subprocess_kwargs
+from ..network_dns import cloudflare_ffmpeg_input_args
 from ..cover_fetch import fetch_cover_bytes
 from ..logging_utils import app_logger
 from ..sources import source_name
@@ -976,6 +977,9 @@ class NetworkDownloadMixin:
                 # of all earlier segments on seekable playlists.
                 cmd += ["-ss", str(start)]
             if urlsplit(working_url).scheme in ("http", "https"):
+                # Requests/HLS staging already honor configured DNS and proxy
+                # routing; direct remote FFmpeg must use the same local bridge.
+                cmd += cloudflare_ffmpeg_input_args()
                 cmd += ["-headers", headers]
             if is_parallel:
                 # The staged AES-128 key uses a .key extension; FFmpeg does not
@@ -1042,6 +1046,8 @@ class NetworkDownloadMixin:
                     on_progress=parallel_progress, max_workers=workers,
                     throttle=throttle, segment_cache_dir=segment_cache_dir,
                     on_resume=parallel_resumed,
+                    register_response=getattr(self, "_register_active_network_response", None),
+                    unregister_response=getattr(self, "_unregister_active_network_response", None),
                 )
                 if candidate is not None:
                     working_url = str(candidate)
