@@ -50,6 +50,7 @@ class SpeedGraphWidget(QWidget):
     def clear(self):
         self._values.clear()
         self.set_transfer_active(False)
+        self.setAccessibleDescription(ui_text(_language(), "История скорости скачивания во времени"))
         self.update()
 
     def values(self) -> tuple[float, ...]:

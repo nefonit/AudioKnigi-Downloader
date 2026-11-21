@@ -615,9 +615,9 @@
     "uk": "Введіть назву аудіокниги або автора, щонайменше три символи"
   },
   "Поиск одновременно на трёх поддерживаемых сайтах": {
-    "de": "Gleichzeitige Suche auf den drei unterstützten Websites",
-    "en": "Search all three supported websites at the same time",
-    "uk": "Одночасний пошук на трьох підтримуваних сайтах"
+    "de": "Gleichzeitige Suche auf unterstützten Websites",
+    "en": "Search supported audiobook sites simultaneously",
+    "uk": "Одночасний пошук на підтримуваних сайтах"
   },
   "Таблица с названием, автором, чтецом, количеством озвучек и источником": {
     "de": "Tabelle mit Titel, Autor, Sprecher, Anzahl der Sprecherfassungen und Quelle",
@@ -787,7 +787,7 @@
   "Использует поисковую строку из вкладки Поиск или слово Поттер. Не скачивает аудиофайлы.": {
     "uk": "Використовує запит з вкладки Пошук або слово Поттер. Не завантажує аудіофайли.",
     "de": "Verwendet die Sucheingabe oder Potter. Lädt keine Audiodateien herunter.",
-    "en": "Uses the Search tab query or Поттер. Does not download audio files."
+    "en": "Uses the Search tab query or the word Potter. Does not download audio files."
   },
   "Проверяется реальный поиск на источниках…": {
     "uk": "Перевіряється справжній пошук у джерелах…",
@@ -943,5 +943,15 @@
     "de": "yakniga.org: Dieses Buch ist nur mit Lizenz verfügbar; ein Download ist nicht möglich.",
     "en": "yakniga.org: this book is available by license only; downloading is unavailable.",
     "uk": "yakniga.org: ця книга доступна лише за ліцензією; завантаження недоступне."
+  },
+  "FFmpeg не создал полный MP3.": {
+    "de": "FFmpeg hat keine vollständige MP3-Datei erstellt.",
+    "en": "FFmpeg did not produce a complete MP3 file.",
+    "uk": "FFmpeg не створив повний MP3-файл."
+  },
+  "Плеер остановлен. Позиция сохранена.": {
+    "de": "Player angehalten. Position gespeichert.",
+    "en": "Player stopped. Position saved.",
+    "uk": "Програвач зупинено. Позицію збережено."
   }
 }

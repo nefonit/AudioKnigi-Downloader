@@ -18,7 +18,7 @@ from ..models import normalize_track_status, TRACK_STATUS_MISSING, TRACK_STATUS_
 from ..templates import AUDIO_EXTENSIONS, render_folder, render_track_filename, track_number_width
 from ..logging_utils import app_logger
 from ..sources import normalize_supported_url, source_key
-from ..network_dns import cloudflare_ffmpeg_input_args
+from ..network_dns import cloudflare_ffmpeg_input_args, current_dns_mode, user_proxy_enabled
 from ..core import USER_AGENT, DEFAULT_OUTPUT, Cancelled, fmt_size, safe_int, safe_name, resolve_executable, parse_time_seconds, effective_track_duration, hidden_subprocess_kwargs
 from .common import close_subprocess_pipes as _close_subprocess_pipes, source_target_assignments
 from .network import _segment_files
@@ -386,7 +386,10 @@ class ProbeMixin:
             url,
         ]
         app_logger.debug(
-            "NETWORK DNS | client=FFprobe | provider=Cloudflare | proxy=enabled | url_host=%s",
+            "NETWORK DNS | client=FFprobe | mode=%s | upstream_proxy=%s | bridge=%s | url_host=%s",
+            current_dns_mode(),
+            "enabled" if user_proxy_enabled() else "disabled",
+            "enabled" if "-http_proxy" in cmd else "disabled",
             urlsplit(url).hostname or "",
         )
         try:

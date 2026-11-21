@@ -686,5 +686,85 @@
       "de": "Ungültige Kapitelgrenzen: Ende {0} s liegt nicht nach Anfang {1} s.",
       "uk": "Некоректні межі частини: кінець {0} с не пізніше початку {1} с."
     }
+  ],
+  [
+    "^Недостаточно места\\. Нужно ~(.+?), свободно (.+?)\\.$",
+    {
+      "de": "Nicht genug Speicherplatz. Benötigt: etwa {0}; verfügbar: {1}.",
+      "en": "Not enough disk space. Required: approximately {0}; available: {1}.",
+      "uk": "Недостатньо місця. Потрібно приблизно {0}; доступно {1}."
+    }
+  ],
+  [
+    "^HLS: восстановлено (\\d+) готовых сегментов из кэша\\.$",
+    {
+      "de": "HLS: {0} fertige Segmente aus dem Cache wiederhergestellt.",
+      "en": "HLS: restored {0} completed segments from cache.",
+      "uk": "HLS: відновлено {0} готових сегментів із кешу."
+    }
+  ],
+  [
+    "^HLS: готово (\\d+) из (\\d+) сегментов; по сети (.+), (.+)/с$",
+    {
+      "de": "HLS: {0} von {1} Segmenten fertig; aus dem Netz {2}, {3}/s",
+      "en": "HLS: {0} of {1} segments complete; transferred {2}, {3}/s",
+      "uk": "HLS: готово {0} із {1} сегментів; мережею {2}, {3}/с"
+    }
+  ],
+  [
+    "^HLS: готово (\\d+) из (\\d+) сегментов, из кэша (\\d+); по сети (.+), (.+)/с$",
+    {
+      "de": "HLS: {0}/{1} Segmente fertig, {2} aus dem Cache; aus dem Netz {3}, {4}/s",
+      "en": "HLS: {0}/{1} segments complete, {2} from cache; transferred {3}, {4}/s",
+      "uk": "HLS: {0}/{1} сегментів готово, {2} із кешу; мережею {3}, {4}/с"
+    }
+  ],
+  [
+    "^Не готов Range-сегмент (.+)\\.$",
+    {
+      "de": "Range-Segment {0} ist nicht fertig.",
+      "en": "Range segment {0} is not ready.",
+      "uk": "Range-сегмент {0} не готовий."
+    }
+  ],
+  [
+    "^Нет контрольной суммы Range-сегмента (.+)\\.$",
+    {
+      "de": "Prüfsumme für Range-Segment {0} fehlt.",
+      "en": "Missing checksum for Range segment {0}.",
+      "uk": "Немає контрольної суми Range-сегмента {0}."
+    }
+  ],
+  [
+    "^Некорректный Content-Range при докачке с байта (\\d+): (.+)$",
+    {
+      "de": "Ungültiger Content-Range bei Fortsetzung ab Byte {0}: {1}",
+      "en": "Invalid Content-Range while resuming at byte {0}: {1}",
+      "uk": "Некоректний Content-Range під час продовження з байта {0}: {1}"
+    }
+  ],
+  [
+    "^Range-сегмент (.+) увеличился во время сборки\\.$",
+    {
+      "de": "Range-Segment {0} ist während des Zusammenfügens gewachsen.",
+      "en": "Range segment {0} grew during assembly.",
+      "uk": "Range-сегмент {0} збільшився під час збирання."
+    }
+  ],
+  [
+    "^Нарушена контрольная сумма Range-сегмента (.+)\\.$",
+    {
+      "de": "Prüfsumme für Range-Segment {0} stimmt nicht überein.",
+      "en": "Checksum mismatch for Range segment {0}.",
+      "uk": "Контрольна сума Range-сегмента {0} не збігається."
+    }
+  ],
+  [
+    "^Сетевая ошибка Range после повторов: (.+)$",
+    {
+      "de": "Range-Netzwerkfehler nach Wiederholungen: {0}",
+      "en": "Range network error after retries: {0}",
+      "uk": "Мережева помилка Range після повторних спроб: {0}"
+    }
   ]
 ]

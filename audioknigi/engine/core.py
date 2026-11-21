@@ -560,7 +560,7 @@ def extract_extended_metadata_from_html(html):
     for item in _structured_book_nodes(html):
         if not description and item.get("description"):
             description = re.sub(r"<[^>]+>", " ", str(item.get("description")))
-            description = re.sub(r"\s+", " ", html_lib.unescape(description)).strip()
+            description = re.sub(r"\s+", " ", description).strip()
         if not genre and item.get("genre"):
             value = item.get("genre")
             genre = ", ".join(map(str, value)) if isinstance(value, list) else str(value)
@@ -631,7 +631,9 @@ def _structured_book_metadata(html_text):
         author = ", ".join(name for name in names if name)
     else:
         author = str(author_value or "").strip()
-    return html_lib.unescape(title), html_lib.unescape(author)
+    # _first_json_ld already unescaped each JSON string exactly once.
+    # A second pass corrupts literal ampersand-entity text (e.g. &amp;lt;).
+    return title, author
 
 
 def extract_metadata_from_html(html, fallback_title=""):

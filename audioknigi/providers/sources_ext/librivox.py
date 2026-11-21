@@ -166,7 +166,10 @@ def search_librivox(query: str, *, cancel_event=None) -> list[SearchResult]:
     only catalogues public-domain audiobooks and matches original titles.
     """
     _check_cancel(cancel_event)
-    params = {"q": f'collection:librivoxaudio AND (title:({query}) OR creator:({query}))',
+    # Archive.org advancedsearch uses Lucene syntax. The user's text must be
+    # treated as data, not arbitrary operators or an unmatched query group.
+    safe_query = re.sub(r'([+\-!(){}\[\]^"~*?:\\/|&])', r'\\\1', str(query or "").strip())
+    params = {"q": f'collection:librivoxaudio AND (title:({safe_query}) OR creator:({safe_query}))',
               "fl[]": ["creator", "identifier", "title"],
               "rows": _SEARCH_LIMIT, "page": 1, "output": "json"}
     archive_error = None

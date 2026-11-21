@@ -812,7 +812,7 @@
     "Использовать выбранную книгу": "Use selected book",
     "Использовать собственные шаблоны": "Use custom templates",
     "Использовать собственные шаблоны папок и файлов": "Use custom folder and file templates",
-    "Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются.": "A working proxy must be provided by you. DNS is not a VPN or WARP replacement. Proxy passwords are not stored.",
+    "Используется только указанный вами работающий прокси. DNS сам по себе не заменяет VPN или WARP. Пароли прокси не сохраняются.": "Only the working proxy you specify is used. DNS alone is not a replacement for VPN or WARP. Proxy passwords are not saved.",
     "Используйте Tab и Shift+Tab для перехода между элементами.": "Use Tab and Shift+Tab to move between controls.",
     "История": "History",
     "История очищена.": "History cleared.",

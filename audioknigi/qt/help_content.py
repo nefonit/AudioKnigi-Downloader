@@ -10,7 +10,7 @@ TOPICS = {'ru': (('start',
          'С чего начать',
          'Быстрый путь для первой книги:\n'
          '1. Откройте простой режим. В универсальное поле можно ввести название книги, автора или вставить поддерживаемую ссылку с '
-         'audioknigi.com.ua, knigavuhe.org, poleknig.com или akniga.org.\n'
+         'любого поддерживаемого источника, например audioknigi.com.ua.\n'
          '2. Если введён обычный текст, нажмите «Искать». Если введена ссылка, действие меняется на «Открыть» и запускает анализ книги.\n'
          '3. При поиске выберите найденную строку и нажмите «Выбрать и проанализировать». Программа загрузит сведения о книге, варианты '
          'озвучки и список частей.\n'
@@ -281,7 +281,7 @@ TOPICS = {'ru': (('start',
          'З чого почати',
          'Швидкий шлях для першої книги:\n'
          '1. Відкрийте простий режим. В універсальне поле можна ввести назву книги, автора або вставити підтримуване посилання з '
-         'audioknigi.com.ua, knigavuhe.org, poleknig.com чи akniga.org.\n'
+         'будь-якого підтримуваного джерела.\n'
          '2. Для звичайного тексту натисніть «Шукати». Для посилання дія змінюється на «Відкрити» й запускає аналіз книги.\n'
          '3. У результатах виберіть книгу та натисніть «Вибрати й проаналізувати». Програма отримає відомості про книгу, варіанти '
          'озвучення і список частин.\n'
@@ -490,8 +490,8 @@ TOPICS = {'ru': (('start',
  'en': (('start',
          'Getting started',
          'Quick path for your first book:\n'
-         '1. Open Simple mode. In the universal field, type a book title, author, or paste a supported link from audioknigi.com.ua, '
-         'knigavuhe.org, or poleknig.com.\n'
+         '1. Open Simple mode. In the universal field, type a book title, author, or paste a supported link from any supported '
+         'audiobook source.\n'
          '2. For normal text choose Search. For a supported link the action changes to Open and starts book analysis.\n'
          '3. In search results select a book and choose “Select and analyze”. The app loads book metadata, narration variants, and the '
          'list of parts.\n'
@@ -724,7 +724,7 @@ TOPICS = {'ru': (('start',
  'de': (('start',
          'Erste Schritte',
          'Schnellstart für das erste Hörbuch:\n'
-         '1. Im einfachen Modus Titel, Autor oder einen unterstützten Link von audioknigi.com.ua, knigavuhe.org, poleknig.com oder akniga.org in das '
+         '1. Im einfachen Modus Titel, Autor oder einen unterstützten Link von einer unterstützten Hörbuch-Website in das '
          'gemeinsame Feld eingeben.\n'
          '2. Bei normalem Text „Suchen“ wählen. Bei einem Link wird die Aktion zu „Öffnen“ und startet die Buchanalyse.\n'
          '3. In den Treffern ein Buch auswählen und „Auswählen und analysieren“ wählen. Die App lädt Buchdaten, '

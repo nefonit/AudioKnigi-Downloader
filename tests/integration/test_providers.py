@@ -814,7 +814,8 @@ def test_missing_track_title_uses_unique_track_number_not_book_title() -> None:
 def test_audioknigi_html_paths_decode_content_as_utf8_sig() -> None:
     provider = src__report_followup_round32_20260918('audioknigi/providers/audioknigi_search.py')
     analysis = src__report_followup_round32_20260918('audioknigi/services/book_analysis_service.py')
-    assert 'content.decode("utf-8-sig", errors="replace")' in provider
+    # The central decoder handles UTF-8 BOM and legacy Cyrillic charsets.
+    assert 'html_text = _response_html_text(response)' in provider
     assert 'content.decode("utf-8-sig", errors="replace")' in analysis
 
 def test_knigavuhe_analysis_fallback_uses_clean_identity_hint() -> None:
@@ -843,7 +844,7 @@ def test_audioknigi_search_normalizes_query_and_decodes_bom() -> None:
     assert 'query_text = str(query or "").strip()' in block
     assert 'if not query_text:' in block
     assert 'params={"text": query_text}' in block
-    assert '.decode("utf-8-sig", errors="replace")' in block
+    assert 'html_text = _response_html_text(response)' in block
 
 def test_round55_parallel_search_is_bounded_and_keeps_stable_provider_order() -> None:
     search = src__report_followup_round33_20260918('audioknigi/services/search_service.py')

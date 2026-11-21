@@ -508,15 +508,30 @@ class PlayerUiMixin:
         self.player_chapter_list.clear()
         target_row = 0
         chapter_titles = {}
+        chapter_files = {}
         for row in list(metadata.get("tracks", []) or []):
-            if isinstance(row, dict):
-                try:
-                    chapter_titles[int(row.get("index"))] = str(row.get("title") or "").strip()
-                except (TypeError, ValueError):
-                    pass
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("title") or "").strip()
+            track_index = safe_int(row.get("index"), -1)
+            if track_index > 0 and title:
+                chapter_titles[track_index] = title
+            local_name = str(row.get("local_path") or row.get("filename") or "").strip()
+            if local_name and title:
+                chapter_files[Path(local_name).name.casefold()] = title
+        # Positional mapping is safe only for a complete, sequential folder.
+        # A missing chapter must never shift a later file onto another title.
+        complete = len(files) == len(chapter_titles) and set(chapter_titles) == set(range(1, len(files) + 1))
         for idx, file_path in enumerate(files):
-            chapter_title = chapter_titles.get(idx + 1) or file_path.stem
-            item = QListWidgetItem(f"{idx + 1:02d}. {chapter_title}")
+            prefix = re.match(r"^\s*(\d{1,5})(?=[.\s_-]|$)", file_path.stem)
+            actual_index = int(prefix.group(1)) if prefix else None
+            chapter_title = (
+                chapter_files.get(file_path.name.casefold())
+                or (chapter_titles.get(actual_index) if actual_index is not None else None)
+                or (chapter_titles.get(idx + 1) if complete else None)
+                or file_path.stem
+            )
+            item = QListWidgetItem(f"{(actual_index or idx + 1):02d}. {chapter_title}")
             item.setData(Qt.ItemDataRole.UserRole, str(file_path))
             item.setToolTip(str(file_path))
             self.player_chapter_list.addItem(item)
@@ -788,6 +803,8 @@ class PlayerUiMixin:
             self.player_status_label.setText(self._l("Воспроизведение."))
         elif paused:
             self.player_status_label.setText(self._l("Пауза. Позиция сохранена."))
+        elif state == "stopped":
+            self.player_status_label.setText(self._l("Плеер остановлен. Позиция сохранена."))
 
     @Slot(str)
     def _player_message(self, message: str):
