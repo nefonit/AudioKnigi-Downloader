@@ -963,5 +963,10 @@
     "de": "Suche abgebrochen",
     "en": "Search cancelled",
     "uk": "Пошук скасовано"
+  },
+  "Сначала завершите текущий анализ или скачивание.": {
+    "de": "Beenden Sie zuerst die laufende Analyse oder den Download.",
+    "en": "Finish the current analysis or download first.",
+    "uk": "Спочатку завершіть поточний аналіз або завантаження."
   }
 }
