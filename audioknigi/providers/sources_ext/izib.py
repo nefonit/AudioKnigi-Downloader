@@ -135,7 +135,7 @@ def _izib_search_card(card, base_url: str) -> SearchResult | None:
         name = re.sub(r"\s+([.,!?;:…])", r"\1", name)
     if not name:
         return None
-    return SearchResult(title=name, url=page_url, source='izib.uk',
+    return SearchResult(title=name, url=normalize_supported_url(page_url), source='izib.uk',
                         author=_izib_book_title(card.select_one("a[href^='/author']")),
                         narrator=_izib_book_title(card.select_one("a[href^='/reader']")))
 

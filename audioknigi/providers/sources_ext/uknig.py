@@ -105,8 +105,15 @@ def search_uknig(query: str, *, cancel_event=None) -> list[SearchResult]:
     soup = _soup("https://uknig.com/?q=" + quote(query), cancel_event)
     results = []
     for el in soup.select(".book-item"):
-        anchor = el.select_one("a[href*='/books/']")
-        if not anchor:
+        anchors = el.select("a[href*='/books/']")
+        # The cover link can be first and have no readable name; prefer the
+        # separate text link rather than losing a valid catalogue result.
+        anchor = next(
+            (a for a in anchors if _clean(a.get_text(" ", strip=True))), None
+        ) or next(
+            (a for a in anchors if _clean(a.get("title", ""))), None
+        ) or (anchors[0] if anchors else None)
+        if anchor is None:
             continue
         url = urljoin("https://uknig.com", anchor.get("href", ""))
         if not is_supported_url(url) or (urlparse(url).hostname or "").lower() not in {"uknig.com", "www.uknig.com"}:
