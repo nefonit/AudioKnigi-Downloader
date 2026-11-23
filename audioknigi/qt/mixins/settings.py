@@ -266,7 +266,11 @@ class SettingsUiMixin:
                 volume=float(updated.get("event_sound_volume", 100) or 100) / 100.0,
                 language=self.language,
             )
-            self.set_ui_mode(str(updated.get("ui_mode", self.current_ui_mode()) or "easy"), persist=False)
+            requested_mode = str(updated.get("ui_mode", self.current_ui_mode()) or "easy")
+            if requested_mode != self.current_ui_mode():
+                # A same-mode reapply would unexpectedly focus the search view
+                # and can navigate away from the Settings tab.
+                self.set_ui_mode(requested_mode, persist=False)
             refresh_guidance = getattr(self, "_refresh_context_guidance", None)
             if callable(refresh_guidance):
                 refresh_guidance(announce_now=False)

@@ -334,7 +334,8 @@ class SearchUiMixin:
         app_logger.info("SEARCH UI | event=before_operation_finish")
         self._finish_blocking_operation("search")
         app_logger.info("SEARCH UI | event=after_operation_finish")
-        self._set_search_progress(100, "Поиск завершён", visible=True)
+        cancelled = bool(getattr(self, "_search_cancel", None) is not None and self._search_cancel.is_set())
+        self._set_search_progress(100, "Поиск отменён" if cancelled else "Поиск завершён", visible=True)
         self.search_button.setEnabled(True)
         self.search_edit.setReadOnly(False)
         if hasattr(self, "cancel_search_button"):
@@ -342,12 +343,21 @@ class SearchUiMixin:
         if hasattr(self, "easy_cancel_search_button"):
             self.easy_cancel_search_button.setEnabled(False)
         app_logger.info("SEARCH UI | event=modal_finished | deferring_result_render=1")
-        QTimer.singleShot(0, lambda outcome=outcome: self._apply_search_outcome(outcome))
+        QTimer.singleShot(0, lambda outcome=outcome, cancelled=cancelled: self._apply_search_outcome(outcome, cancelled=cancelled))
         QTimer.singleShot(650, self._hide_search_progress_if_idle)
 
-    def _apply_search_outcome(self, outcome: SearchOutcome) -> None:
+    def _apply_search_outcome(self, outcome: SearchOutcome, *, cancelled: bool = False) -> None:
         if getattr(self, "_exit_requested", False):
             app_logger.info("SEARCH UI | event=result_render_skipped | reason=exit_requested")
+            return
+        if cancelled:
+            # A user cancellation is neither zero search matches nor a failed
+            # catalogue lookup; do not play book_not_found or announce failure.
+            self._last_search_outcome = None
+            self.search_model.set_results([], query=outcome.query)
+            self._set_search_results_active(False)
+            self._update_search_action_states()
+            self.set_status(self._l("Поиск отменён пользователем."))
             return
         app_logger.info(
             "SEARCH UI | event=result_render_start | results=%d | errors=%d",

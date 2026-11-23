@@ -269,6 +269,10 @@ class HistoryUiMixin:
         if not valid_site_url(url):
             self.set_status("В истории нет поддерживаемой ссылки для этой книги.", assertive=True)
             return
+        if ((self._analysis_thread is not None and self._analysis_thread.isRunning())
+                or (self._download_thread is not None and self._download_thread.isRunning())):
+            self.set_status("Сначала завершите текущий анализ или скачивание.", assertive=True)
+            return
         self._download_after_analysis = True
         self._history_redownload_confirmed = True
         self._queue_after_analysis = False
