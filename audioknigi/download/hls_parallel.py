@@ -224,7 +224,8 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
                   user_agent: str, check_cancel, on_progress,
                   max_workers: int = 6, allow_local_http: bool = False, throttle=None,
                   segment_cache_dir: Path | None = None, on_resume=None,
-                  register_response=None, unregister_response=None) -> Path | None:
+                  register_response=None, unregister_response=None,
+                  cancel_active_responses=None) -> Path | None:
     """Fetch a supported HLS VOD concurrently and emit a *local* .m3u8.
 
     No segmented download starts until the full manifest validates.
@@ -259,7 +260,7 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
     awaiting_segment = False
     for line in lines:
         value = line.strip()
-        if value.startswith("#EXT-X-KEY:"):
+        if value.upper().startswith("#EXT-X-KEY:"):
             if "METHOD=NONE" in value.upper():
                 updated.append(value)
                 continue
@@ -275,7 +276,7 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
                 keys[key_url] = f"key{len(keys):03d}.key"
             updated.append(value[:match.start(1)] + keys[key_url] + value[match.end(1):])
             continue
-        if value.startswith("#EXTINF:"):
+        if value.upper().startswith("#EXTINF:"):
             awaiting_segment = True
             updated.append(value)
             continue
@@ -375,6 +376,10 @@ def stage_hls_vod(url: str, staging_dir: Path, *, referer: str,
             # context manager has already waited for all queued downloads.
             # The running response will stop at the next streamed chunk.
             stop_event.set()
+            if callable(cancel_active_responses):
+                # Close open streamed bodies *before* the pool's shutdown(wait).
+                # Otherwise a peer may wait for the CDN's read timeout.
+                cancel_active_responses()
             for future in futures:
                 future.cancel()
             raise

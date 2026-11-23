@@ -717,6 +717,22 @@ class BookFlowMixin:
                 # source downloads, expose stable book-level progress by completed
                 # source count instead.
                 self._suppress_source_transfer_ui = True
+                peer_abort = getattr(self, "_parallel_source_abort", None)
+                if peer_abort is not None:
+                    peer_abort.clear()
+
+                def abort_peer_downloads(futures, failed):
+                    # Future.cancel() cannot stop a running FFmpeg subprocess
+                    # or Requests read. Signal a private abort to their
+                    # check_cancel hooks and close their active transports.
+                    if peer_abort is not None:
+                        peer_abort.set()
+                    for pending in futures:
+                        if pending is not failed:
+                            pending.cancel()
+                    self._cancel_active_network_io()
+                    self._cancel_active_subprocesses()
+
                 try:
                     with ThreadPoolExecutor(max_workers=max_workers) as pool:
                         futures = {
@@ -729,16 +745,10 @@ class BookFlowMixin:
                             try:
                                 future.result()
                             except Cancelled:
-                                for pending in futures:
-                                    if pending is not future:
-                                        pending.cancel()
-                                self._cancel_active_network_io()
+                                abort_peer_downloads(futures, future)
                                 raise
                             except Exception as exc:
-                                for pending in futures:
-                                    if pending is not future:
-                                        pending.cancel()
-                                self._cancel_active_network_io()
+                                abort_peer_downloads(futures, future)
                                 if self._is_expired_media_error(exc):
                                     affected = [
                                         idx
@@ -758,6 +768,8 @@ class BookFlowMixin:
                             self.set_progress(pos * 100 / max(1, len(download_jobs)))
                             report(f"Скачивается {pos}/{len(download_jobs)}")
                 finally:
+                    if peer_abort is not None:
+                        peer_abort.clear()
                     self._suppress_source_transfer_ui = False
             self._log_book_flow("source_downloads_complete", book, jobs=len(download_jobs))
         elif unique_files:
@@ -1020,9 +1032,11 @@ class BookFlowMixin:
                     app_logger.debug("Source cleanup failed | path=%s", path, exc_info=True)
             self._log_book_flow("source_cleanup", book, removed=removed_sources, planned=len(cleanup_sources))
 
-        self._remove_resume_manifest(book)
         self._scan_book_files(book)
         self._add_history(book, folder, len(chosen))
+        # On an incomplete final scan/history failure, leave resume.json
+        # available for crash/recovery instead of prematurely deleting it.
+        self._remove_resume_manifest(book)
         self._log_book_flow(
             "download_complete", book, folder=folder, parts=len(chosen),
             skipped=list(getattr(self, "_last_process_skipped_indices", []) or []),
