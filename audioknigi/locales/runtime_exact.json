@@ -953,5 +953,15 @@
     "de": "Player angehalten. Position gespeichert.",
     "en": "Player stopped. Position saved.",
     "uk": "Програвач зупинено. Позицію збережено."
+  },
+  "Поиск отменён пользователем.": {
+    "de": "Suche vom Benutzer abgebrochen.",
+    "en": "Search cancelled by the user.",
+    "uk": "Пошук скасовано користувачем."
+  },
+  "Поиск отменён": {
+    "de": "Suche abgebrochen",
+    "en": "Search cancelled",
+    "uk": "Пошук скасовано"
   }
 }
