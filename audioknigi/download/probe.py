@@ -770,6 +770,10 @@ class ProbeMixin:
             groups.setdefault(source, []).append(track)
 
         for source, tracks in groups.items():
+            # A partial repair only owns sources in local_map. Never probe a
+            # previously completed, unrelated source over the network.
+            if local_map is not None and source not in local_map:
+                continue
             if len(tracks) < 2:
                 continue
             ends = [

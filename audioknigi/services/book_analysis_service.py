@@ -376,6 +376,13 @@ class BookAnalysisService:
                 raise
             except Exception:
                 continue
+            # A search hit is not a usable replacement when the provider
+            # reports a rights restriction or returned no playable chapters.
+            # Continue to the next narration candidate instead.
+            if getattr(fallback, "restricted", False) or not getattr(fallback, "tracks", None):
+                continue
+            if not any(str(getattr(track, "file", "") or "").strip() for track in fallback.tracks):
+                continue
             ft = self._identity_tokens(getattr(fallback, "title", ""))
             if not ft:
                 continue

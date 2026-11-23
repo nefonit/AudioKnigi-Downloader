@@ -78,6 +78,13 @@ class SourceAnalysisMixin:
                 raise
             except Exception:
                 continue
+            # A search hit is not a usable replacement when the provider
+            # reports a rights restriction or returned no playable chapters.
+            # Continue to the next narration candidate instead.
+            if getattr(fallback, "restricted", False) or not getattr(fallback, "tracks", None):
+                continue
+            if not any(str(getattr(track, "file", "") or "").strip() for track in fallback.tracks):
+                continue
             fallback_title, fallback_author, fallback_narrator = self._book_identity_hints(fallback)
             fb_title_tokens = set(self._identity_tokens(fallback_title))
             if not fb_title_tokens:

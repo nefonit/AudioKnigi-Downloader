@@ -1057,7 +1057,8 @@ def test_round73_high_value_fixes_remain_present():
     assert 'tags.delall("TRCK")' in full
     media = (ROOT / 'audioknigi/download/media.py').read_text(encoding='utf-8')
     split = media[media.index('def _split_track'):media.index('def _save_book_sidecars')]
-    assert 'unlink_with_retry(out, missing_ok=True)' in split
+    assert 'replace_with_retry(staged, out)' in split
+    assert 'unlink_with_retry(out, missing_ok=True)' not in split
 
 
 # Origin: test_round75_external_review_followup_20261003.py
@@ -1270,7 +1271,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_source_analysis_candidate_unpacking_uses_url_key(monkeypatch):
     seen = []
     result = SimpleNamespace(title='Demo Book', author='Author Name', narrator='Reader Name', url='https://knigavuhe.org/book/demo/', narration_variants=[])
-    fallback = SimpleNamespace(title='Demo Book', author='Author Name', narrator='Reader Name', url=result.url)
+    fallback = SimpleNamespace(title='Demo Book', author='Author Name', narrator='Reader Name', url=result.url, tracks=[Track(index=1, title='One', file='https://cdn.invalid/playable.mp3')])
     monkeypatch.setattr(source_analysis_module__round81_external_review_followup_20261006, 'search_knigavuhe_books', lambda *_a, **_k: [result])
 
     class Provider:

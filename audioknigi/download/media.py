@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import tempfile
 import re
 import subprocess
 import threading
@@ -17,7 +19,7 @@ from ..templates import track_number_width
 from ..integrations import audiobookshelf_scan
 from ..logging_utils import app_logger
 from ..core import Cancelled, fmt_time, safe_int, safe_normalization_mode, resolve_executable, effective_track_duration, parse_time_seconds, hidden_subprocess_kwargs, save_json
-from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes, unlink_with_retry
+from .common import atomic_write_bytes, atomic_write_text, close_subprocess_pipes as _close_subprocess_pipes, replace_with_retry, unlink_with_retry
 from .errors import SharedSourceTimelineError
 
 _AUDIO_INFO_CACHE_INIT_LOCK = threading.Lock()
@@ -354,7 +356,7 @@ class MediaProcessingMixin:
 
     def _effective_mp3_profile(self, source_path):
         preset = str(getattr(self, "runtime_audio_preset", "copy") or "copy")
-        normalization = str(getattr(self, "runtime_normalization_mode", "off") or "off")
+        normalization = safe_normalization_mode(getattr(self, "runtime_normalization_mode", "off"), "off")
         info = self._cached_probe_audio_info(source_path)
         source_bps = int(info.get("bit_rate") or 0)
         source_channels = int(info.get("channels") or 0)
@@ -584,11 +586,6 @@ class MediaProcessingMixin:
                 f"Некорректные границы части: конец {end} с не позже начала {start} с."
             )
         out = self._track_path(book, track)
-        if out.exists():
-            try:
-                unlink_with_retry(out, missing_ok=True)
-            except OSError as exc:
-                raise RuntimeError(f"Не удалось подготовить файл {out.name} к перезаписи: {exc}") from exc
 
         duration = None
         if start is not None and end is not None and end > start:
@@ -657,6 +654,14 @@ class MediaProcessingMixin:
             duration = int(float(duration))
 
         copy_mode, bitrate, channels = self._effective_mp3_profile(source_path)
+        # A failed or cancelled encoder must never leave a truncated chapter
+        # under the final .mp3 name (especially when duration is unknown).
+        # Stage beside the destination so Windows replacement stays atomic.
+        descriptor, staged_name = tempfile.mkstemp(
+            prefix=f".{out.stem}.split-", suffix=".mp3.part", dir=str(out.parent),
+        )
+        os.close(descriptor)
+        staged = Path(staged_name)
 
         def make_cmd(use_copy):
             normalization_filter = ""
@@ -699,32 +704,34 @@ class MediaProcessingMixin:
                     cmd += ["-q:a", "4"]
                 if local_channels:
                     cmd += ["-ac", str(local_channels)]
-            cmd += [str(out)]
+            # Interrupted .part files must not be exposed as playable chapters.
+            cmd += ["-f", "mp3", str(staged)]
             return cmd
 
         try:
-            self._run_ffmpeg(make_cmd(copy_mode))
-        except RuntimeError as exc:
-            if not copy_mode:
-                raise
-            # Some hosts serve a stream whose actual codec/container differs from
-            # what ffprobe reported.  Preserve the user's "original quality" intent
-            # where possible, but never fail just because stream-copy cannot be muxed
-            # into an MP3 container. Retry this track with a compatible MP3 encode.
             try:
-                out.unlink(missing_ok=True)
-            except Exception:
-                pass
-            self.log(
-                f"{out.name}: прямое копирование аудиопотока не удалось; "
-                "повторяю с совместимым MP3-кодированием."
-            )
-            try:
+                self._run_ffmpeg(make_cmd(copy_mode))
+            except RuntimeError as exc:
+                if not copy_mode:
+                    raise
+                # The first staged stream-copy attempt may be incomplete.
+                # Remove it before retrying the same staged name with encode.
+                unlink_with_retry(staged, missing_ok=True)
+                self.log(
+                    f"{out.name}: прямое копирование аудиопотока не удалось; "
+                    "повторяю с совместимым MP3-кодированием."
+                )
                 app_logger.info("FFmpeg stream-copy fallback triggered: %s", exc)
-            except Exception:
-                pass
-            self._run_ffmpeg(make_cmd(False))
-        return out
+                self._run_ffmpeg(make_cmd(False))
+            check_cancel = getattr(self, "_check_cancel", None)
+            if callable(check_cancel):
+                check_cancel()
+            if not staged.is_file() or staged.stat().st_size <= 0:
+                raise RuntimeError(f"FFmpeg не создал готовую часть {out.name}.")
+            replace_with_retry(staged, out)
+            return out
+        finally:
+            unlink_with_retry(staged, missing_ok=True)
 
     def _save_book_sidecars(self, book, folder, tracks):
         """Save portable metadata sidecars for Audiobookshelf and archival workflows."""

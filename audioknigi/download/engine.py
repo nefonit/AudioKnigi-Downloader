@@ -22,6 +22,7 @@ from ..core import (
     safe_name,
     safe_normalization_mode,
     resolve_executable,
+    parse_time_seconds,
     save_json,
 )
 from .downloader import DownloaderMixin
@@ -62,6 +63,9 @@ class _DownloadEngine(DownloaderMixin):
         self.request = request
         self.settings = normalize_settings(settings)
         self.cancel_event = cancel_event
+        # Per-book internal abort: a failed parallel source should stop peers,
+        # without marking the user-owned cancellation Event as user cancellation.
+        self._parallel_source_abort = threading.Event()
         self.callbacks = callbacks or DownloadCallbacks()
         self._active_subprocesses = weakref.WeakSet()
         self._active_subprocess_lock = threading.RLock()
@@ -108,7 +112,8 @@ class _DownloadEngine(DownloaderMixin):
         self.runtime_language = str(data.get("language", "ru") or "ru")
 
     def _check_cancel(self):
-        if self.cancel_event.is_set():
+        peer_abort = getattr(self, "_parallel_source_abort", None)
+        if self.cancel_event.is_set() or (peer_abort is not None and peer_abort.is_set()):
             # Interrupt blocking I/O too; the lower-level helpers also poll the
             # event, but closing active responses/processes makes cancellation
             # much more responsive on slow or stalled servers.
@@ -380,7 +385,7 @@ class _DownloadEngine(DownloaderMixin):
             normalized_track_template = track_template
             if normalized_track_template.casefold().endswith(".mp3"):
                 normalized_track_template = normalized_track_template[:-4].rstrip(" .")
-            if normalized_track_template == "{Track_Number}":
+            if normalized_track_template.casefold() == "{track_number}":
                 title_name = safe_name(str(getattr(book, "title", "") or "audiobook"))
                 return folder / f"{title_name}.mp3"
 
@@ -567,6 +572,24 @@ class _DownloadEngine(DownloaderMixin):
             return urls[0], fallback_url
 
         source_url, fallback_url = shared_source_urls()
+
+        def update_hls_expected_durations():
+            # Explicit chapter end offsets give the latest known timestamp
+            # of a shared HLS source. No end markers means unknown duration.
+            ends = [
+                parse_time_seconds(getattr(track, "end", None))
+                for track in list(getattr(book, "tracks", None) or [])
+            ]
+            expected_end = max(
+                (float(value) for value in ends if value is not None and float(value) > 0),
+                default=0.0,
+            )
+            self._hls_expected_durations = {
+                url: expected_end for url in (source_url, fallback_url)
+                if url and expected_end > 0
+            }
+
+        update_hls_expected_durations()
         full_indices = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
         # Whole-book mode always processes every track, regardless of a stale
         # partial selection that may have been present on the incoming request.
@@ -630,6 +653,7 @@ class _DownloadEngine(DownloaderMixin):
                     selected = [self.request.track_index(track) for track in list(getattr(book, "tracks", None) or [])]
                     self._refresh_book_media_playlist(book, selected)
                     source_url, fallback_url = shared_source_urls()
+                    update_hls_expected_durations()
                     # A refreshed book can have a different title or variant,
                     # which changes the output folder and its resume manifest.
                     folder = Path(self._book_folder(book))

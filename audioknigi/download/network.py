@@ -1048,6 +1048,7 @@ class NetworkDownloadMixin:
                     on_resume=parallel_resumed,
                     register_response=getattr(self, "_register_active_network_response", None),
                     unregister_response=getattr(self, "_unregister_active_network_response", None),
+                    cancel_active_responses=getattr(self, "_cancel_active_network_io", None),
                 )
                 if candidate is not None:
                     working_url = str(candidate)
