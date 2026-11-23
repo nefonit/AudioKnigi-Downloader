@@ -1086,7 +1086,7 @@ def fetch_book(url: str, cancel_event=None) -> Book:
                 allow_redirects=True,
             )
             playlist_response.raise_for_status()
-            playlist_text = bytes(getattr(playlist_response, "content", b"") or b"").decode("utf-8", errors="replace") or str(getattr(playlist_response, "text", "") or "")
+            playlist_text = bytes(getattr(playlist_response, "content", b"") or b"").decode("utf-8-sig", errors="replace") or str(getattr(playlist_response, "text", "") or "")
             playlist_url = playlist_response.url or playlist_url
         except Exception:
             playlist_text = ""
@@ -1552,6 +1552,8 @@ def _fetch_author_catalog(author_url: str, cancel_event=None) -> list[SearchResu
                     pages[page] = parse_search_results(
                         response.text or "", response.url or f"{author_url}?p={page}"
                     )
+                except Cancelled:
+                    raise
                 except Exception as exc:
                     pages[page] = []
                     app_logger.warning(

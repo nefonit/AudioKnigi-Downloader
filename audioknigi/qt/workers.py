@@ -45,6 +45,7 @@ class SearchWorker(QObject):
             # they are never useful search results. Keep unknown status rows:
             # a transient metadata failure must not hide a potentially usable book.
             outcome.results = downloadable_search_results(outcome.results)
+            outcome.related_results = downloadable_search_results(outcome.related_results)
             if self.only_available:
                 outcome.results = [
                     item for item in outcome.results

@@ -198,6 +198,14 @@ class QtEventSoundManager(QObject):
         for key, (player, _output) in self._players.items():
             if except_key is not None and key == except_key:
                 continue
+            pending = self._pending_media_callbacks.pop(key, None)
+            if pending is not None:
+                # A stale LoadedMedia callback could otherwise play an older
+                # cue *after* stop() and overlap the latest event sound.
+                try:
+                    player.mediaStatusChanged.disconnect(pending)
+                except (RuntimeError, TypeError):
+                    pass
             try:
                 player.stop()
             except RuntimeError:

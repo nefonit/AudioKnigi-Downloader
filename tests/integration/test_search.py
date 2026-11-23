@@ -163,8 +163,8 @@ def test_search_finished_closes_modal_before_deferred_table_render() -> None:
     end = source.index('def _clear_search_thread', start)
     block = source[start:end]
     assert 'self._finish_blocking_operation("search")' in block
-    assert 'QTimer.singleShot(0, lambda outcome=outcome: self._apply_search_outcome(outcome))' in block
-    assert block.index('self._finish_blocking_operation("search")') < block.index('QTimer.singleShot(0, lambda outcome=outcome: self._apply_search_outcome(outcome))')
+    assert 'QTimer.singleShot(0, lambda outcome=outcome, cancelled=cancelled: self._apply_search_outcome(outcome, cancelled=cancelled))' in block
+    assert block.index('self._finish_blocking_operation("search")') < block.index('QTimer.singleShot(0, lambda outcome=outcome, cancelled=cancelled: self._apply_search_outcome(outcome, cancelled=cancelled))')
     assert '.resizeColumnsToContents()' not in block
     assert 'def _apply_search_outcome' in block
     assert 'def _focus_search_result_after_render' in block
@@ -186,7 +186,7 @@ def test_search_completion_tears_down_progress_window_before_final_progress_upda
     start = source.index('def _search_finished')
     end = source.index('def _apply_search_outcome', start)
     block = source[start:end]
-    assert block.index('self._finish_blocking_operation("search")') < block.index('self._set_search_progress(100, "Поиск завершён", visible=True)')
+    assert block.index('self._finish_blocking_operation("search")') < block.index('self._set_search_progress(100, "Поиск отменён" if cancelled else "Поиск завершён", visible=True)')
     assert 'event=before_operation_finish' in block
     assert 'event=after_operation_finish' in block
 

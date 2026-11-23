@@ -761,6 +761,12 @@ class PlayerUiMixin:
 
     @Slot(int, int)
     def _player_position_changed(self, position: int, duration: int):
+        seek_timer = getattr(self, "_player_keyboard_seek_timer", None)
+        # Keyboard seek has a 120 ms debounce timer. Backend positionChanged
+        # can arrive every 40-100 ms; keep the user's target and spoken
+        # preview intact until the pending seek is committed.
+        if seek_timer is not None and seek_timer.isActive():
+            return
         if not getattr(self, "_player_seek_active", False):
             self.player_seek_slider.blockSignals(True)
             position_seconds = max(0, int(round(position / 1000.0)))

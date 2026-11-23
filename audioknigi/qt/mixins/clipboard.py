@@ -280,6 +280,14 @@ class ClipboardUiMixin:
             "audio_preset": record.audio_preset,
             "normalization_mode": record.normalization_mode,
         }
+        # The Easy quality selector is a high-level preset and would otherwise
+        # override the recovered exact audio/normalization settings.
+        audio = str(record.audio_preset or "copy")
+        norm = str(record.normalization_mode or "off")
+        recovered_settings["quality_preset"] = (
+            "phone" if audio == "64k_mono" else
+            "normalize" if norm == "two_pass" else "standard"
+        )
         # Old resume manifests may omit template fields. None means inherit the
         # user's current global setting; an explicitly stored value (including
         # an empty string) remains exact resume data.
@@ -288,6 +296,7 @@ class ClipboardUiMixin:
             if value is not None:
                 recovered_settings[key] = value
         self.settings.update(recovered_settings)
+        self.set_ui_mode("advanced", persist=False)
         self._apply_settings_to_qt_controls()
         self.book_url_edit.setText(record.url)
         self.tabs.setCurrentIndex(self.TAB_BOOK)

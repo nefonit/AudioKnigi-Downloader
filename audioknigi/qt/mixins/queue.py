@@ -391,6 +391,9 @@ class QueueUiMixin:
 
     @Slot()
     def queue_add_url(self):
+        if self._download_thread is not None and self._download_thread.isRunning():
+            self.set_status("Сначала завершите или отмените текущее скачивание.", assertive=True)
+            return
         if self._analysis_thread is not None and self._analysis_thread.isRunning():
             self.set_status("Дождитесь завершения текущего анализа.", assertive=True)
             return
@@ -419,6 +422,9 @@ class QueueUiMixin:
 
     @Slot(object)
     def _queue_urls_dropped(self, values):
+        if self._download_thread is not None and self._download_thread.isRunning():
+            self.set_status("Сначала завершите или отмените текущее скачивание.", assertive=True)
+            return
         urls = []
         for candidate in self._normalize_drop_values(values):
             if valid_site_url(candidate) and candidate not in urls:
@@ -432,6 +438,10 @@ class QueueUiMixin:
         self._queue_next_dropped_url()
 
     def _queue_next_dropped_url(self):
+        # Do not consume a dropped URL or arm _queue_after_analysis while the
+        # active downloader would reject start_analysis().
+        if self._download_thread is not None and self._download_thread.isRunning():
+            return
         pending = list(getattr(self, "_pending_queue_urls", []) or [])
         if not pending:
             return
