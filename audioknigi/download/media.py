@@ -658,7 +658,7 @@ class MediaProcessingMixin:
         # under the final .mp3 name (especially when duration is unknown).
         # Stage beside the destination so Windows replacement stays atomic.
         descriptor, staged_name = tempfile.mkstemp(
-            prefix=f".{out.stem}.split-", suffix=".mp3", dir=str(out.parent),
+            prefix=f".{out.stem}.split-", suffix=".mp3.part", dir=str(out.parent),
         )
         os.close(descriptor)
         staged = Path(staged_name)
@@ -704,7 +704,8 @@ class MediaProcessingMixin:
                     cmd += ["-q:a", "4"]
                 if local_channels:
                     cmd += ["-ac", str(local_channels)]
-            cmd += [str(staged)]
+            # Interrupted .part files must not be exposed as playable chapters.
+            cmd += ["-f", "mp3", str(staged)]
             return cmd
 
         try:

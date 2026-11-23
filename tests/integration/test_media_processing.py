@@ -318,7 +318,9 @@ def test_round11_skip_preserves_completed_sources_and_split_cancels_pending():
     window = source[first:first + 900]
     assert '_clear_stale_source_downloads(book)' not in window
     assert 'Keep already completed fresh source downloads' in window
-    assert source.count('pending.cancel()') >= 4
+    assert source.count('pending.cancel()') >= 3
+    assert 'self._cancel_active_subprocesses()' in source
+    assert 'peer_abort.set()' in source
 
 
 # Origin: test_report_followup_round13_20260916.py
@@ -370,7 +372,7 @@ def test_split_track_parses_clock_start_end(monkeypatch, tmp_path):
 
         def _run_ffmpeg(self, cmd, timeout=7200):
             commands.append(list(cmd))
-            output.write_bytes(b'done')
+            Path(cmd[-1]).write_bytes(b'done')
     host = Host()
     book = SimpleNamespace(tracks=[])
     track = SimpleNamespace(index=1, start='00:01:00', end='00:01:30', duration=None)
@@ -516,6 +518,7 @@ def test_split_track_does_not_infer_duration_from_next_different_source(tmp_path
 
         def _run_ffmpeg(self, cmd):
             self.cmd = list(cmd)
+            Path(cmd[-1]).write_bytes(b'done')
 
         def _normalization_filter_for_track(self, *_args):
             return ''
@@ -834,6 +837,7 @@ def test_split_track_infers_next_start_when_current_duration_missing(tmp_path):
 
         def _run_ffmpeg(self, cmd, timeout=0):
             commands.append(list(cmd))
+            Path(cmd[-1]).write_bytes(b'done')
 
         def _write_id3(self, *args, **kwargs):
             return None
@@ -977,7 +981,7 @@ def _full_mp3_engine(tmp_path, *, selected):
 # Origin: test_round73_runtime_followup_20261002.py
 ROOT = Path(__file__).resolve().parents[2]
 
-def test_shared_source_timeline_remote_probe_runs_when_local_map_misses_source():
+def test_shared_source_timeline_skips_remote_probe_when_local_map_misses_source():
     calls = []
 
     class Probe(ProbeMixin):
@@ -988,14 +992,15 @@ def test_shared_source_timeline_remote_probe_runs_when_local_map_misses_source()
     source = 'https://cdn.invalid/shared.mp3'
     book = Book(url='https://audioknigi.com.ua/audio-1-demo', title='Demo', tracks=[Track(index=1, title='One', file=source, start=0.0), Track(index=2, title='Two', file=source, start=60.0)])
     assert Probe()._shared_source_timeline_issue(book, local_map={}) is None
-    assert calls == [(source, book.url)]
+    assert calls == []
 
-def test_split_track_uses_retrying_unlink_before_ffmpeg_overwrite():
+def test_split_track_uses_atomic_replace_after_ffmpeg_success():
     source = (ROOT / 'audioknigi/download/media.py').read_text(encoding='utf-8')
     start = source.index('def _split_track')
     block = source[start:source.index('def _save_book_sidecars', start)]
-    assert 'unlink_with_retry(out, missing_ok=True)' in block
-    assert 'out.unlink()' not in block
+    assert 'replace_with_retry(staged, out)' in block
+    assert 'unlink_with_retry(staged, missing_ok=True)' in block
+    assert 'unlink_with_retry(out, missing_ok=True)' not in block
 
 def test_full_mp3_resume_and_id3_hardening_are_present():
     source = (ROOT / 'audioknigi/download/engine.py').read_text(encoding='utf-8')

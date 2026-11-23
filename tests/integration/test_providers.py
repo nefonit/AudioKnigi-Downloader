@@ -595,7 +595,7 @@ def test_knigavuhe_fallback_prefers_known_matching_narrator(monkeypatch) -> None
 
     def fake_fetch(url, **_kwargs):
         narrator = '' if 'unknown' in url else 'Exact Narrator'
-        return Book(title='Book', author='Author', narrator=narrator, url=url)
+        return Book(title='Book', author='Author', narrator=narrator, url=url, tracks=[Track(index=1, title='One', file='https://cdn.invalid/playable.mp3')])
     monkeypatch.setattr(analysis_module, 'fetch_knigavuhe_book', fake_fetch)
     selected = BookAnalysisService()._knigavuhe_fallback_candidate(original)
     assert selected is not None
@@ -1286,7 +1286,7 @@ def test_download_fallback_continues_past_unknown_narrator_to_exact_match(monkey
 
         def fetch_book(self, url, *, cancel_event=None):
             narrator = '' if 'z-unknown' in url else 'Exact Narrator'
-            return Book(title='Book', author='Author', narrator=narrator, url=url)
+            return Book(title='Book', author='Author', narrator=narrator, url=url, tracks=[Track(index=1, title='One', file='https://cdn.invalid/playable.mp3')])
     monkeypatch.setattr(source_analysis_module, 'provider_for_key', lambda _key: Provider())
     selected = _FallbackHost()._knigavuhe_fallback_candidate(original)
     assert selected is not None
@@ -1664,7 +1664,7 @@ def test_known_narrator_does_not_fall_back_to_unknown_after_explicit_conflict(mo
 
     def fake_fetch(url, **_kwargs):
         narrator = '' if 'unknown' in url else 'Other Reader'
-        return Book(title='Book', author='Author', narrator=narrator, url=url)
+        return Book(title='Book', author='Author', narrator=narrator, url=url, tracks=[Track(index=1, title='One', file='https://cdn.invalid/playable.mp3')])
     monkeypatch.setattr(analysis_module, 'fetch_knigavuhe_book', fake_fetch)
     assert BookAnalysisService()._knigavuhe_fallback_candidate(original) is None
     source = (ROOT / 'audioknigi/download/source_analysis.py').read_text(encoding='utf-8')
