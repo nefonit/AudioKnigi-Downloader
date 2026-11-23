@@ -360,7 +360,11 @@ def main() -> int:
     if issues:
         print("FAILED")
         for issue in issues:
-            print(f"issue={issue}")
+            # Windows stdout may use cp1252; an audit failure must report its
+            # Cyrillic finding instead of raising UnicodeEncodeError.
+            message = f"issue={issue}"
+            encoding = sys.stdout.encoding or "utf-8"
+            print(message.encode(encoding, errors="backslashreplace").decode(encoding))
         return 1
     print("OK")
     print("languages=ru,uk,de,en")
