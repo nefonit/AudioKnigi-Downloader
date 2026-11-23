@@ -158,6 +158,9 @@ def fetch_yakniga(url: str, *, cancel_event=None) -> Book:
     data = _compat._yakniga_payload(payload, cancel_event).get("book")
     if not isinstance(data, dict):
         raise SiteStructureChanged("yakniga.org: книга не найдена в GraphQL.")
+    chapters = data.get("chapters")
+    if chapters is not None and not isinstance(chapters, dict):
+        raise SiteStructureChanged("yakniga.org: неверный формат списка глав.")
     book = _yakniga_book(data, url)
     if book.restricted:
         raise RuntimeError("yakniga.org: эта книга доступна только по лицензии; скачивание недоступно.")

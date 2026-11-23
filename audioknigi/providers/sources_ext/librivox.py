@@ -127,9 +127,18 @@ def _librivox_search_from_catalogue(query: str, *, cancel_event=None) -> list[Se
     output = []
     for field in ("title", "author"):
         _check_cancel(cancel_event)
-        payload = _request("https://librivox.org/api/feed/audiobooks", params={
-            field: query, "format": "json", "extended": 1, "limit": _SEARCH_LIMIT,
-        }, cancel_event=cancel_event).json()
+        try:
+            response = _request("https://librivox.org/api/feed/audiobooks", params={
+                field: query, "format": "json", "extended": 1, "limit": _SEARCH_LIMIT,
+            }, cancel_event=cancel_event)
+            payload = response.json()
+        except requests.HTTPError as exc:
+            # LibriVox returns HTTP 404 for an empty title/author catalogue
+            # query. Treat that as zero matches for this field, then continue
+            # to the other field. Do not hide auth/server errors as empty hits.
+            if getattr(getattr(exc, "response", None), "status_code", None) == 404:
+                continue
+            raise
         if not isinstance(payload, dict):
             raise SiteStructureChanged("LibriVox: неверный формат ответа каталога.")
         rows = payload.get("books") or []
@@ -166,6 +175,8 @@ def search_librivox(query: str, *, cancel_event=None) -> list[SearchResult]:
     only catalogues public-domain audiobooks and matches original titles.
     """
     _check_cancel(cancel_event)
+    if not str(query or "").strip():
+        return []
     # Archive.org advancedsearch uses Lucene syntax. The user's text must be
     # treated as data, not arbitrary operators or an unmatched query group.
     safe_query = re.sub(r'([+\-!(){}\[\]^"~*?:\\/|&])', r'\\\1', str(query or "").strip())
